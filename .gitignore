@@ -1,30 +1,12 @@
-# Dependencies and build output
+# Dependencies and generated builds
 node_modules/
 dist/
-.output/
-.vercel/
+*.vsix
 
-# Secrets and local environment files
+# Local model weights
+models/*.gguf
+
+# Secrets
 .env
 .env.*
 !.env.example
-*.pem
-*.key
-*.p12
-*.pfx
-
-# Logs, caches, and editor files
-*.log
-coverage/
-.vite/
-.DS_Store
-.idea/
-.vscode/
-
-.wrangler/
-
-# Local tool state and test artifacts
-.freebuff/
-.tanstack/
-vscode-extension/.vscode-test/
-vscode-extension/sidebar-preview.html

@@ -1,0 +1,17 @@
+.git/**
+.vscode/**
+src/**
+scripts/**
+docs/**
+interstellar_vyuham26/**
+models/**
+app.js
+index.html
+styles.css
+*.vsix
+node_modules/@node-llama-cpp/linux-arm64/**
+node_modules/@node-llama-cpp/linux-armv7l/**
+node_modules/@node-llama-cpp/linux-x64-cuda/**
+node_modules/@node-llama-cpp/linux-x64-cuda-ext/**
+node_modules/@node-llama-cpp/linux-x64-vulkan/**
+node_modules/node-llama-cpp/llama/**
