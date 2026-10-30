@@ -930,6 +930,7 @@ export function DemoLearningPath() {
             </div>
             <button
               type="button"
+              onClick={() => { window.location.href = '/sessions?project=Learning%20project'; }}
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[14px] font-bold text-white transition-opacity hover:opacity-90"
               style={{ backgroundColor: BLUE }}
             >
@@ -1102,6 +1103,7 @@ export function DemoProjects() {
           <div className="flex shrink-0 flex-col justify-center lg:w-64">
             <button
               type="button"
+              onClick={() => { window.location.href = '/sessions?project=E-Commerce%20Website'; }}
               className="flex items-center justify-center gap-2 rounded-xl py-3 text-[14px] font-bold text-white transition-opacity hover:opacity-90"
               style={{ backgroundColor: BLUE }}
             >
@@ -1774,4 +1776,4 @@ int main() {
       </div>
     </DemoShell>
   );
-              }
+   }
