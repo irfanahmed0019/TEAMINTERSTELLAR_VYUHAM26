@@ -1,12 +1,14 @@
-# Dependencies and generated builds
-node_modules/
-dist/
-*.vsix
-
-# Local model weights
-models/*.gguf
-
-# Secrets
 .env
 .env.*
 !.env.example
+**/.env
+**/.env.*
+!**/.env.example
+node_modules/
+**/node_modules/
+.tanstack/
+**/.tanstack/
+dist/
+**/dist/
+build/
+**/build/
