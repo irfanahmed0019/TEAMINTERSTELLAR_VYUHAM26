@@ -1211,7 +1211,7 @@ function RadarChart() {
     point(i, a.pct / 100).map((v) => v.toFixed(1)).join(","),
   ).join(" ");
   return (
-    <svg viewBox={`0 0 ${size} ${size + 10}`} className="mx-auto w-full max-w-[240px]">
+    <svg viewBox={`-40 0 ${size + 80} ${size + 10}`} className="mx-auto w-full max-w-[280px]">
       {[1, 0.66, 0.33].map((scale) => (
         <polygon key={scale} points={ring(scale)} fill="none" stroke="#e5e7eb" strokeWidth="1" />
       ))}
