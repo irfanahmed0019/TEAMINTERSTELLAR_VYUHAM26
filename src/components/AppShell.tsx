@@ -39,7 +39,6 @@ const NAV = [
 ] as const;
 
 const UTILITY_NAV = [
-  { to: "/sessions", label: "Sessions", icon: Timer },
   { to: "/help", label: "Help & Support", icon: LifeBuoy },
 ] as const;
 
@@ -143,7 +142,6 @@ const SEARCH_TARGETS: { to: string; label: string; keywords: string }[] = [
   { to: "/learning-path", label: "Learning Path", keywords: "learning path plan roadmap" },
   { to: "/skill-analysis", label: "Skill Analysis", keywords: "skills analysis radar assessment" },
   { to: "/mentor", label: "AI Mentor", keywords: "ai mentor ask vibe help" },
-  { to: "/sessions", label: "Sessions", keywords: "sessions timer history" },
   { to: "/settings", label: "Settings", keywords: "settings account" },
   { to: "/help", label: "Help & Support", keywords: "help support faq" },
 ];
@@ -382,4 +380,4 @@ export function AppShell({
       </div>
     </div>
   );
-}
+            }
