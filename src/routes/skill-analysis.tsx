@@ -7,6 +7,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AlertTriangle, ArrowRight, RotateCcw } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { DemoSkillAnalysis } from "@/components/demo/DemoScreens";
+import { DEMO_MODE } from "@/lib/demo-mode";
 import { useLoop } from "@/lib/loop-store";
 import {
   COMPETENCY_LABELS,
@@ -18,8 +20,13 @@ import { dueRevisions, gapAnalysis } from "@/lib/af05/engine";
 
 export const Route = createFileRoute("/skill-analysis")({
   head: () => ({ meta: [{ title: "Skill Analysis - BuildMyLogic" }] }),
-  component: SkillAnalysisPage,
+  component: SkillAnalysisRoute,
 });
+
+function SkillAnalysisRoute() {
+  if (DEMO_MODE) return <DemoSkillAnalysis />;
+  return <SkillAnalysisPage />;
+}
 
 const BAR_COLORS: Record<CompetencyState, string> = {
   not_assessed: "bg-border",
