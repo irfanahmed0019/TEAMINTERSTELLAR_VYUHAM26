@@ -281,6 +281,7 @@ function Introduction() {
         onboarded: true,
         profile: emptyProfile,
         plan: demoPlan,
+        activity: [],
         missionProgress: Object.fromEntries(
           demoPlan.missions.map((m, i) => [
             m.id,
