@@ -26,6 +26,8 @@ import {
   Zap,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { DemoDashboard } from "@/components/demo/DemoScreens";
+import { DEMO_MODE } from "@/lib/demo-mode";
 import { emptyAf05, SKILL_LABELS, type SkillId } from "@/lib/af05/types";
 import { getProject, recommendProjects } from "@/lib/af05/projects";
 import {
@@ -43,8 +45,13 @@ import { Af05Focus } from "@/components/Af05Focus";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard - BuildMyLogic" }] }),
-  component: Dashboard,
+  component: DashboardRoute,
 });
+
+function DashboardRoute() {
+  if (DEMO_MODE) return <DemoDashboard />;
+  return <Dashboard />;
+}
 
 /**
  * Calculates a friendly greeting based on local time
