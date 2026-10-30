@@ -22,7 +22,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { buildGoogleCalendarUrl } from "@/lib/google-calendar";
-import type { Profile, TechItem } from "@/lib/loop-types";
+import type { MissionStep, Plan, Profile, TechItem } from "@/lib/loop-types";
 import { logActivity, setLoopState, useLoop } from "@/lib/loop-store";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
 import { LegalLinks } from "@/components/LegalLinks";
@@ -83,6 +83,131 @@ const CHALLENGE = [
 
 const LEVELS: TechItem["level"][] = ["beginner", "intermediate", "advanced"];
 
+
+// DEMO MODE (temporary preview per owner request): skip every AI call and use
+// clearly-labeled sample content so the full flow is testable while the Sarvam
+// server connection is offline. Set back to false when the server is reconnected.
+const DEMO_MODE = true;
+
+const DEMO_PROJECT_IDEAS = [
+  {
+    title: "Personal Expense Tracker (sample)",
+    summary:
+      "Sample idea: a small app to record daily spending and show totals by category.",
+    stack: "Python",
+    why: "Sample suggestion shown while the AI service is offline.",
+  },
+  {
+    title: "Habit Streak Board (sample)",
+    summary:
+      "Sample idea: track one daily habit, mark days complete, and show your current streak.",
+    stack: "JavaScript",
+    why: "Sample suggestion shown while the AI service is offline.",
+  },
+  {
+    title: "Quiz CLI (sample)",
+    summary:
+      "Sample idea: a command-line quiz that asks questions, checks answers, and scores the player.",
+    stack: "Python",
+    why: "Sample suggestion shown while the AI service is offline.",
+  },
+];
+
+const DEMO_NOTICE =
+  "Demo mode: the AI service is offline, so this screen shows clearly-labeled sample content instead of personalized AI output. The full flow stays testable; AI personalization returns when the server is reconnected.";
+
+function demoSteps(items: [string, string][]): MissionStep[] {
+  return items.map(([title, detail]) => ({ title, detail }));
+}
+
+function buildDemoPlan(profile: Profile): Plan {
+  const stack = profile.technologies[0]?.name?.trim() || "Python";
+  const title = profile.projectIdea
+    ? `${profile.projectIdea.slice(0, 60)} (sample plan)`
+    : "Sample starter project";
+  const missions = [
+    {
+      id: "demo-m1",
+      title: "Sample mission 1: project setup",
+      stack,
+      difficulty: 1,
+      minutes: 30,
+      description:
+        "Sample mission (demo plan): create the project folder, a main file, and print a welcome message.",
+      skills: [stack],
+      steps: demoSteps([
+        ["Create the project folder", "Sample step: make a new folder and open it in your editor."],
+        ["Add the main file", "Sample step: create the entry file and write a first line of code."],
+        ["Run it once", "Sample step: run the program and confirm the welcome message prints."],
+      ]),
+      deliverable: "A running program that prints a welcome message (sample).",
+    },
+    {
+      id: "demo-m2",
+      title: "Sample mission 2: core feature",
+      stack,
+      difficulty: 2,
+      minutes: 45,
+      description:
+        "Sample mission (demo plan): build the first real feature with user input and basic validation.",
+      skills: [stack],
+      steps: demoSteps([
+        ["Read user input", "Sample step: ask the user for one piece of data and store it."],
+        ["Add validation", "Sample step: reject empty or invalid input with a friendly message."],
+        ["Show a result", "Sample step: process the input and print a useful result."],
+      ]),
+      deliverable: "A feature that takes input, validates it, and shows a result (sample).",
+    },
+    {
+      id: "demo-m3",
+      title: "Sample mission 3: finish and review",
+      stack,
+      difficulty: 2,
+      minutes: 40,
+      description:
+        "Sample mission (demo plan): polish the project, handle edge cases, and review the code.",
+      skills: [stack],
+      steps: demoSteps([
+        ["Handle edge cases", "Sample step: test unusual inputs and make the program robust."],
+        ["Clean up the code", "Sample step: rename unclear variables and remove dead code."],
+        ["Final run-through", "Sample step: run the whole flow end to end and note what you learned."],
+      ]),
+      deliverable: "A small finished project you can run start to finish (sample).",
+    },
+  ];
+  return {
+    headline: "Sample build path (demo plan)",
+    profileSummary:
+      "Demo mode: the AI service is offline, so this is a generic sample plan, not a personalized one.",
+    projectTitle: title,
+    projectPitch:
+      "Sample plan: a small beginner-friendly project path shown while the AI service is offline.",
+    quote: "Sample plan - start small, finish something real.",
+    skills: [
+      {
+        name: stack,
+        level: 0,
+        note: "No BuildMyLogic evidence yet. Build and prove it.",
+      },
+    ],
+    missions,
+    session: {
+      focus: "Sample session: set up the project and run your first program.",
+      tasks: [
+        { title: "Sample task: create the project folder and main file", minutes: 15 },
+        { title: "Sample task: write and run the welcome message", minutes: 15 },
+      ],
+      totalMinutes: 30,
+      tip: "Sample tip: short daily sessions beat long rare ones.",
+    },
+    progress: {
+      momentum: 0,
+      weeklyGoal: "Sample goal: finish mission 1 this week.",
+      insights: ["Demo mode: insights appear once the AI service is back online."],
+    },
+  };
+}
+
 const emptyProfile: Profile = {
   name: "",
   resumeText: "",
@@ -134,6 +259,7 @@ function Introduction() {
   const [resumeFile, setResumeFile] = useState<string | null>(null);
   const [resumeBusy, setResumeBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [demoNotice, setDemoNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [followUps, setFollowUps] = useState<
     { question: string; placeholder: string }[]
@@ -147,6 +273,26 @@ function Introduction() {
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // Demo mode: open the preview straight on the dashboard with the sample plan.
+    if (DEMO_MODE && !state.onboarded) {
+      const demoPlan = buildDemoPlan(emptyProfile);
+      setLoopState((prev) => ({
+        ...prev,
+        onboarded: true,
+        profile: emptyProfile,
+        plan: demoPlan,
+        missionProgress: Object.fromEntries(
+          demoPlan.missions.map((m, i) => [
+            m.id,
+            {
+              status: i === 0 ? "active" : "locked",
+              completedSteps: [],
+            } as const,
+          ]),
+        ),
+      }));
+      return;
+    }
     if (state.onboarded && state.plan) void navigate({ to: "/dashboard" });
   }, [state.onboarded, state.plan, navigate]);
 
@@ -155,6 +301,13 @@ function Introduction() {
 
   async function onFile(file: File | undefined) {
     if (!file) return;
+    if (DEMO_MODE) {
+      setResumeFile(null);
+      setError(
+        "Demo mode: AI resume analysis is offline in this preview. Please continue without a resume.",
+      );
+      return;
+    }
     setError(null);
     setResumeFile(file.name);
     setResumeBusy(true);
@@ -183,6 +336,13 @@ function Introduction() {
   }
 
   async function loadFollowUps() {
+    if (DEMO_MODE) {
+      setFollowUps([]);
+      setFollowAnswers([]);
+      setDemoNotice(DEMO_NOTICE);
+      await loadProjects();
+      return;
+    }
     setBusy("Thinking about what else it needs to know…");
     setError(null);
     try {
@@ -203,6 +363,12 @@ function Introduction() {
   }
 
   async function loadProjects() {
+    if (DEMO_MODE) {
+      setDemoNotice(DEMO_NOTICE);
+      setProjects(DEMO_PROJECT_IDEAS);
+      setScreen(7);
+      return;
+    }
     const withAnswers: Profile = {
       ...profile,
       followUps: followUps.map((q, i) => ({
@@ -231,6 +397,45 @@ function Introduction() {
   }
 
   async function build(challenge: string) {
+    if (DEMO_MODE) {
+      const sel = chosenProject !== null ? projects[chosenProject] : undefined;
+      const demoProfile: Profile = {
+        ...profile,
+        challenge,
+        projectIdea:
+          customIdea.trim() ||
+          (sel
+            ? `${sel.title} - ${sel.summary} (Required stack: ${sel.stack})`
+            : ""),
+        technologies: sel
+          ? [{ name: sel.stack, level: "beginner" }]
+          : profile.technologies,
+      };
+      const demoPlan = buildDemoPlan(demoProfile);
+      setProfile(demoProfile);
+      setLoopState((prev) => ({
+        ...prev,
+        onboarded: true,
+        profile: demoProfile,
+        plan: demoPlan,
+        missionProgress: Object.fromEntries(
+          demoPlan.missions.map((m, i) => [
+            m.id,
+            {
+              status: i === 0 ? "active" : "locked",
+              completedSteps: [],
+            } as const,
+          ]),
+        ),
+      }));
+      logActivity({
+        kind: "ai",
+        text: "Sample plan loaded (demo mode - AI offline)",
+      });
+      setDemoNotice(DEMO_NOTICE);
+      setScreen(9);
+      return;
+    }
     const selectedProject =
       chosenProject !== null ? projects[chosenProject] : null;
     const idea =
@@ -325,6 +530,12 @@ function Introduction() {
         </div>
       )}
 
+      {demoNotice && (
+        <div className="mb-6 rounded-xl border border-border bg-surface px-4 py-3 text-xs font-medium text-muted-foreground">
+          {demoNotice}
+        </div>
+      )}
+
       {busy && (
         <div className="card-surface mb-6 flex items-center gap-3 px-5 py-4">
           <Loader2 className="h-4 w-4 animate-spin text-primary" />
@@ -392,10 +603,10 @@ function Introduction() {
             <div className="relative">
               <div className="card-surface px-5 py-5 sm:px-6 sm:py-6">
                 <div className="flex items-center justify-between">
-                  <p className="eyebrow">Live mission</p>
+                  <p className="eyebrow">Example mission</p>
                   <span className="pill bg-emerald-50 text-emerald-700">
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />{" "}
-                    In sync
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />{" "}
+                    Illustration
                   </span>
                 </div>
 
