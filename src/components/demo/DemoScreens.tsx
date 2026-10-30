@@ -266,6 +266,67 @@ function LevelPill({ level }: { level: string }) {
 
 /* Mini app-preview thumbnails, drawn in CSS so the demo needs no assets. */
 
+function ShoeSvg({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 64 40" className={className} aria-hidden="true">
+      <path
+        d="M4 30c0-1.5 1-2.5 2.5-3l8.5-3c2-.7 3.5-2.5 4.5-4.5l3.5-7c.8-1.6 2.8-2.2 4.3-1.3l7 4.5c3 2 7 3.5 11 4l9 1c2.5.3 4.5 2.3 4.5 4.8V30c0 1.7-1.3 3-3 3H7c-1.7 0-3-1.3-3-3z"
+        fill="#1f2937"
+      />
+      <path d="M4 30h54v2.5c0 1.4-1.1 2.5-2.5 2.5h-49C5.1 35 4 33.9 4 32.5V30z" fill="#f8fafc" />
+      <path d="M24 13l4 2.6M21 16.5l4 2.6M18 20l4 2.6" stroke="#f8fafc" strokeWidth="1.4" strokeLinecap="round" />
+      <circle cx="50" cy="24" r="1.6" fill="#3b82f6" />
+    </svg>
+  );
+}
+
+function StoreThumb({ className = "" }: { className?: string }) {
+  return (
+    <div className={`flex flex-col overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm ${className}`}>
+      <div className="flex items-center gap-1.5 border-b border-gray-100 px-2.5 py-1.5">
+        <span className="h-1.5 w-1.5 rounded-full bg-gray-900" />
+        <span className="text-[7.5px] font-bold text-gray-800">Shop</span>
+        <span className="mx-auto flex gap-2 text-[6px] font-medium text-gray-400">
+          <span>Home</span>
+          <span>Products</span>
+          <span>About</span>
+        </span>
+        <span className="flex gap-1">
+          <span className="h-1.5 w-1.5 rounded-full border border-gray-300" />
+          <span className="h-1.5 w-1.5 rounded-full border border-gray-300" />
+          <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />
+        </span>
+      </div>
+      <div className="flex flex-1 gap-1.5 p-1.5">
+        <span className="flex w-7 shrink-0 flex-col gap-1">
+          <span className="flex h-7 items-center justify-center rounded-md border border-blue-400 bg-gray-50"><ShoeSvg className="h-3.5 w-5" /></span>
+          <span className="flex h-7 items-center justify-center rounded-md bg-gray-100"><ShoeSvg className="h-3.5 w-5 opacity-60" /></span>
+          <span className="flex h-7 items-center justify-center rounded-md bg-gray-100"><ShoeSvg className="h-3.5 w-5 opacity-60" /></span>
+          <span className="flex h-7 items-center justify-center rounded-md bg-gray-100"><ShoeSvg className="h-3.5 w-5 opacity-60" /></span>
+        </span>
+        <span className="flex min-w-0 flex-1 items-center justify-center rounded-lg bg-gray-100">
+          <ShoeSvg className="h-10 w-16" />
+        </span>
+        <span className="flex w-[86px] shrink-0 flex-col rounded-lg bg-gray-50 p-1.5">
+          <span className="text-[6.5px] text-gray-400">Air Zoom Pegasus</span>
+          <span className="text-[5.5px] font-semibold text-emerald-500">Designed</span>
+          <span className="text-[8.5px] font-extrabold text-gray-900">&#8377;8,999</span>
+          <span className="mt-1 text-[5.5px] font-medium text-gray-400">Sizes</span>
+          <span className="mt-0.5 flex gap-0.5">
+            <span className="flex h-2.5 w-2.5 items-center justify-center rounded-sm border border-gray-200 bg-white text-[5px] text-gray-500">7</span>
+            <span className="flex h-2.5 w-2.5 items-center justify-center rounded-sm border border-gray-200 bg-white text-[5px] text-gray-500">8</span>
+            <span className="flex h-2.5 w-2.5 items-center justify-center rounded-sm border border-blue-500 bg-blue-50 text-[5px] text-blue-600">9</span>
+            <span className="flex h-2.5 w-2.5 items-center justify-center rounded-sm border border-gray-200 bg-white text-[5px] text-gray-500">10</span>
+          </span>
+          <span className="mt-auto block rounded-sm py-0.5 text-center text-[6px] font-semibold text-white" style={{ backgroundColor: BLUE }}>
+            Add to Cart
+          </span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function EcommerceThumb({ className = "" }: { className?: string }) {
   return (
     <div className={`flex flex-col overflow-hidden rounded-xl border border-gray-100 bg-white ${className}`}>
@@ -481,7 +542,7 @@ export function DemoDashboard() {
             </Link>
           </div>
           <div className="mt-5 flex flex-col gap-6 sm:flex-row">
-            <EcommerceThumb className="h-36 w-full shrink-0 sm:w-52" />
+            <StoreThumb className="h-44 w-full shrink-0 sm:w-64" />
             <div className="min-w-0 flex-1">
               <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11.5px] font-semibold text-emerald-600">
                 In Progress
@@ -540,11 +601,12 @@ export function DemoDashboard() {
           </ol>
           <Link
             to="/learning-path"
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-[13.5px] font-bold text-white transition-opacity hover:opacity-90"
-            style={{ backgroundColor: BLUE }}
+            className="mt-4 flex w-full items-center justify-between gap-2 rounded-xl bg-blue-50 px-3 py-2 text-[13.5px] font-bold text-blue-600 transition-colors hover:bg-blue-100"
           >
-            <Play className="h-4 w-4 fill-current" />
-            Start Today's Plan
+            <span className="flex h-6 w-6 items-center justify-center rounded-full" style={{ backgroundColor: BLUE }}>
+              <Play className="h-3 w-3 fill-current text-white" />
+            </span>
+            <span>Start Today's Plan</span>
             <ArrowRight className="h-4 w-4" />
           </Link>
         </Card>
@@ -1712,4 +1774,4 @@ int main() {
       </div>
     </DemoShell>
   );
-}
+              }
