@@ -1,6 +1,7 @@
 import "./lib/error-capture";
 
 import { authenticatedUserId } from "./lib/request-auth.server";
+import { handleMentorApi } from "./lib/mentor/mentor.api.server";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import {
@@ -413,6 +414,9 @@ export default {
         if (typeof value === "string" && value.trim())
           process.env[name] = value;
       }
+
+      const mentorResponse = await handleMentorApi(request);
+      if (mentorResponse) return mentorResponse;
 
       const apiResponse = await handleBuildMyLogicApi(request);
       if (apiResponse) return apiResponse;
