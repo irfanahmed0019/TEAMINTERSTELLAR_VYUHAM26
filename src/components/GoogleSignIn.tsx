@@ -29,7 +29,7 @@ export function GoogleSignIn({ compact = false }: { compact?: boolean }) {
         try {
           logActivity({
             kind: "ai",
-            text: "Connected your BuildMyLogic progress to Supabase Cloud",
+            text: "Google sign-in received; cloud sync is off in this preview, so progress stays on this device.",
           });
         } catch (err) {
           setError(
