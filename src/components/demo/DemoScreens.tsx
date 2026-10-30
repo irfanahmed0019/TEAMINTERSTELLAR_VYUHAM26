@@ -104,7 +104,7 @@ function DemoShell({
   active,
   children,
 }: {
-  active: "Home" | "Projects" | "Learning Path";
+  active: string;
   children: ReactNode;
 }) {
   const [navOpen, setNavOpen] = useState(false);
@@ -176,7 +176,7 @@ function DemoShell({
         <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-[232px] shrink-0 border-r border-gray-100 bg-white lg:block">
           <DemoSidebar active={active} />
         </aside>
-        <main className="min-w-0 flex-1 px-4 pb-16 pt-7 sm:px-7 lg:px-9">{children}</main>
+        <main className="min-w-0 max-w-[1240px] flex-1 px-4 pb-14 pt-5 sm:px-6 lg:px-8">{children}</main>
       </div>
     </div>
   );
@@ -185,11 +185,7 @@ function DemoShell({
 function QuoteBlock({ quote }: { quote: string }) {
   return (
     <div className="relative hidden max-w-[220px] shrink-0 pt-2 text-right lg:block">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -right-10 -top-16 h-48 w-72 rounded-full bg-blue-100/60 blur-3xl"
-      />
-      <p className="relative text-[14px] italic leading-6 text-gray-500">“{quote}”</p>
+      <p className="relative text-[13.5px] italic leading-6 text-gray-500">“{quote}”</p>
       <p className="relative mt-1 text-[12px] text-gray-400">— BuildMyLogic</p>
     </div>
   );
@@ -426,17 +422,17 @@ export function DemoDashboard() {
       <div className="flex items-start justify-between gap-6">
         <div>
           <p className="text-[15px] text-gray-500">Good evening,</p>
-          <h1 className="mt-1 text-[34px] font-extrabold leading-tight tracking-[-0.03em]">
+          <h1 className="mt-0.5 text-[30px] font-extrabold leading-tight tracking-[-0.03em]">
             Aryan 👋
           </h1>
-          <p className="mt-1.5 text-[14.5px] text-gray-500">
+          <p className="mt-1 text-[14px] text-gray-500">
             Keep learning. You're 48% towards your current goal.
           </p>
         </div>
         <QuoteBlock quote="Small consistent steps build real skills." />
       </div>
 
-      <section className="mt-7 grid grid-cols-2 gap-4 xl:grid-cols-4">
+      <section className="mt-5 grid grid-cols-2 gap-3.5 xl:grid-cols-4">
         <HomeMetric
           icon={
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
@@ -474,21 +470,21 @@ export function DemoDashboard() {
         </Card>
       </section>
 
-      <section className="mt-5 grid gap-5 lg:grid-cols-3">
-        <Card className="p-6 lg:col-span-2">
+      <section className="mt-4 grid gap-4 lg:grid-cols-3">
+        <Card className="p-5 lg:col-span-2">
           <div className="flex items-center justify-between">
-            <h3 className="text-[17px] font-bold">Current Project</h3>
+            <h3 className="text-[16px] font-bold">Current Project</h3>
             <Link to="/projects" className="inline-flex items-center gap-1 text-[13px] font-semibold text-blue-600 hover:underline">
               View Project <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
           <div className="mt-5 flex flex-col gap-6 sm:flex-row">
-            <EcommerceThumb className="h-44 w-full shrink-0 sm:w-60" />
+            <EcommerceThumb className="h-36 w-full shrink-0 sm:w-52" />
             <div className="min-w-0 flex-1">
               <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11.5px] font-semibold text-emerald-600">
                 In Progress
               </span>
-              <h4 className="mt-3 text-[21px] font-extrabold tracking-[-0.02em]">
+              <h4 className="mt-2.5 text-[18px] font-extrabold tracking-[-0.02em]">
                 Full Stack E-commerce App
               </h4>
               <p className="mt-1.5 text-[13.5px] leading-6 text-gray-500">
@@ -519,10 +515,10 @@ export function DemoDashboard() {
 
         <Card className="p-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-[17px] font-bold">Today's Focus</h3>
+            <h3 className="text-[16px] font-bold">Today's Focus</h3>
             <span className="text-[12.5px] text-gray-400">{today}</span>
           </div>
-          <ol className="mt-5 space-y-4">
+          <ol className="mt-4 space-y-3">
             {FOCUS_TASKS.map((task, i) => (
               <li key={task.title} className="flex items-center gap-3">
                 <span
@@ -542,7 +538,7 @@ export function DemoDashboard() {
           </ol>
           <Link
             to="/learning-path"
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[14px] font-bold text-white transition-opacity hover:opacity-90"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-[13.5px] font-bold text-white transition-opacity hover:opacity-90"
             style={{ backgroundColor: BLUE }}
           >
             <Play className="h-4 w-4 fill-current" />
@@ -552,17 +548,17 @@ export function DemoDashboard() {
         </Card>
       </section>
 
-      <section className="mt-8">
+      <section className="mt-6">
         <div className="flex items-center justify-between">
-          <h3 className="text-[17px] font-bold">Recommended for You</h3>
+          <h3 className="text-[16px] font-bold">Recommended for You</h3>
           <Link to="/projects" className="inline-flex items-center gap-1 text-[13px] font-semibold text-blue-600 hover:underline">
             View All <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-3 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
           {RECOMMENDED.map(({ name, level, icon: Icon, tint }) => (
             <Link key={name} to="/projects">
-              <Card className="flex items-center gap-4 p-5 transition-shadow hover:shadow-md">
+              <Card className="flex items-center gap-3.5 p-4 transition-shadow hover:shadow-md">
                 <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tint}`}>
                   <Icon className="h-5 w-5" />
                 </span>
@@ -636,8 +632,8 @@ function PathStat({
   bar?: number;
 }) {
   return (
-    <Card className="p-5">
-      <div className="flex items-center gap-3.5">
+    <Card className="p-4">
+      <div className="flex items-center gap-3">
         {icon}
         <div>
           <p className="text-[13px] text-gray-500">{label}</p>
@@ -668,7 +664,7 @@ function LessonRow({ lesson }: { lesson: (typeof LESSONS)[number] }) {
       </span>
     );
   return (
-    <div className="flex items-center gap-4 border-b border-gray-50 py-3.5 last:border-b-0">
+    <div className="flex items-center gap-3.5 border-b border-gray-50 py-2.5 last:border-b-0">
       {icon}
       <div className="min-w-0 flex-1">
         <p className="text-[14.5px] font-bold">
@@ -701,7 +697,7 @@ export function DemoLearningPath() {
     <DemoShell active="Learning Path">
       <div className="flex items-start justify-between gap-6">
         <div>
-          <h1 className="text-[32px] font-extrabold tracking-[-0.03em]">Learning Path</h1>
+          <h1 className="text-[28px] font-extrabold tracking-[-0.03em]">Learning Path</h1>
           <p className="mt-1.5 text-[14.5px] text-gray-500">
             A personalized roadmap to turn your goals into real skills.
           </p>
@@ -709,8 +705,8 @@ export function DemoLearningPath() {
         <QuoteBlock quote="Learn. Build. Practice. Prove. Improve." />
       </div>
 
-      <Card className="mt-7 p-6">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
+      <Card className="mt-5 p-5">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
           <div className="flex items-center gap-4 lg:w-64 lg:shrink-0">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
               <Target className="h-6 w-6" />
@@ -751,7 +747,7 @@ export function DemoLearningPath() {
         </div>
       </Card>
 
-      <section className="mt-5 grid grid-cols-2 gap-4 xl:grid-cols-4">
+      <section className="mt-4 grid grid-cols-2 gap-3.5 xl:grid-cols-4">
         <PathStat
           icon={
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
@@ -792,13 +788,13 @@ export function DemoLearningPath() {
         />
       </section>
 
-      <section className="mt-5 grid gap-5 lg:grid-cols-12">
+      <section className="mt-4 grid gap-4 lg:grid-cols-12">
         <div className="space-y-3 lg:col-span-3">
           {MODULES.map((m) => (
             <button
               key={m.n}
               type="button"
-              className={`flex w-full items-center gap-3.5 rounded-2xl border p-4 text-left transition-shadow ${
+              className={`flex w-full items-center gap-3 rounded-2xl border p-3.5 text-left transition-shadow ${
                 m.n === 1
                   ? "border-transparent text-white shadow-lg"
                   : "border-gray-100 bg-white hover:shadow-md"
@@ -825,7 +821,7 @@ export function DemoLearningPath() {
           ))}
         </div>
 
-        <Card className="p-6 lg:col-span-5">
+        <Card className="p-5 lg:col-span-5">
           <div className="flex items-center gap-3.5">
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-[13px] font-bold text-gray-600">
               1
@@ -844,8 +840,8 @@ export function DemoLearningPath() {
           </div>
         </Card>
 
-        <div className="space-y-5 lg:col-span-4">
-          <Card className="p-6">
+        <div className="space-y-4 lg:col-span-4">
+          <Card className="p-5">
             <div className="flex items-center justify-between">
               <h4 className="flex items-center gap-2 text-[14px] font-bold text-gray-700">
                 <Play className="h-4 w-4 text-blue-600" /> Current Module
@@ -877,7 +873,7 @@ export function DemoLearningPath() {
             </button>
           </Card>
 
-          <Card className="p-6">
+          <Card className="p-5">
             <h4 className="flex items-center gap-2 text-[14px] font-bold text-gray-700">
               <BookOpen className="h-4 w-4 text-blue-600" /> What You'll Learn
             </h4>
@@ -965,7 +961,7 @@ export function DemoProjects() {
     <DemoShell active="Projects">
       <div className="flex items-start justify-between gap-6">
         <div>
-          <h1 className="text-[32px] font-extrabold tracking-[-0.03em]">Projects</h1>
+          <h1 className="text-[28px] font-extrabold tracking-[-0.03em]">Projects</h1>
           <p className="mt-1.5 text-[14.5px] text-gray-500">
             Build real-world projects. Turn your knowledge into skills.
           </p>
@@ -973,7 +969,7 @@ export function DemoProjects() {
         <QuoteBlock quote="Build, break, learn, repeat." />
       </div>
 
-      <div className="mt-7 flex flex-wrap items-center gap-2">
+      <div className="mt-5 flex flex-wrap items-center gap-2">
         {PROJECT_TABS.map(({ label, icon: Icon }) => (
           <button
             key={label}
@@ -1008,14 +1004,14 @@ export function DemoProjects() {
         </div>
       </div>
 
-      <Card className="mt-6 p-6">
-        <div className="flex flex-col gap-6 lg:flex-row">
-          <EcommerceThumb className="h-44 w-full shrink-0 lg:w-56" />
+      <Card className="mt-5 p-5">
+        <div className="flex flex-col gap-5 lg:flex-row">
+          <EcommerceThumb className="h-36 w-full shrink-0 lg:w-52" />
           <div className="min-w-0 flex-1">
             <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11.5px] font-semibold text-emerald-600">
               Featured Project
             </span>
-            <h3 className="mt-3 text-[21px] font-extrabold tracking-[-0.02em]">
+            <h3 className="mt-2.5 text-[18px] font-extrabold tracking-[-0.02em]">
               Full Stack E-commerce App
             </h3>
             <p className="mt-1.5 text-[13.5px] leading-6 text-gray-500">
@@ -1056,8 +1052,8 @@ export function DemoProjects() {
         </div>
       </Card>
 
-      <div className="mt-8 flex items-center justify-between">
-        <h3 className="text-[19px] font-extrabold tracking-[-0.01em]">All Projects</h3>
+      <div className="mt-6 flex items-center justify-between">
+        <h3 className="text-[17px] font-extrabold tracking-[-0.01em]">All Projects</h3>
         <div className="flex items-center gap-3">
           <span className="text-[12.5px] text-gray-500">Sort by</span>
           <button
@@ -1077,9 +1073,9 @@ export function DemoProjects() {
         </div>
       </div>
 
-      <div className="mt-4 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-3.5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {ALL_PROJECTS.map(({ name, desc, tech, weeks, level, Thumb }) => (
-          <Card key={name} className="p-5 transition-shadow hover:shadow-md">
+          <Card key={name} className="p-4 transition-shadow hover:shadow-md">
             <div className="flex items-start gap-4">
               <Thumb className="h-16 w-16 shrink-0" />
               <div className="min-w-0 flex-1 pt-0.5">
@@ -1106,6 +1102,611 @@ export function DemoProjects() {
             </div>
           </Card>
         ))}
+      </div>
+    </DemoShell>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Skill Analysis                                                      */
+/* ------------------------------------------------------------------ */
+
+const SKILL_BARS = [
+  { name: "HTML & CSS", level: 70, target: 85, demand: 85 },
+  { name: "JavaScript", level: 45, target: 60, demand: 65 },
+  { name: "React", level: 35, target: 55, demand: 60 },
+  { name: "Node.js", level: 45, target: 68, demand: 75 },
+  { name: "Database (MongoDB)", level: 30, target: 55, demand: 70 },
+  { name: "Python", level: 18, target: 40, demand: 45 },
+  { name: "Git & GitHub", level: 40, target: 60, demand: 75 },
+  { name: "System Design", level: 25, target: 38, demand: 45 },
+];
+
+const RADAR_AXES = [
+  { name: "Frontend", pct: 70 },
+  { name: "Backend", pct: 55 },
+  { name: "Database", pct: 45 },
+  { name: "DevOps", pct: 30 },
+  { name: "Problem Solving", pct: 60 },
+  { name: "Tools & Other", pct: 50 },
+];
+
+const STRENGTHS = [
+  { name: "HTML & CSS", pct: 78 },
+  { name: "Git & GitHub", pct: 72 },
+  { name: "Problem Solving", pct: 65 },
+];
+
+const GAPS = [
+  { name: "Database (MongoDB)", pct: 38 },
+  { name: "System Design", pct: 30 },
+  { name: "DevOps", pct: 28 },
+];
+
+const INSIGHTS = [
+  { icon: DatabaseIcon, tint: "bg-violet-50 text-violet-500", text: "You are struggling with MongoDB queries. Try more hands-on projects and quizzes." },
+  { icon: AtomIcon, tint: "bg-sky-50 text-sky-500", text: "Your React components need improvement. Focus on state management and hooks." },
+  { icon: TrendingIcon, tint: "bg-blue-50 text-blue-600", text: "You learn faster through project-based tasks. More real-world projects are recommended." },
+];
+
+const NEXT_STEPS = [
+  { icon: DatabaseIcon, tint: "bg-violet-50 text-violet-500", title: "Complete MongoDB Basics", sub: "Fill the biggest skill gap" },
+  { icon: CodeIcon, tint: "bg-blue-50 text-blue-600", title: "Build a Mini Full Stack Project", sub: "Apply your current skills" },
+  { icon: FileIcon, tint: "bg-sky-50 text-sky-500", title: "Take a Custom Quiz", sub: "Focus on weak areas" },
+];
+
+import {
+  Database as DatabaseIcon,
+  Atom as AtomIcon,
+  TrendingUp as TrendingIcon,
+  Code2 as CodeIcon,
+  FileText as FileIcon,
+  AlertCircle,
+  Info,
+} from "lucide-react";
+
+function SkillMetric({
+  icon,
+  label,
+  value,
+  pct,
+  barColor,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  pct: number;
+  barColor: string;
+}) {
+  return (
+    <Card className="p-4">
+      <div className="flex items-center gap-3">
+        {icon}
+        <div className="min-w-0">
+          <p className="text-[12.5px] text-gray-500">{label}</p>
+          <p className="mt-0.5 text-[17px] font-extrabold tracking-[-0.01em]">{value}</p>
+        </div>
+        <span className="ml-auto text-[12px] font-semibold text-gray-400">{pct}%</span>
+      </div>
+      <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: barColor }} />
+      </div>
+    </Card>
+  );
+}
+
+function RadarChart() {
+  const size = 220;
+  const cx = size / 2;
+  const cy = size / 2 + 6;
+  const r = 72;
+  const n = RADAR_AXES.length;
+  const point = (i: number, scale: number) => {
+    const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
+    return [cx + r * scale * Math.cos(angle), cy + r * scale * Math.sin(angle)];
+  };
+  const ring = (scale: number) =>
+    RADAR_AXES.map((_, i) => point(i, scale).map((v) => v.toFixed(1)).join(",")).join(" ");
+  const valuePoly = RADAR_AXES.map((a, i) =>
+    point(i, a.pct / 100).map((v) => v.toFixed(1)).join(","),
+  ).join(" ");
+  return (
+    <svg viewBox={`0 0 ${size} ${size + 10}`} className="mx-auto w-full max-w-[240px]">
+      {[1, 0.66, 0.33].map((scale) => (
+        <polygon key={scale} points={ring(scale)} fill="none" stroke="#e5e7eb" strokeWidth="1" />
+      ))}
+      {RADAR_AXES.map((a, i) => {
+        const [x = 0, y = 0] = point(i, 1);
+        const [lx = 0, ly = 0] = point(i, 1.32);
+        return (
+          <g key={a.name}>
+            <line x1={cx} y1={cy} x2={x} y2={y} stroke="#e5e7eb" strokeWidth="1" />
+            <text x={lx} y={ly - 3} textAnchor="middle" fontSize="8.5" fontWeight="600" fill="#374151">
+              {a.name}
+            </text>
+            <text x={lx} y={ly + 7} textAnchor="middle" fontSize="8" fill="#6b7280">
+              {a.pct}%
+            </text>
+          </g>
+        );
+      })}
+      <polygon points={ring(0.85)} fill="none" stroke="#93c5fd" strokeWidth="1.2" strokeDasharray="4 3" />
+      <polygon points={valuePoly} fill="rgba(37,99,235,0.18)" stroke={BLUE} strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+export function DemoSkillAnalysis() {
+  return (
+    <DemoShell active="Skill Analysis">
+      <div className="flex items-start justify-between gap-6">
+        <div>
+          <h1 className="text-[28px] font-extrabold tracking-[-0.03em]">Skill Analysis</h1>
+          <p className="mt-1 text-[14px] text-gray-500">
+            Understand your strengths, identify skill gaps, and get personalized recommendations.
+          </p>
+        </div>
+        <QuoteBlock quote="Know where you stand, so you can go further." />
+      </div>
+
+      <section className="mt-5 grid grid-cols-2 gap-3.5 xl:grid-cols-4">
+        <SkillMetric
+          icon={<span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600"><Signal className="h-4.5 w-4.5" /></span>}
+          label="Overall Skill Level"
+          value="Intermediate"
+          pct={48}
+          barColor={BLUE}
+        />
+        <SkillMetric
+          icon={<span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-500"><Check className="h-4.5 w-4.5" strokeWidth={3} /></span>}
+          label="Skills Mastered"
+          value="12 / 24"
+          pct={50}
+          barColor="#10b981"
+        />
+        <SkillMetric
+          icon={<span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-500"><Folder className="h-4.5 w-4.5" /></span>}
+          label="Skills in Progress"
+          value="8"
+          pct={33}
+          barColor="#8b5cf6"
+        />
+        <SkillMetric
+          icon={<span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-500"><AlertCircle className="h-4.5 w-4.5" /></span>}
+          label="Skills to Improve"
+          value="4"
+          pct={17}
+          barColor="#f43f5e"
+        />
+      </section>
+
+      <section className="mt-4 grid gap-4 lg:grid-cols-3">
+        <Card className="p-5 lg:col-span-2">
+          <div className="flex items-center justify-between">
+            <h3 className="flex items-center gap-1.5 text-[15px] font-bold">
+              Skill Breakdown <Info className="h-3.5 w-3.5 text-gray-300" />
+            </h3>
+            <button type="button" className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-blue-600 hover:underline">
+              View Details <ArrowRight className="h-3 w-3" />
+            </button>
+          </div>
+          <div className="mt-3 flex items-center justify-end gap-4 text-[11px] text-gray-500">
+            <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: BLUE }} /> Your Level</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-blue-200" /> Target Level</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-0 w-4 border-t-2 border-dashed border-gray-400" /> Industry Demand</span>
+          </div>
+          <div className="mt-2 flex h-44 items-end gap-1 border-b border-gray-100">
+            {SKILL_BARS.map((b) => (
+              <div key={b.name} className="relative flex min-w-0 flex-1 items-end justify-center gap-1 self-stretch">
+                <span
+                  className="absolute left-0 right-0 border-t-2 border-dashed border-gray-400"
+                  style={{ bottom: `${b.demand}%` }}
+                />
+                <span className="w-4 rounded-t-sm" style={{ height: `${b.level}%`, backgroundColor: BLUE }} />
+                <span className="w-4 rounded-t-sm bg-blue-200" style={{ height: `${b.target}%` }} />
+              </div>
+            ))}
+          </div>
+          <div className="mt-1.5 flex gap-1">
+            {SKILL_BARS.map((b) => (
+              <p key={b.name} className="min-w-0 flex-1 text-center text-[9.5px] leading-tight text-gray-500">
+                {b.name}
+              </p>
+            ))}
+          </div>
+        </Card>
+
+        <Card className="p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-[15px] font-bold">Skill Radar</h3>
+            <span className="flex items-center gap-3 text-[10px] text-gray-500">
+              <span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: BLUE }} /> Your Level</span>
+              <span className="inline-flex items-center gap-1"><span className="h-0 w-3 border-t border-dashed border-blue-300" /> Target</span>
+            </span>
+          </div>
+          <div className="mt-3">
+            <RadarChart />
+          </div>
+        </Card>
+      </section>
+
+      <section className="mt-4 grid gap-4 lg:grid-cols-3">
+        <Card className="p-5">
+          <h3 className="flex items-center gap-2 text-[15px] font-bold">
+            <TrendingIcon className="h-4 w-4 text-emerald-500" /> Strengths
+          </h3>
+          <div className="mt-3.5 space-y-3">
+            {STRENGTHS.map((item) => (
+              <div key={item.name} className="flex items-center gap-3">
+                <span className="w-32 shrink-0 text-[13px] font-medium">{item.name}</span>
+                <span className="text-[12.5px] font-semibold text-gray-500">{item.pct}%</span>
+                <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-gray-100">
+                  <div className="h-full rounded-full bg-emerald-500" style={{ width: `${item.pct}%` }} />
+                </div>
+                <ChevronRight className="h-3.5 w-3.5 text-gray-300" />
+              </div>
+            ))}
+          </div>
+        </Card>
+        <Card className="p-5">
+          <h3 className="flex items-center gap-2 text-[15px] font-bold">
+            <AlertCircle className="h-4 w-4 text-rose-500" /> Areas to Improve
+          </h3>
+          <div className="mt-3.5 space-y-3">
+            {GAPS.map((item) => (
+              <div key={item.name} className="flex items-center gap-3">
+                <span className="w-32 shrink-0 text-[13px] font-medium">{item.name}</span>
+                <span className="text-[12.5px] font-semibold text-gray-500">{item.pct}%</span>
+                <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-gray-100">
+                  <div className="h-full rounded-full bg-rose-500" style={{ width: `${item.pct}%` }} />
+                </div>
+                <ChevronRight className="h-3.5 w-3.5 text-gray-300" />
+              </div>
+            ))}
+          </div>
+        </Card>
+        <Card className="p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="flex items-center gap-2 text-[15px] font-bold">
+              <Sparkles className="h-4 w-4 text-violet-500" /> AI Insights
+            </h3>
+            <button type="button" className="inline-flex items-center gap-1 text-[12px] font-semibold text-blue-600 hover:underline">
+              View All <ArrowRight className="h-3 w-3" />
+            </button>
+          </div>
+          <div className="mt-3.5 space-y-3.5">
+            {INSIGHTS.map(({ icon: Icon, tint, text }) => (
+              <div key={text} className="flex items-start gap-3">
+                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tint}`}>
+                  <Icon className="h-4 w-4" />
+                </span>
+                <p className="min-w-0 flex-1 text-[12.5px] leading-5 text-gray-600">{text}</p>
+                <ChevronRight className="mt-1 h-3.5 w-3.5 shrink-0 text-gray-300" />
+              </div>
+            ))}
+          </div>
+        </Card>
+      </section>
+
+      <section className="mt-4">
+        <h3 className="flex items-center gap-2 text-[15px] font-bold">
+          <Target className="h-4 w-4 text-blue-600" /> Recommended Next Steps
+        </h3>
+        <div className="mt-3 grid gap-3.5 sm:grid-cols-3">
+          {NEXT_STEPS.map(({ icon: Icon, tint, title, sub }) => (
+            <Card key={title} className="flex items-center gap-3.5 p-4 transition-shadow hover:shadow-md">
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tint}`}>
+                <Icon className="h-5 w-5" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[13.5px] font-bold leading-tight">{title}</span>
+                <span className="mt-0.5 block text-[12px] text-gray-500">{sub}</span>
+              </span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-gray-300" />
+            </Card>
+          ))}
+        </div>
+      </section>
+    </DemoShell>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* AI Mentor                                                           */
+/* ------------------------------------------------------------------ */
+
+const MENTOR_STEPS = [
+  "Print a statement",
+  "Input and output",
+  "Sum of two numbers",
+  "Subtraction and multiplication",
+  "Division and modulus",
+  "Use of if-else",
+  "Build a mini calculator",
+  "Final project submission",
+];
+
+const C_CODE = [
+  ['#include <stdio.h>', "text-emerald-400"],
+  ["", ""],
+  ["int main() {", "text-blue-400"],
+  ['    printf("Hello, World!");', "text-orange-300"],
+  ["    return 0;", "text-blue-400"],
+  ["}", "text-gray-300"],
+] as const;
+
+const KEY_POINTS = [
+  "#include <stdio.h> is required for input and output functions.",
+  "printf() is used to print text.",
+  'Text must be placed inside double quotes "".',
+  "Each statement ends with a semicolon ;",
+];
+
+const MENTOR_CHIPS = [
+  "Explain again",
+  "Give me a similar question",
+  "Show common mistakes",
+  "Next topic",
+];
+
+import {
+  ArrowLeft,
+  Calculator,
+  ClipboardCopy,
+  Lightbulb,
+  Maximize2,
+  RotateCcw,
+  Send,
+} from "lucide-react";
+
+export function DemoMentor() {
+  return (
+    <DemoShell active="AI Mentor">
+      <div className="flex items-center gap-2 text-gray-500">
+        <ArrowLeft className="h-4 w-4" />
+        <span className="text-[13.5px] font-semibold">AI Mentor</span>
+      </div>
+      <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-[26px] font-extrabold tracking-[-0.03em]">
+            Arithmetic Operations in C
+          </h1>
+          <p className="mt-1 text-[13.5px] text-gray-500">
+            Learn the basics of C programming by building a simple calculator step by step.
+          </p>
+        </div>
+        <div className="w-52">
+          <div className="flex items-center justify-between text-[12px] text-gray-500">
+            <span>Project Progress</span>
+            <span className="font-semibold text-gray-700">2 / 8 steps</span>
+          </div>
+          <div className="mt-1.5 flex items-center gap-2">
+            <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-gray-100">
+              <div className="h-full rounded-full" style={{ width: "25%", backgroundColor: BLUE }} />
+            </div>
+            <span className="text-[12px] font-semibold text-gray-700">25%</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-12">
+        {/* Left rail: project + level + steps */}
+        <div className="space-y-4 lg:col-span-3">
+          <Card className="space-y-4 p-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-900 text-white">
+                <Calculator className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[11px] text-gray-400">Current Project</p>
+                <p className="truncate text-[13.5px] font-bold">Arithmetic Operations</p>
+                <button type="button" className="mt-0.5 inline-flex items-center gap-1 text-[11.5px] font-semibold text-blue-600 hover:underline">
+                  Change Project <ArrowRight className="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                <Target className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-[11px] text-gray-400">Your Level</p>
+                <span className="mt-0.5 inline-block rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11.5px] font-semibold text-emerald-600">
+                  Beginner
+                </span>
+                <button type="button" className="ml-2 inline-flex items-center gap-1 text-[11.5px] font-semibold text-blue-600 hover:underline">
+                  Change Level <ArrowRight className="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4">
+            <ol className="relative space-y-3.5">
+              <span aria-hidden="true" className="absolute bottom-2 left-[15px] top-2 w-px bg-gray-100" />
+              {MENTOR_STEPS.map((step, i) => (
+                <li key={step} className="relative flex items-center gap-3">
+                  <span
+                    className={`z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[12.5px] font-bold ${
+                      i === 0 ? "text-white" : "border border-gray-200 bg-white text-gray-400"
+                    }`}
+                    style={i === 0 ? { backgroundColor: BLUE } : undefined}
+                  >
+                    {i + 1}
+                  </span>
+                  <span className={`text-[13px] ${i === 0 ? "font-bold text-gray-900" : "font-medium text-gray-500"}`}>
+                    {step}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </Card>
+        </div>
+
+        {/* Center: step content */}
+        <div className="lg:col-span-5">
+          <Card className="p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] font-semibold text-gray-400">Step 1 of 8</span>
+              <span className="flex items-center gap-2">
+                <button type="button" aria-label="Previous step" className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50">
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+                <button type="button" className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-bold text-white" style={{ backgroundColor: BLUE }}>
+                  Next <ArrowRight className="h-4 w-4" />
+                </button>
+              </span>
+            </div>
+            <h2 className="mt-2 text-[19px] font-extrabold tracking-[-0.01em]">Print a statement</h2>
+            <p className="mt-1 text-[13px] leading-5 text-gray-500">
+              In this step, you will learn how to display a text message on the screen
+              using the printf() function in C.
+            </p>
+            <div className="mt-3.5 flex flex-wrap gap-2">
+              {["Explanation", "Example", "Practice", "Resources"].map((tab, i) => (
+                <button
+                  key={tab}
+                  type="button"
+                  className={`rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold ${
+                    i === 0 ? "text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                  style={i === 0 ? { backgroundColor: BLUE } : undefined}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+              <h3 className="flex items-center gap-2 text-[14px] font-bold text-gray-900">
+                <Lightbulb className="h-4 w-4 text-blue-600" /> What is printf()?
+              </h3>
+              <p className="mt-2 text-[12.5px] leading-5 text-gray-600">
+                The printf() function is used to display output on the screen. You need
+                to include the stdio.h header file to use it.
+              </p>
+              <div className="relative mt-3 rounded-lg border border-gray-200 bg-white p-3.5">
+                <ClipboardCopy className="absolute right-3 top-3 h-4 w-4 text-gray-300" />
+                <pre className="text-[12px] leading-5 text-gray-800">
+{`#include <stdio.h>
+
+int main() {
+    printf("Hello, World!");
+    return 0;
+}`}
+                </pre>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <h3 className="flex items-center gap-2 text-[14px] font-bold text-gray-900">
+                <Lightbulb className="h-4 w-4 text-blue-600" /> Key Points
+              </h3>
+              <ul className="mt-2 space-y-1.5">
+                {KEY_POINTS.map((point) => (
+                  <li key={point} className="flex items-start gap-2 text-[12.5px] leading-5 text-gray-600">
+                    <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-gray-400" />
+                    {point}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="mt-4 flex items-center gap-2 rounded-full border border-gray-200 py-1.5 pl-4 pr-1.5">
+              <input
+                placeholder="Ask a question, get a hint, or ask for a different example..."
+                aria-label="Ask the AI mentor"
+                className="min-w-0 flex-1 bg-transparent text-[12.5px] outline-none placeholder:text-gray-400"
+              />
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white" style={{ backgroundColor: BLUE }}>
+                <Send className="h-3.5 w-3.5" />
+              </span>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {MENTOR_CHIPS.map((chip) => (
+                <button
+                  key={chip}
+                  type="button"
+                  className="rounded-full border border-gray-200 px-3 py-1.5 text-[11.5px] font-medium text-gray-600 hover:bg-gray-50"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
+          </Card>
+        </div>
+
+        {/* Right: coding workspace */}
+        <div className="space-y-4 lg:col-span-4">
+          <Card className="overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3">
+              <h3 className="text-[14px] font-bold">Coding Workspace</h3>
+              <span className="flex items-center gap-1.5">
+                <button type="button" className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-bold text-white" style={{ backgroundColor: BLUE }}>
+                  <Play className="h-3 w-3 fill-current" /> Run
+                </button>
+                <button type="button" className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-[12px] font-semibold text-gray-600 hover:bg-gray-50">
+                  <RotateCcw className="h-3 w-3" /> Reset
+                </button>
+                <Maximize2 className="h-3.5 w-3.5 text-gray-400" />
+              </span>
+            </div>
+            <div className="bg-gray-950">
+              <p className="border-b border-white/10 px-4 py-2 text-[11.5px] font-medium text-gray-400">
+                main.c
+              </p>
+              <div className="flex px-3 py-3 font-mono text-[11.5px] leading-5">
+                <div className="select-none pr-3 text-right text-gray-600">
+                  {C_CODE.map((_, i) => (
+                    <div key={i}>{i + 1}</div>
+                  ))}
+                </div>
+                <div className="min-w-0 flex-1">
+                  {C_CODE.map(([line, cls], i) => (
+                    <div key={i} className={cls || "text-gray-300"}>
+                      {line || " "}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="bg-gray-900 px-4 py-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[12px] font-bold text-gray-200">Output</p>
+                <button type="button" className="text-[11px] font-medium text-gray-500 hover:text-gray-300">
+                  Clear
+                </button>
+              </div>
+              <p className="mt-1.5 font-mono text-[12px] text-gray-100">Hello, World!</p>
+            </div>
+          </Card>
+
+          <Card className="p-4">
+            <h3 className="flex items-center gap-2 text-[14px] font-bold">
+              <Sparkles className="h-4 w-4 text-emerald-500" /> Practice Task
+            </h3>
+            <p className="mt-2 text-[12.5px] text-gray-600">
+              1. Print the following statement on the screen:
+            </p>
+            <p className="mt-2 rounded-lg bg-gray-950 px-3.5 py-2.5 font-mono text-[12px] text-gray-100">
+              "Welcome to BuildMyLogic!"
+            </p>
+            <button
+              type="button"
+              className="mt-3 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[12.5px] font-bold text-white"
+              style={{ backgroundColor: BLUE }}
+            >
+              Check Answer <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </Card>
+
+          <Card className="flex items-center justify-between p-4">
+            <h3 className="flex items-center gap-2 text-[14px] font-bold">
+              <Lightbulb className="h-4 w-4 text-amber-400" /> Hint
+            </h3>
+            <ChevronDown className="h-4 w-4 text-gray-400" />
+          </Card>
+        </div>
       </div>
     </DemoShell>
   );
