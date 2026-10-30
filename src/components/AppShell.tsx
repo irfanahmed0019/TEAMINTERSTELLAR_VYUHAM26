@@ -13,6 +13,7 @@ import {
   Menu,
   MessageCircle,
   LifeBuoy,
+  Search,
   X,
 } from "lucide-react";
 import {
@@ -136,6 +137,91 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
+const SEARCH_TARGETS: { to: string; label: string; keywords: string }[] = [
+  { to: "/dashboard", label: "Home", keywords: "home dashboard" },
+  { to: "/projects", label: "Projects", keywords: "projects build code workspace debug lab" },
+  { to: "/learning-path", label: "Learning Path", keywords: "learning path plan roadmap" },
+  { to: "/skill-analysis", label: "Skill Analysis", keywords: "skills analysis radar assessment" },
+  { to: "/mentor", label: "AI Mentor", keywords: "ai mentor ask vibe help" },
+  { to: "/sessions", label: "Sessions", keywords: "sessions timer history" },
+  { to: "/settings", label: "Settings", keywords: "settings account" },
+  { to: "/help", label: "Help & Support", keywords: "help support faq" },
+];
+
+function HeaderSearch() {
+  const navigate = useNavigate();
+  const state = useLoop();
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const q = query.trim().toLowerCase();
+  const missionMatches = (state.plan?.missions ?? [])
+    .filter((m) => q && m.title.toLowerCase().includes(q))
+    .slice(0, 3)
+    .map((m) => ({ to: "/learn", label: m.title, hint: "Mission" }));
+  const pageMatches = SEARCH_TARGETS.filter(
+    (t) =>
+      q &&
+      (t.label.toLowerCase().includes(q) || t.keywords.includes(q)),
+  )
+    .slice(0, 5)
+    .map((t) => ({ to: t.to, label: t.label, hint: "Page" }));
+  const results = [...missionMatches, ...pageMatches];
+
+  const go = (to: string) => {
+    setOpen(false);
+    setQuery("");
+    void navigate({ to });
+  };
+
+  return (
+    <div className="relative mx-auto hidden w-full max-w-md md:block">
+      <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <input
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => window.setTimeout(() => setOpen(false), 150)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && results[0]) go(results[0].to);
+          if (e.key === "Escape") setOpen(false);
+        }}
+        placeholder="Search for projects, skills, or ask AI..."
+        className="h-10 w-full rounded-xl border border-border bg-muted/60 pl-10 pr-4 text-[13.5px] outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/40 focus:bg-surface"
+        aria-label="Search"
+      />
+      {open && q.length > 0 && (
+        <div className="absolute left-0 right-0 top-11 z-40 overflow-hidden rounded-xl border border-border bg-surface shadow-lg">
+          {results.length === 0 ? (
+            <p className="px-4 py-3 text-[13px] text-muted-foreground">
+              No matches yet. Try "projects" or "mentor".
+            </p>
+          ) : (
+            results.map((r) => (
+              <button
+                key={`${r.hint}:${r.label}`}
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  go(r.to);
+                }}
+                className="flex w-full items-center justify-between px-4 py-2.5 text-left text-[13.5px] hover:bg-muted"
+              >
+                <span className="font-medium">{r.label}</span>
+                <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  {r.hint}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AppShell({
   crumb,
   title,
@@ -232,6 +318,8 @@ export function AppShell({
             {crumb}
           </p>
 
+          <HeaderSearch />
+
           <div className="ml-auto flex items-center gap-4">
             <button
               type="button"
@@ -294,4 +382,4 @@ export function AppShell({
       </div>
     </div>
   );
-}
+      }
