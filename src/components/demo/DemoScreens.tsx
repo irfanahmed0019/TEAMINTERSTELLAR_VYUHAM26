@@ -100,12 +100,14 @@ function DemoSidebar({ active, onNavigate }: { active: string; onNavigate?: () =
   );
 }
 
-function DemoShell({
+export function DemoShell({
   active,
   children,
+  user,
 }: {
   active: string;
   children: ReactNode;
+  user?: { name: string; role: string };
 }) {
   const [navOpen, setNavOpen] = useState(false);
   return (
@@ -139,11 +141,11 @@ function DemoShell({
           </button>
           <div className="flex items-center gap-2.5">
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-[13px] font-bold text-white">
-              A
+              {(user?.name ?? "Aryan").charAt(0).toUpperCase()}
             </span>
             <span className="hidden leading-tight sm:block">
-              <span className="block text-[13.5px] font-bold">Aryan</span>
-              <span className="block text-[11.5px] text-gray-500">Student</span>
+              <span className="block text-[13.5px] font-bold">{user?.name ?? "Aryan"}</span>
+              <span className="block text-[11.5px] text-gray-500">{user?.role ?? "Student"}</span>
             </span>
             <ChevronDown className="hidden h-4 w-4 text-gray-400 sm:block" />
           </div>
@@ -195,7 +197,7 @@ function QuoteBlock({ quote }: { quote: string }) {
 /* Shared atoms                                                        */
 /* ------------------------------------------------------------------ */
 
-function Card({ className = "", children }: { className?: string; children: ReactNode }) {
+export function Card({ className = "", children }: { className?: string; children: ReactNode }) {
   return (
     <div className={`rounded-2xl border border-gray-100 bg-white shadow-[0_1px_3px_rgba(16,24,40,0.05)] ${className}`}>
       {children}
