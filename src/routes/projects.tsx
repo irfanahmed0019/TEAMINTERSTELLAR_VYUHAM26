@@ -6,6 +6,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowRight, Bug, Clock3, ListChecks, Sparkles } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { DemoProjects } from "@/components/demo/DemoScreens";
+import { DEMO_MODE } from "@/lib/demo-mode";
 import { useLoop } from "@/lib/loop-store";
 import { emptyAf05, SKILL_LABELS } from "@/lib/af05/types";
 import {
@@ -16,8 +18,13 @@ import {
 
 export const Route = createFileRoute("/projects")({
   head: () => ({ meta: [{ title: "Projects - BuildMyLogic" }] }),
-  component: ProjectsPage,
+  component: ProjectsRoute,
 });
+
+function ProjectsRoute() {
+  if (DEMO_MODE) return <DemoProjects />;
+  return <ProjectsPage />;
+}
 
 function ProjectsPage() {
   const af05 = useLoop().af05 ?? emptyAf05;
