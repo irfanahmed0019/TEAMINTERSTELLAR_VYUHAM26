@@ -9,18 +9,25 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import {
   ArrowRight,
+  BarChart3,
+  Play,
   BookOpen,
   Calendar,
   CheckCircle2,
+  Folder,
   Lock,
   Rocket,
   Sparkles,
+  Target,
   Terminal,
   TrendingUp,
   Clock,
   ExternalLink,
+  Zap,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { emptyAf05, SKILL_LABELS, type SkillId } from "@/lib/af05/types";
+import { getProject, recommendProjects } from "@/lib/af05/projects";
 import {
   applyBuildSessionEvidence,
   applySarvamDashboardPlan,
@@ -72,6 +79,81 @@ function Dashboard() {
     : 0;
   const currentTotalSteps = current?.steps.length ?? 1;
   const goal = state.profile?.goal || "Build real-world skills";
+
+  // Mockup metrics row - every value derives from live state. Competency
+  // numbers come only from AF-05 evidence (practical + reassessment gates),
+  // never from legacy plan percentages.
+  const af05 = state.af05 ?? emptyAf05;
+  const assessed = Object.values(af05.competencies).filter(
+    (c): c is NonNullable<typeof c> => Boolean(c) && c.state !== "not_assessed",
+  );
+  const masteredSkills = assessed.filter((c) => c.state === "mastered").length;
+  const avgEvidence =
+    assessed.length > 0
+      ? assessed.reduce((sum, c) => sum + c.score, 0) / assessed.length
+      : 0;
+  const currentLevel =
+    assessed.length === 0
+      ? "Not assessed"
+      : avgEvidence < 34
+        ? "Beginner"
+        : avgEvidence < 67
+          ? "Developing"
+          : "Proficient";
+  // Actual project workspaces started, not missions.
+  const startedProjects = Object.keys(af05.projectProgress).length;
+  const metrics = [
+    {
+      icon: BarChart3,
+      tint: "bg-blue-50 text-blue-600",
+      label: "Current Level",
+      value: currentLevel,
+      to: "/skill-analysis",
+    },
+    {
+      icon: Zap,
+      tint: "bg-emerald-50 text-emerald-600",
+      label: "Skills Mastered",
+      value:
+        assessed.length === 0 ? "Not assessed" : `${masteredSkills} / 7`,
+      to: "/skill-analysis",
+    },
+    {
+      icon: Folder,
+      tint: "bg-violet-50 text-violet-600",
+      label: "Active Projects",
+      value: String(startedProjects),
+      to: "/projects",
+    },
+    {
+      icon: Target,
+      tint: "bg-sky-50 text-sky-600",
+      label: "Plan Progress",
+      value: missions.length > 0 ? `${doneCount} / ${missions.length}` : "0 / 0",
+      to: "/learning-path",
+    },
+  ] as const;
+
+  // Current Project: the learner's selected project workspace.
+  const activeProject = af05.activeProjectId
+    ? getProject(af05.activeProjectId)
+    : undefined;
+  const activeProgress = af05.activeProjectId
+    ? af05.projectProgress[af05.activeProjectId]
+    : undefined;
+  const doneTasks = activeProgress
+    ? Object.values(activeProgress.tasks).filter((t) => t.status === "done")
+        .length
+    : 0;
+  const totalTasks = activeProject?.tasks.length ?? 0;
+  const projectPct =
+    totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+
+  // Today's Focus: the plan's session tasks (real minutes from the planner).
+  const focusTasks = (plan?.session.tasks ?? []).slice(0, 4);
+
+  // Recommendations: rule-based engine output with explanations.
+  const recommendations = recommendProjects(af05, 3);
 
   // Google Calendar scheduling modal state
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
@@ -216,6 +298,193 @@ function Dashboard() {
         </section>
       ) : (
         <>
+          {/* Metrics row - design target: four live cards */}
+          <section className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {metrics.map(({ icon: Icon, tint, label, value, to }) => (
+              <Link
+                key={label}
+                to={to}
+                className="card-surface flex items-center gap-3.5 px-4 py-4 transition-shadow hover:shadow-md"
+              >
+                <span
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tint}`}
+                >
+                  <Icon className="h-5 w-5" strokeWidth={2} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-[12px] font-medium text-muted-foreground">
+                    {label}
+                  </span>
+                  <span className="block truncate text-[17px] font-bold tracking-[-0.01em]">
+                    {value}
+                  </span>
+                </span>
+              </Link>
+            ))}
+          </section>
+
+          {/* Current Project + Today's Focus (design target two-column) */}
+          <section className="mb-6 grid gap-4 lg:grid-cols-2">
+            <div className="card-surface px-5 py-5">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[15px] font-bold">Current Project</h3>
+                <Link
+                  to="/projects"
+                  className="text-[12.5px] font-semibold text-primary hover:underline"
+                >
+                  View Projects
+                </Link>
+              </div>
+              {activeProject ? (
+                <div className="mt-4">
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                    {activeProgress?.completedAt ? "Completed" : "In Progress"}
+                  </span>
+                  <h4 className="mt-3 text-[19px] font-extrabold tracking-[-0.02em]">
+                    {activeProject.name}
+                  </h4>
+                  <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-muted-foreground">
+                    {activeProject.tagline}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {activeProject.tools.slice(0, 3).map((tool) => (
+                      <span
+                        key={tool}
+                        className="rounded-full bg-muted px-2.5 py-1 text-[11.5px] font-medium text-muted-foreground"
+                      >
+                        {tool}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-primary"
+                      style={{ width: `${projectPct}%` }}
+                    />
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-[12px] text-muted-foreground">
+                    <span>
+                      {doneTasks} of {totalTasks} tasks completed
+                    </span>
+                    <span className="font-semibold text-foreground">
+                      {projectPct}%
+                    </span>
+                  </div>
+                  <Link
+                    to="/projects/$projectId"
+                    params={{ projectId: activeProject.id }}
+                    className="btn-base btn-primary-solid mt-4 inline-flex items-center gap-2"
+                  >
+                    <span>Continue Building</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              ) : (
+                <div className="mt-4 rounded-xl border border-dashed border-border px-4 py-6 text-center">
+                  <p className="text-[13.5px] font-medium">
+                    No project selected yet.
+                  </p>
+                  <p className="mt-1 text-[12.5px] text-muted-foreground">
+                    Pick a project to start building with real checkpoints.
+                  </p>
+                  <Link
+                    to="/projects"
+                    className="btn-base btn-primary-solid mt-4 inline-flex items-center gap-2"
+                  >
+                    <span>Choose a project</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            <div className="card-surface px-5 py-5">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[15px] font-bold">Today's Focus</h3>
+                <span className="text-[12px] text-muted-foreground">
+                  {new Date().toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </span>
+              </div>
+              {focusTasks.length > 0 ? (
+                <ol className="mt-4 space-y-3.5">
+                  {focusTasks.map((task, i) => (
+                    <li key={task.title} className="flex items-center gap-3">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-soft text-[12px] font-bold text-accent-foreground">
+                        {i + 1}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">
+                        {task.title}
+                      </span>
+                      <span className="shrink-0 text-[12px] text-muted-foreground">
+                        ~ {task.minutes} min
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="mt-4 rounded-xl border border-dashed border-border px-4 py-6 text-center text-[12.5px] text-muted-foreground">
+                  Finish onboarding and your daily plan appears here.
+                </p>
+              )}
+              <Link
+                to="/learn"
+                className="mt-5 flex items-center justify-center gap-2 rounded-xl bg-primary-soft px-4 py-3 text-[13.5px] font-bold text-accent-foreground transition-colors hover:bg-accent"
+              >
+                <Play className="h-4 w-4" />
+                <span>Start Today's Plan</span>
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </section>
+
+          {/* Recommended for You (rule-based engine, real explanations) */}
+          <section className="mb-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[15px] font-bold">Recommended for You</h3>
+              <Link
+                to="/projects"
+                className="text-[12.5px] font-semibold text-primary hover:underline"
+              >
+                View All
+              </Link>
+            </div>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {recommendations.map(({ project }) => (
+                <Link
+                  key={project.id}
+                  to="/projects/$projectId"
+                  params={{ projectId: project.id }}
+                  className="card-surface group flex items-center gap-3.5 px-4 py-4 transition-shadow hover:shadow-md"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-accent-foreground">
+                    <Folder className="h-5 w-5" strokeWidth={2} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13.5px] font-semibold">
+                      {project.name}
+                    </span>
+                    <span
+                      className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                        project.difficulty === "Beginner"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : project.difficulty === "Advanced"
+                            ? "bg-rose-50 text-rose-700"
+                            : "bg-violet-50 text-violet-700"
+                      }`}
+                    >
+                      {project.difficulty}
+                    </span>
+                  </span>
+                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                </Link>
+              ))}
+            </div>
+          </section>
+
           {/* Daily Build Rhythm Banner (Google Calendar reminder prompt) */}
           {showPromptBanner && (
             <div className="mb-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-primary/30 bg-primary-soft/50 p-4 shadow-sm backdrop-blur-sm">
@@ -561,4 +830,4 @@ function Dashboard() {
       )}
     </AppShell>
   );
-}
+                          }
