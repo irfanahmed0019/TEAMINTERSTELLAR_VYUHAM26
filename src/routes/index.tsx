@@ -25,6 +25,7 @@ import { buildGoogleCalendarUrl } from "@/lib/google-calendar";
 import type { MissionStep, Plan, Profile, TechItem } from "@/lib/loop-types";
 import { logActivity, setLoopState, useLoop } from "@/lib/loop-store";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
+import { DEMO_MODE } from "@/lib/demo-mode";
 import { LegalLinks } from "@/components/LegalLinks";
 import {
   aiAnalyzeResume,
@@ -87,7 +88,6 @@ const LEVELS: TechItem["level"][] = ["beginner", "intermediate", "advanced"];
 // DEMO MODE (temporary preview per owner request): skip every AI call and use
 // clearly-labeled sample content so the full flow is testable while the Sarvam
 // server connection is offline. Set back to false when the server is reconnected.
-const DEMO_MODE = true;
 
 const DEMO_PROJECT_IDEAS = [
   {
