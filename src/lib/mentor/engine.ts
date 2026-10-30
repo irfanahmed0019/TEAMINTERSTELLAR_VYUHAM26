@@ -51,7 +51,7 @@ export type Revision = { id: string; skill: string; concept: string; exerciseId:
 export type MentorEvent = { ts: string; type: string; detail: string };
 
 export type MentorState = {
-  version: 1; id: string; projectId: string; language: string; level: Level; roadmap: Roadmap;
+  version: 1; /** true only when created and graded by the server for a signed-in account */ verified?: boolean; id: string; projectId: string; language: string; level: Level; roadmap: Roadmap;
   currentLessonId: string; lessons: Record<string, LessonProgress>; attempts: Attempt[];
   competencies: Record<string, Competency>; misconceptions: Record<string, MisconceptionRecord>;
   revisions: Revision[]; events: MentorEvent[]; createdAt: string; updatedAt: string;
