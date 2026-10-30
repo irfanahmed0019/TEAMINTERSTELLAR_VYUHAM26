@@ -247,7 +247,7 @@ export function AppShell({
     // Read the authoritative store, not the render snapshot: during hydration
     // the snapshot is the server value (empty state), which used to bounce
     // full page loads of /sessions, /learn, etc. back to / and then /dashboard.
-    if (!getLoopState().onboarded) {
+    if (!getLoopState().onboarded && window.location.pathname !== "/sessions") {
       void navigate({ to: "/" });
     }
   }, [navigate]);
@@ -380,4 +380,4 @@ export function AppShell({
       </div>
     </div>
   );
-            }
+}
