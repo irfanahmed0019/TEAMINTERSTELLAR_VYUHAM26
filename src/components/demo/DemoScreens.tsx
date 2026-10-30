@@ -402,11 +402,11 @@ function HomeMetric({
   extra?: ReactNode;
 }) {
   return (
-    <Card className="flex items-center gap-4 p-5">
+    <Card className="flex flex-col items-start gap-2.5 p-4 sm:flex-row sm:items-center sm:gap-4 sm:p-5">
       {icon}
       <div className="min-w-0">
         <p className="text-[13px] text-gray-500">{label}</p>
-        <p className="mt-0.5 flex items-center gap-1.5 text-[19px] font-extrabold tracking-[-0.01em]">
+        <p className="mt-0.5 flex items-center gap-1.5 text-[16px] font-extrabold tracking-[-0.01em] sm:text-[19px]">
           {value}
           {extra}
         </p>
@@ -465,11 +465,11 @@ export function DemoDashboard() {
           label="Active Projects"
           value="2"
         />
-        <Card className="flex items-center gap-4 p-5">
+        <Card className="flex flex-col items-start gap-2.5 p-4 sm:flex-row sm:items-center sm:gap-4 sm:p-5">
           <Donut pct={48} />
           <div>
             <p className="text-[13px] text-gray-500">Overall Progress</p>
-            <p className="mt-0.5 text-[19px] font-extrabold tracking-[-0.01em]">48%</p>
+            <p className="mt-0.5 text-[16px] font-extrabold tracking-[-0.01em] sm:text-[19px]">48%</p>
           </div>
         </Card>
       </section>
@@ -533,7 +533,7 @@ export function DemoDashboard() {
                 >
                   {i + 1}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">
+                <span className="min-w-0 flex-1 text-[13.5px] font-medium leading-snug">
                   {task.title}
                 </span>
                 <span className="shrink-0 text-[12.5px] text-gray-400">~ {task.minutes} min</span>
@@ -567,7 +567,7 @@ export function DemoDashboard() {
                   <Icon className="h-5 w-5" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14px] font-bold">{name}</span>
+                  <span className="block text-[14px] font-bold leading-snug">{name}</span>
                   <span className="mt-1 inline-block">
                     <LevelPill level={level} />
                   </span>
@@ -813,7 +813,7 @@ export function DemoLearningPath() {
                 {m.n}
               </span>
               <span className="min-w-0 flex-1">
-                <span className={`block truncate text-[14px] font-bold ${m.n === 1 ? "text-white" : ""}`}>
+                <span className={`block text-[14px] font-bold leading-snug ${m.n === 1 ? "text-white" : ""}`}>
                   {m.name}
                 </span>
                 <span className={`block text-[11.5px] ${m.n === 1 ? "text-white/75" : "text-gray-400"}`}>
@@ -1083,7 +1083,7 @@ export function DemoProjects() {
             <div className="flex items-start gap-4">
               <Thumb className="h-16 w-16 shrink-0" />
               <div className="min-w-0 flex-1 pt-0.5">
-                <h4 className="truncate text-[15.5px] font-bold">{name}</h4>
+                <h4 className="text-[15.5px] font-bold leading-snug">{name}</h4>
               </div>
               <Bookmark className="h-4 w-4 shrink-0 text-gray-300" />
             </div>
