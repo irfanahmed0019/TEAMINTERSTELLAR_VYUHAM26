@@ -1,5 +1,5 @@
 -- AI Mentor (AF-05) persistence. Additive and isolated: only creates new mentor_* tables
--- with per-owner RLS. Does not touch learner_memory, learning_sessions or any existing table.
+-- with per-owner read-only RLS. Does not touch learner_memory, learning_sessions or any existing table.
 -- Rollback: drop table mentor_events, mentor_revisions, mentor_misconceptions, mentor_competencies, mentor_submissions, mentor_sessions cascade;
 
 create table if not exists public.mentor_sessions (
@@ -52,9 +52,13 @@ alter table public.mentor_misconceptions enable row level security;
 alter table public.mentor_revisions enable row level security;
 alter table public.mentor_events enable row level security;
 
+-- Learners can only READ their own rows. All writes are made by the server (service role)
+-- after it has run and graded the code, so a client cannot insert scores or evidence.
 do $$ declare t text; begin
   foreach t in array array['mentor_sessions','mentor_submissions','mentor_competencies','mentor_misconceptions','mentor_revisions','mentor_events'] loop
     execute format('drop policy if exists "owner all" on public.%I', t);
-    execute format('create policy "owner all" on public.%I for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid())', t);
+    execute format('drop policy if exists "owner read" on public.%I', t);
+    execute format('create policy "owner read" on public.%I for select to authenticated using (user_id = auth.uid())', t);
+    execute format('revoke insert, update, delete on public.%I from anon, authenticated', t);
   end loop;
 end $$;
