@@ -160,7 +160,7 @@ function Sessions() {
   }
 
   async function connectExtension(session: { sessionId: string }) {
-    const uri = `vscode://buildmylogic.logic-analyser/connect?sessionId=${encodeURIComponent(session.sessionId)}&apiBaseUrl=${encodeURIComponent(window.location.origin)}`;
+    const uri = `vscode://buildmylogic.buildmylogic/connect?sessionId=${encodeURIComponent(session.sessionId)}&apiBaseUrl=${encodeURIComponent(window.location.origin)}`;
     const anchor = document.createElement("a");
     anchor.href = uri;
     anchor.rel = "noopener";
@@ -171,17 +171,8 @@ function Sessions() {
   }
 
   async function openVsCode(session?: { sessionId: string }, selectedPath?: string) {
-    let path = (selectedPath ?? workspacePath).trim();
-    if (!path) {
-      // Keep the selected path in this local variable. React state updates are
-      // asynchronous, so reading workspacePath immediately after the picker
-      // would otherwise use the previous empty value.
-      path = await pickProjectFolder(true);
-      if (!path) {
-        setPickerError("Select a local project folder first. Keep the BuildMyLogic desktop bridge running so the exact folder can be opened in VS Code.");
-        return;
-      }
-    }
+    // A project folder is optional: the extension can connect without one.
+    const path = (selectedPath ?? workspacePath).trim();
     try {
       const response = await fetch(`${BRIDGE_URL}/${session ? "open-vscode-session" : "open-vscode"}`, {
         method: "POST",
@@ -197,18 +188,22 @@ function Sessions() {
         if (session) await connectExtension(session);
         return;
       }
-      // Fallback: use native VS Code URI protocol handler
-      const formattedPath = path.startsWith("/") ? path : `/${path}`;
-      const anchor = document.createElement("a");
-      anchor.href = `vscode://file${encodeURI(formattedPath)}`;
-      anchor.click();
-      if (session) await connectExtension(session);
+      // Fallback: connect the extension through the URI handler directly.
+      if (session) { await connectExtension(session); return; }
+      if (path) {
+        const formattedPath = path.startsWith("/") ? path : `/${path}`;
+        const anchor = document.createElement("a");
+        anchor.href = `vscode://file${encodeURI(formattedPath)}`;
+        anchor.click();
+      }
     } catch {
-      const formattedPath = path.startsWith("/") ? path : `/${path}`;
-      const anchor = document.createElement("a");
-      anchor.href = `vscode://file${encodeURI(formattedPath)}`;
-      anchor.click();
-      if (session) await connectExtension(session);
+      if (session) { await connectExtension(session); return; }
+      if (path) {
+        const formattedPath = path.startsWith("/") ? path : `/${path}`;
+        const anchor = document.createElement("a");
+        anchor.href = `vscode://file${encodeURI(formattedPath)}`;
+        anchor.click();
+      }
     }
   }
 
@@ -312,8 +307,8 @@ function Sessions() {
 
   async function openAndConnectVsCode() {
     try {
-      const selectedPath = workspacePath.trim() || window.localStorage.getItem("loop-vscode-path")?.trim() || await pickProjectFolder(true);
-      if (!selectedPath) return;
+      // The folder picker is optional: never block session creation on it.
+      const selectedPath = workspacePath.trim() || window.localStorage.getItem("loop-vscode-path")?.trim() || "";
       const hasFreshSession = Boolean(vscodeSession?.sessionId && /^BML-[A-Z0-9]{5}$/i.test(vscodeSession.sessionId));
       const connected = hasFreshSession && vscodeSession ? vscodeSession : await createVscodeSession();
       await openVsCode(connected, selectedPath);
@@ -415,7 +410,13 @@ function Sessions() {
           <div className="flex items-center justify-between"><div><p className="text-[11px] font-black uppercase tracking-wider text-primary">Current session</p><h2 className="mt-1 text-xl font-black">{activeMission?.title ?? "Your build"}</h2></div><span className="pill bg-primary-soft text-black">{running ? "✦ Live Now" : seconds < startRef.current ? "Ⅱ Paused" : "○ Ready"}</span></div>
           <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_220px]">
             <div className="flex gap-4"><div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-black text-white"><Code2 className="h-7 w-7" /></div><div className="min-w-0 flex-1"><p className="text-sm font-black">{activeMission?.stack ?? "Build"} <span className="mx-1">•</span> Difficulty {activeMission?.difficulty ?? 1}</p><p className="mt-2 text-sm font-semibold">{activeMission?.description ?? "Build something useful and prove what you learned."}</p><div className="mt-4 h-2.5 rounded-full bg-black/10"><div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} /></div><div className="mt-2 flex justify-between text-xs font-black"><span>{elapsed} min elapsed</span><span>{Math.max(0, Math.ceil(seconds / 60))} min remaining</span></div></div></div>
-            <div className="border-t-2 border-black/10 pt-4 lg:border-l-2 lg:border-t-0 lg:pl-5"><p className="text-xs font-black">Tests / Tasks Passed</p><p className="display text-2xl font-black">{done.length} / {currentTasks.length}</p><p className="mt-4 text-xs font-black">Attempts</p><p className="text-xl font-black">{Math.max(1, state.sessions.length + 1)}</p><button type="button" onClick={() => { void startSession(); }} className="btn-base btn-ink mt-4 w-full">{running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}{running ? "Pause" : "Start Session"}</button><button type="button" onClick={() => { void openAndConnectVsCode(); }} className="btn-base btn-outline mt-2 w-full"><Code2 className="h-4 w-4" />Open VS Code</button><button type="button" onClick={restartSession} className="btn-base btn-outline mt-2 w-full"><RotateCcw className="h-3.5 w-3.5" />Restart your session</button></div>
+            <div className="border-t-2 border-black/10 pt-4 lg:border-l-2 lg:border-t-0 lg:pl-5"><p className="text-xs font-black">Tests / Tasks Passed</p><p className="display text-2xl font-black">{done.length} / {currentTasks.length}</p><p className="mt-4 text-xs font-black">Attempts</p><p className="text-xl font-black">{Math.max(1, state.sessions.length + 1)}</p>
+              <div className="mt-4 rounded-xl border border-black/10 bg-black/[0.02] px-3 py-2.5">
+                <p className="text-[10px] font-black uppercase tracking-wider text-black/45">Project folder</p>
+                <p className="mt-1 break-all text-xs font-bold">{workspacePath || "No folder selected"}</p>
+                <button type="button" onClick={() => { void pickProjectFolder(true); }} disabled={pickingProject} className="btn-base btn-outline mt-2 w-full disabled:cursor-wait disabled:opacity-60"><FolderOpen className="h-3.5 w-3.5" />{pickingProject ? "Selecting…" : workspacePath ? "Change folder" : "Select your folder"}</button>
+              </div>
+              <button type="button" onClick={() => { void startSession(); }} className="btn-base btn-ink mt-4 w-full">{running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}{running ? "Pause" : "Start Session"}</button><button type="button" onClick={() => { void openAndConnectVsCode(); }} className="btn-base btn-outline mt-2 w-full"><Code2 className="h-4 w-4" />Open VS Code</button><button type="button" onClick={restartSession} className="btn-base btn-outline mt-2 w-full"><RotateCcw className="h-3.5 w-3.5" />Restart your session</button></div>
           </div>
         </section>
 

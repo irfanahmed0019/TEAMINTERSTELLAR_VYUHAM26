@@ -4,7 +4,7 @@ import { AppShell } from "@/components/AppShell";
 import { logActivity, recordMissionEvidence, setLoopState, useLoop } from "@/lib/loop-store";
 import type { SessionReview } from "@/lib/loop-types";
 import { aiReviewSession } from "@/lib/sarvam.functions";
-import { getAuthSession } from "@/lib/auth";
+import { getAuthSession, getAuthSessionForApi } from "@/lib/auth";
 
 const BRIDGE_URL = "http://127.0.0.1:8091";
 type SubmissionOS = "linux" | "windows";
@@ -30,7 +30,7 @@ export function ChallengeSession() {
   const [workspacePath, setWorkspacePath] = useState("");
   const [projectFolder, setProjectFolder] = useState("");
   const [pickingProject, setPickingProject] = useState(false);
-  const [vscodeSession, setVscodeSession] = useState<{ sessionId: string; token: string } | null>(null);
+  const [vscodeSession, setVscodeSession] = useState<{ sessionId: string } | null>(null);
   const [message, setMessage] = useState("");
   const [submissionOS, setSubmissionOS] = useState<SubmissionOS>("linux");
   const [challengeStep, setChallengeStep] = useState<ChallengeStep>(2);
@@ -83,19 +83,21 @@ export function ChallengeSession() {
 
   async function createVscodeSession() {
     if (!activeMission) throw new Error("No active mission is selected.");
-    const auth = getAuthSession();
+    const auth = await getAuthSessionForApi();
     const userId = auth?.uid || "local-user";
-    const response = await fetch("/api/vscode/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ challenge_id: activeMission.id, user_id: userId }) });
-    const result = (await response.json()) as { ok?: boolean; session_id?: string; token?: string; error?: string };
-    if (!response.ok || !result.ok || !result.session_id || !result.token) throw new Error(result.error || "Could not create the BuildMyLogic VS Code session.");
-    const session = { sessionId: result.session_id, token: result.token };
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (auth?.idToken) headers["Authorization"] = `Bearer ${auth.idToken}`;
+    const response = await fetch("/api/sessions/start", { method: "POST", headers, body: JSON.stringify({ challenge_id: activeMission.id, user_id: userId, title: activeMission.title, language: activeMission.stack, concept: activeMission.skills[0] ?? "problem solving", instructions: activeMission.description + "\n\nRequirements:\n" + activeMission.steps.map((step, index) => `Step ${index + 1}: ${step.title} — ${step.detail}`).join("\n"), checkpoints: activeMission.steps.map((step, index) => ({ index, title: step.title, detail: step.detail })), expected_skills: activeMission.skills }) });
+    const result = (await response.json()) as { ok?: boolean; session_id?: string; error?: string };
+    if (!response.ok || !result.ok || !result.session_id) throw new Error(result.error || "Could not create the BuildMyLogic VS Code session.");
+    const session = { sessionId: result.session_id };
     setVscodeSession(session);
     window.localStorage.setItem("bml-vscode-session", JSON.stringify(session));
     return { ...session, userId };
   }
 
-  async function connectExtension(session: { sessionId: string; token: string; userId: string }) {
-    const uri = `vscode://buildmylogic.buildmylogic-vscode/session?sessionId=${encodeURIComponent(session.sessionId)}&challengeId=${encodeURIComponent(activeMission?.id || "")}&userId=${encodeURIComponent(session.userId)}&token=${encodeURIComponent(session.token)}`;
+  async function connectExtension(session: { sessionId: string }) {
+    const uri = `vscode://buildmylogic.buildmylogic/connect?sessionId=${encodeURIComponent(session.sessionId)}&apiBaseUrl=${encodeURIComponent(window.location.origin)}`;
     const anchor = document.createElement("a");
     anchor.href = uri;
     anchor.rel = "noopener";

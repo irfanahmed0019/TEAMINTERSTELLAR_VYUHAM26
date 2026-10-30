@@ -33,10 +33,10 @@ The app can start without cloud credentials, but authentication, cloud sync, and
 Never commit `.env` or share service-role/API keys.
 
 ## VS Code extension
-The project contains a newer packaged extension at `public/downloads/buildmylogic-vscode-0.0.4.vsix`. Install it with:
+The project contains a newer packaged extension at `public/downloads/buildmylogic-vscode-0.0.5.vsix`. Install it with:
 
 ```bash
-code --install-extension public/downloads/buildmylogic-vscode-0.0.4.vsix
+code --install-extension public/downloads/buildmylogic-vscode-0.0.5.vsix
 ```
 
 Restart VS Code, open the BuildMyLogic activity-bar view, and connect using an active session ID from the web app. The extension talks to the web app API; it does not need the Sarvam API key.

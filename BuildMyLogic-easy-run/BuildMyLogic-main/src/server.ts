@@ -59,7 +59,7 @@ async function authenticatedUserId(request: Request): Promise<string | undefined
   if (!accessToken) return undefined;
   const supabaseUrl = process.env["VITE_SUPABASE_URL"]?.trim();
   const supabaseAnonKey = process.env["VITE_SUPABASE_ANON_KEY"]?.trim();
-  if (!supabaseUrl || !supabaseAnonKey) return accessToken === "local-builder" ? "local-builder" : undefined;
+  if (!supabaseUrl || !supabaseAnonKey || supabaseUrl.includes("your-project-id") || supabaseAnonKey.includes("your-supabase")) return accessToken === "local-builder" ? "local-builder" : undefined;
   try {
     const response = await fetch(`${supabaseUrl}/auth/v1/user`, { headers: { apikey: supabaseAnonKey, authorization: `Bearer ${accessToken}` } });
     if (!response.ok) return undefined;
@@ -80,7 +80,7 @@ async function handleBuildMyLogicApi(request: Request): Promise<Response | null>
   // the short Session ID copied from the website.
   if (request.method === "POST" && pathname === "/api/sessions/start") {
     const body = await readJson(request);
-    const configuredSupabase = Boolean(process.env["VITE_SUPABASE_URL"]?.trim() && process.env["VITE_SUPABASE_ANON_KEY"]?.trim());
+    const configuredSupabase = Boolean(process.env["VITE_SUPABASE_URL"]?.trim() && process.env["VITE_SUPABASE_ANON_KEY"]?.trim() && !process.env["VITE_SUPABASE_URL"]!.includes("your-project-id"));
     const authenticatedId = await authenticatedUserId(request);
     const requestedId = clean(body["user_id"] ?? body["userId"], 180);
     const localDevelopment = ["localhost", "127.0.0.1"].includes(url.hostname) && process.env["NODE_ENV"] !== "production";

@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 
 const PORT = Number(process.env.LOOP_BRIDGE_PORT || 8091);
 const ALLOWED_ORIGINS = new Set(
-  (process.env.LOOP_BRIDGE_ORIGINS || "http://localhost:8080,http://127.0.0.1:8080,https://makemylogic-production.vercel.app")
+  (process.env.LOOP_BRIDGE_ORIGINS || "http://localhost:8080,http://127.0.0.1:8080,https://buildmylogicxyz.vercel.app")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean),
@@ -131,8 +131,8 @@ const server = createServer(async (req, res) => {
         const path = typeof parsed.path === "string" ? resolve(parsed.path.trim()) : "";
         const sessionId = typeof parsed.session_id === "string" ? parsed.session_id.trim() : "";
         const apiBaseUrl = typeof parsed.api_base_url === "string" ? parsed.api_base_url.trim() : "";
-        if (!path || !sessionId) return json(res, 400, { ok: false, error: "Project path and BuildMyLogic Session ID are required." });
-        if (!statSync(path).isDirectory()) return json(res, 400, { ok: false, error: "Project path is not a folder." });
+        if (!sessionId) return json(res, 400, { ok: false, error: "BuildMyLogic Session ID is required." });
+        if (path && !statSync(path).isDirectory()) return json(res, 400, { ok: false, error: "Project path is not a folder." });
         let apiOrigin = "http://localhost:8080";
         if (apiBaseUrl) {
           try {
@@ -143,9 +143,14 @@ const server = createServer(async (req, res) => {
             return json(res, 400, { ok: false, error: "BuildMyLogic API address is invalid." });
           }
         }
-        const uri = `vscode://buildmylogic.logic-analyser/connect?sessionId=${encodeURIComponent(sessionId)}&apiBaseUrl=${encodeURIComponent(apiOrigin)}`;
+        const uri = `vscode://buildmylogic.buildmylogic/connect?sessionId=${encodeURIComponent(sessionId)}&apiBaseUrl=${encodeURIComponent(apiOrigin)}`;
         try {
-          await launch("code", ["--reuse-window", path]);
+          if (path) {
+            await launch("code", ["--reuse-window", path]);
+            // Wait for the window reload so the URI is not dropped before the
+            // extension host is ready.
+            await new Promise((resolvePromise) => setTimeout(resolvePromise, 2500));
+          }
           await launch("code", ["--open-url", uri]);
         } catch {
           await launch(process.platform === "darwin" ? "open" : process.platform === "win32" ? "cmd" : "xdg-open", process.platform === "darwin" ? [uri] : process.platform === "win32" ? ["/c", "start", "", uri] : [uri]);
@@ -168,5 +173,5 @@ server.on("error", (error) => {
 
 server.listen(PORT, "127.0.0.1", () => {
   console.log(`[LOOP] Local desktop bridge ready: http://127.0.0.1:${PORT}`);
-  console.log(`[LOOP] Allowed browser origins: localhost/127.0.0.1 and makemylogic-production.vercel.app`);
+  console.log(`[LOOP] Allowed browser origins: localhost/127.0.0.1 and buildmylogicxyz.vercel.app`);
 });

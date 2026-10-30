@@ -31,7 +31,8 @@ type SupabaseSessionRow = { session_data?: unknown };
 function supabaseAdminConfig() {
   const url = process.env["VITE_SUPABASE_URL"]?.trim().replace(/\/$/, "");
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"]?.trim();
-  return url && key ? { url, key } : undefined;
+  if (!url || !key || url.includes("your-project-id") || key.includes("your-supabase")) return undefined;
+  return { url, key };
 }
 
 async function persistSession(session: LearningSession): Promise<void> {
