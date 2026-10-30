@@ -13,8 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { DemoMentor } from "@/components/demo/DemoScreens";
-import { DEMO_MODE } from "@/lib/demo-mode";
+import { MentorApp } from "@/components/mentor/MentorApp";
 import { aiMentorChat } from "@/lib/sarvam.functions";
 import { getAf05 } from "@/lib/af05/store";
 import { SKILL_LABELS } from "@/lib/af05/types";
@@ -27,8 +26,7 @@ export const Route = createFileRoute("/mentor")({
 });
 
 function MentorRoute() {
-  if (DEMO_MODE) return <DemoMentor />;
-  return <Mentor />;
+  return <MentorApp />;
 }
 
 type MentorMode = "chat" | "zoom";
