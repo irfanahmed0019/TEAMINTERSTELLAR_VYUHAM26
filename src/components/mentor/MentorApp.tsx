@@ -7,8 +7,8 @@ import {
   assess, curatedRoadmap, dueRevisions, exerciseFor, gradeRun, masteryOverview, newState, recordSubmission,
   type Assessment, type Attempt, type MentorState, type Roadmap, type TestResult,
 } from "@/lib/mentor/engine";
-import { executeC, generateRoadmapAI, mentorAsk, type MentorAsk } from "@/lib/mentor/mentor.functions";
-import { isSignedIn, loadCloud, loadLocal, saveCloud, saveEvent, saveLocal } from "@/lib/mentor/persistence";
+import { mentorAsk, type MentorAsk } from "@/lib/mentor/mentor.functions";
+import { loadLocal, mentorApi, saveLocal } from "@/lib/mentor/persistence";
 import { useAuth } from "@/lib/auth";
 
 const BLUE = "#2563eb";
@@ -24,36 +24,38 @@ function Pill({ children, tone = "gray" }: { children: React.ReactNode; tone?: "
 
 export function MentorApp() {
   const auth = useAuth();
+  const signedIn = !!auth;
   const [state, setState] = useState<MentorState | null>(null);
   const [ready, setReady] = useState(false);
-  const [persist, setPersist] = useState<Persist>({ mode: "device", note: "Saved on this device only. Sign in to save to your account." });
-  const [roadmapDraft, setRoadmapDraft] = useState<{ level: Level; roadmap: Roadmap } | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [roadmapDraft, setRoadmapDraft] = useState<{ level: Level; roadmap: Roadmap; verified: boolean } | null>(null);
 
+  const persist: Persist = signedIn
+    ? { mode: "cloud", note: loadError ?? "Your progress is saved to your account and checked by the server." }
+    : { mode: "device", note: "Practice mode: saved on this device only. Results are computed in your browser, are not verified, and do not count as confirmed evidence. Sign in to save and verify your learning." };
+
+  /** Applies a state change. Account sessions are authoritative from the server. */
   const commit = useCallback(async (next: MentorState | null) => {
     setState(next);
-    saveLocal(next);
-    if (!next) return;
-    const r = await saveCloud(next);
-    if (r.cloud === "saved") setPersist({ mode: "cloud", note: "Saved to your account." });
-    else if (r.cloud === "error") setPersist({ mode: "device", note: `Cloud save failed (${r.message}). Progress is saved on this device.` });
-    else setPersist({ mode: "device", note: "Saved on this device only. Sign in to save to your account." });
+    if (!next || !next.verified) saveLocal(next);
   }, []);
 
   useEffect(() => {
     let alive = true;
+    setReady(false);
     (async () => {
-      const local = loadLocal();
-      let chosen = local;
-      if (await isSignedIn()) {
-        const cloud = await loadCloud();
-        if (cloud.error) setPersist({ mode: "device", note: `Cloud load failed (${cloud.error}). Using this device's copy.` });
-        else if (cloud.state && (!local || cloud.state.updatedAt >= local.updatedAt)) { chosen = cloud.state; setPersist({ mode: "cloud", note: "Resumed from your account." }); }
-        else if (local) void commit(local);
-      }
+      let chosen: MentorState | null = null;
+      if (signedIn) {
+        try {
+          const r = await mentorApi<{ state: MentorState | null }>("/api/mentor/sessions/latest", { method: "GET" });
+          chosen = r.state;
+          setLoadError(null);
+        } catch (e) { setLoadError(`Could not load your saved session (${errMsg(e)}).`); }
+      } else chosen = loadLocal();
       if (alive) { setState(chosen); setReady(true); }
     })();
     return () => { alive = false; };
-  }, [commit, auth?.uid]);
+  }, [signedIn, auth?.uid]);
 
   const user = { name: auth?.displayName || "Learner", role: auth ? "Student" : "Not signed in" };
 
@@ -61,12 +63,12 @@ export function MentorApp() {
     <DemoShell active="AI Mentor" user={user}>
       {!ready ? (
         <div className="flex items-center gap-2 py-16 text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading your learning session...</div>
-      ) : state ? (
-        <Workspace state={state} commit={commit} persist={persist} signedIn={!!auth} onReset={() => { setRoadmapDraft(null); void commit(null); }} />
+      ) : state && !roadmapDraft ? (
+        <Workspace state={state} commit={commit} persist={persist} signedIn={signedIn} onReset={() => { setRoadmapDraft(null); void commit(null); }} />
       ) : roadmapDraft ? (
-        <RoadmapView draft={roadmapDraft} onBack={() => setRoadmapDraft(null)} onStart={() => { const s = newState(roadmapDraft.level, roadmapDraft.roadmap); setRoadmapDraft(null); void commit(s); void saveEvent(s.id, "session_started", s.roadmap.source); }} />
+        <RoadmapView draft={roadmapDraft} onBack={() => { setRoadmapDraft(null); void commit(null); }} onStart={() => { const d = roadmapDraft; setRoadmapDraft(null); if (!d.verified) void commit(newState(d.level, d.roadmap)); }} />
       ) : (
-        <Setup signedIn={!!auth} onRoadmap={(level, roadmap) => setRoadmapDraft({ level, roadmap })} />
+        <Setup signedIn={signedIn} onRoadmap={(level, roadmap, st) => { if (st) setState(st); setRoadmapDraft({ level, roadmap, verified: !!st }); }} />
       )}
     </DemoShell>
   );
@@ -74,7 +76,7 @@ export function MentorApp() {
 
 /* ------------------------------ Steps A-D ------------------------------ */
 
-function Setup({ onRoadmap, signedIn }: { onRoadmap: (l: Level, r: Roadmap) => void; signedIn: boolean }) {
+function Setup({ onRoadmap, signedIn }: { onRoadmap: (l: Level, r: Roadmap, st?: MentorState) => void; signedIn: boolean }) {
   const [category, setCategory] = useState<string>("Programming Fundamentals");
   const [projectId, setProjectId] = useState<string>("arithmetic-c");
   const [custom, setCustom] = useState("");
@@ -88,18 +90,14 @@ function Setup({ onRoadmap, signedIn }: { onRoadmap: (l: Level, r: Roadmap) => v
 
   async function generate() {
     setBusy(true); setErr(null);
-    const base = curatedRoadmap(level);
-    let roadmap = base;
-    if (signedIn) {
-      try {
-        const ai = await generateRoadmapAI({ data: { level, project: base.title, language, lessonTitles: LESSONS.map((l) => l.title) } });
-        roadmap = { ...base, source: "ai", objective: ai.objective, prerequisites: ai.prerequisites.length ? ai.prerequisites : base.prerequisites, difficulty: ai.difficulty || base.difficulty, finalProject: ai.finalProject, modules: base.modules.map((m, i) => ({ ...m, ...(ai.moduleNotes[i] ? { note: ai.moduleNotes[i] } : {}) })) };
-      } catch (e) {
-        roadmap = { ...base, aiNote: `AI roadmap unavailable (${errMsg(e)}). Showing the curated roadmap for this journey.` };
+    try {
+      if (signedIn) {
+        const r = await mentorApi<{ state: MentorState }>("/api/mentor/start", { body: { level, projectId, language } });
+        onRoadmap(level, r.state.roadmap, r.state);
+      } else {
+        onRoadmap(level, { ...curatedRoadmap(level), aiNote: "Practice mode. Sign in to get an AI-tuned roadmap that is saved to your account." });
       }
-    } else roadmap = { ...base, aiNote: "Sign in to get an AI-tuned roadmap. Showing the curated roadmap for this journey." };
-    setBusy(false);
-    onRoadmap(level, roadmap);
+    } catch (e) { setErr(errMsg(e)); } finally { setBusy(false); }
   }
 
   return (
@@ -171,7 +169,7 @@ function Setup({ onRoadmap, signedIn }: { onRoadmap: (l: Level, r: Roadmap) => v
   );
 }
 
-function RoadmapView({ draft, onStart, onBack }: { draft: { level: Level; roadmap: Roadmap }; onStart: () => void; onBack: () => void }) {
+function RoadmapView({ draft, onStart, onBack }: { draft: { level: Level; roadmap: Roadmap; verified: boolean }; onStart: () => void; onBack: () => void }) {
   const r = draft.roadmap;
   return (
     <div className="mx-auto max-w-4xl">
@@ -246,7 +244,9 @@ function Workspace({ state, commit, persist, signedIn, onReset }: { state: Mento
 
   // Load the saved code (or starter) when the exercise changes.
   useEffect(() => {
-    setCode(stateRef.current.lessons[lesson.id]!.code[exercise.id] ?? exercise.starter);
+    let saved: string | null = null;
+    if (stateRef.current.verified) { try { saved = localStorage.getItem(`bml.mentor.code.${stateRef.current.id}.${exercise.id}`); } catch { /* ignore */ } }
+    setCode(saved ?? stateRef.current.lessons[lesson.id]!.code[exercise.id] ?? exercise.starter);
     setResults(null); setAssessment(null); setDecision(""); setError(null); setCustom(null); setHintShown([]); setMentor(null);
   }, [lesson.id, exercise.id]);
 
@@ -255,6 +255,7 @@ function Workspace({ state, commit, persist, signedIn, onReset }: { state: Mento
     setCode(v);
     if (saveCodeTimer.current) clearTimeout(saveCodeTimer.current);
     saveCodeTimer.current = setTimeout(() => {
+      if (stateRef.current.verified) { try { localStorage.setItem(`bml.mentor.code.${stateRef.current.id}.${exercise.id}`, v); } catch { /* ignore */ } return; }
       const s = structuredClone(stateRef.current);
       s.lessons[lesson.id]!.code[exercise.id] = v;
       saveLocal(s);
@@ -265,7 +266,7 @@ function Workspace({ state, commit, persist, signedIn, onReset }: { state: Mento
   const hintsUsed = lp.hintsUsed;
 
   async function execute(tests: Exercise["tests"]) {
-    const res = await executeC({ data: { code, stdins: tests.map((t) => t.stdin) } });
+    const res = await mentorApi<{ items: import("@/lib/mentor/engine").RunItem[]; sandbox: string }>("/api/mentor/run", { auth: false, body: { code, stdins: tests.map((t) => t.stdin) } });
     setSandboxNote(res.sandbox);
     return res.items;
   }
@@ -283,7 +284,7 @@ function Workspace({ state, commit, persist, signedIn, onReset }: { state: Mento
   async function runCustom() {
     setBusy("run"); setError(null);
     try {
-      const res = await executeC({ data: { code, stdins: [customIn] } });
+      const res = await mentorApi<{ items: import("@/lib/mentor/engine").RunItem[]; sandbox: string }>("/api/mentor/run", { auth: false, body: { code, stdins: [customIn] } });
       const r = res.items[0]!;
       setSandboxNote(res.sandbox);
       setCustom({ stdin: customIn, out: r.statusId === 3 ? r.stdout || "(no output)" : `${r.status}\n${r.compileOutput || r.stderr}` });
@@ -294,6 +295,14 @@ function Workspace({ state, commit, persist, signedIn, onReset }: { state: Mento
   async function submit() {
     setBusy("submit"); setError(null);
     try {
+      if (state.verified) {
+        // Account mode: the server runs every test, grades, and stores the result.
+        const r = await mentorApi<{ results: TestResult[]; assessment: Assessment; decision: string; state: MentorState }>("/api/mentor/submit", { body: { sessionId: state.id, lessonId: lesson.id, exerciseId: exercise.id, code, ...(revisionId ? { revisionId } : {}) } });
+        setResults(r.results); setAssessment(r.assessment); setDecision(r.decision); setCustom(null);
+        await commit(r.state);
+        if (revisionId) setRevisionId(null);
+        return;
+      }
       const tests = exercise.tests;
       const items = await execute(tests);
       const graded = gradeRun(tests, items);
@@ -303,20 +312,26 @@ function Workspace({ state, commit, persist, signedIn, onReset }: { state: Mento
       const { state: next, decision: d } = recordSubmission(state, attempt, exercise, revisionId ?? undefined);
       setResults(graded); setAssessment(a); setDecision(d); setCustom(null);
       await commit(next);
-      void saveEvent(next.id, a.status, d);
       if (revisionId) setRevisionId(null);
     } catch (e) { setError(errMsg(e)); } finally { setBusy(null); }
   }
 
-  function showHint() {
+  async function showHint() {
     if (hintsUsed >= hintsAllowed) return;
-    const idx = hintShown.length;
-    const hint = exercise.hints[Math.min(hintsUsed, exercise.hints.length - 1)]!;
-    void idx;
-    const s = structuredClone(state);
-    s.lessons[lesson.id]!.hintsUsed += 1;
-    setHintShown((h) => [...h, hint]);
-    void commit(s);
+    setError(null);
+    try {
+      if (state.verified) {
+        const r = await mentorApi<{ hint: string; state: MentorState }>("/api/mentor/hint", { body: { sessionId: state.id, lessonId: lesson.id, ...(revisionId ? { revisionId } : {}) } });
+        setHintShown((h) => [...h, r.hint]);
+        await commit(r.state);
+        return;
+      }
+      const hint = exercise.hints[Math.min(hintsUsed, exercise.hints.length - 1)]!;
+      const s = structuredClone(state);
+      s.lessons[lesson.id]!.hintsUsed += 1;
+      setHintShown((h) => [...h, hint]);
+      await commit(s);
+    } catch (e) { setError(errMsg(e)); }
   }
 
   async function ask(kind: MentorAsk["kind"], message = "") {
@@ -380,7 +395,7 @@ function Workspace({ state, commit, persist, signedIn, onReset }: { state: Mento
                 const current = l.id === lesson.id;
                 return (
                   <li key={l.id}>
-                    <button type="button" disabled={locked} onClick={() => { setRevisionId(null); setView("lesson"); setTab("Explanation"); setState_current(l.id); }}
+                    <button type="button" disabled={locked} onClick={() => { setRevisionId(null); setView("lesson"); setTab("Explanation"); void setState_current(l.id); }}
                       className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12.5px] ${current && view === "lesson" ? "bg-blue-50 font-semibold text-blue-700" : "text-gray-700 hover:bg-gray-50"} ${locked ? "opacity-50" : ""}`}>
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center">
                         {p.status === "completed" ? <Check className="h-4 w-4 text-emerald-600" /> : locked ? <Lock className="h-3.5 w-3.5 text-gray-400" /> : p.status === "needs_review" ? <TriangleAlert className="h-4 w-4 text-amber-500" /> : p.status === "in_progress" ? <Circle className="h-4 w-4 fill-blue-100 text-blue-600" /> : <Circle className="h-4 w-4 text-gray-300" />}
@@ -397,7 +412,7 @@ function Workspace({ state, commit, persist, signedIn, onReset }: { state: Mento
         </div>
 
         {view === "progress" ? (
-          <div className="lg:col-span-9"><ProgressPanel state={state} onRevision={(id) => { const r = state.revisions.find((x) => x.id === id)!; setRevisionId(id); const target = r.lessonId; setState_current(target); setView("lesson"); setTab("Practice"); }} /></div>
+          <div className="lg:col-span-9"><ProgressPanel state={state} onRevision={(id) => { const r = state.revisions.find((x) => x.id === id)!; setRevisionId(id); const target = r.lessonId; void setState_current(target); setView("lesson"); setTab("Practice"); }} /></div>
         ) : (
           <>
             {/* Center: teaching */}
@@ -515,14 +530,14 @@ function Workspace({ state, commit, persist, signedIn, onReset }: { state: Mento
                   ))}
                   <p className="mt-3 text-[12.5px] text-gray-700"><b>Next step:</b> {decision}</p>
                   {assessment.status === "passed" && !rev && state.lessons[lesson.id]?.status === "completed" && state.currentLessonId !== lesson.id && null}
-                  <NextButton state={state} lessonId={lesson.id} onGo={(id) => { setState_current(id); setTab("Explanation"); }} />
+                  <NextButton state={state} lessonId={lesson.id} onGo={(id) => { void setState_current(id); setTab("Explanation"); }} />
                 </Card>
               )}
 
               <Card className="p-4">
                 <div className="flex items-center justify-between"><p className="flex items-center gap-1.5 text-[13.5px] font-bold"><Lightbulb className="h-4 w-4 text-amber-500" /> Hints</p><span className="text-[11.5px] text-gray-400">{Math.min(hintsUsed, hintsAllowed)} / {hintsAllowed} used ({LEVEL_RULES[state.level].label})</span></div>
                 {hintShown.map((h, i) => <p key={i} className="mt-2 rounded-lg bg-amber-50 p-2 text-[12.5px] text-amber-900">{h}</p>)}
-                <button type="button" onClick={showHint} disabled={hintsUsed >= hintsAllowed} className="mt-2 rounded-lg border border-gray-200 px-3 py-1.5 text-[12px] font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">{hintsUsed >= hintsAllowed ? "No hints left for this lesson" : "Give me a hint"}</button>
+                <button type="button" onClick={() => void showHint()} disabled={hintsUsed >= hintsAllowed} className="mt-2 rounded-lg border border-gray-200 px-3 py-1.5 text-[12px] font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">{hintsUsed >= hintsAllowed ? "No hints left for this lesson" : "Give me a hint"}</button>
               </Card>
             </div>
           </>
@@ -531,10 +546,17 @@ function Workspace({ state, commit, persist, signedIn, onReset }: { state: Mento
     </div>
   );
 
-  function setState_current(id: string) {
-    const s = structuredClone(stateRef.current);
-    s.currentLessonId = id;
-    void commit(s);
+  async function setState_current(id: string) {
+    try {
+      if (stateRef.current.verified) {
+        const r = await mentorApi<{ state: MentorState }>("/api/mentor/select-lesson", { body: { sessionId: stateRef.current.id, lessonId: id } });
+        await commit(r.state);
+        return;
+      }
+      const s = structuredClone(stateRef.current);
+      s.currentLessonId = id;
+      await commit(s);
+    } catch (e) { setError(errMsg(e)); }
   }
 }
 
@@ -565,7 +587,7 @@ function ProgressPanel({ state, onRevision }: { state: MentorState; onRevision: 
           {Object.values(state.competencies).map((c) => (
             <li key={c.skill} className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-100 p-2.5 text-[12.5px]">
               <span className="min-w-[180px] flex-1 font-semibold">{SKILLS[c.skill]}</span>
-              <Pill tone={c.level === "mastered" ? "green" : c.level === "proficient" ? "blue" : c.level === "not_started" ? "gray" : "amber"}>{LEVEL_LABEL[c.level]}{c.level !== "not_started" ? (c.confirmed ? " (confirmed)" : " (estimated)") : ""}</Pill>
+              <Pill tone={c.level === "mastered" ? "green" : c.level === "proficient" ? "blue" : c.level === "not_started" ? "gray" : "amber"}>{LEVEL_LABEL[c.level]}{c.level !== "not_started" ? (c.confirmed && state.verified ? " (confirmed)" : " (estimated)") : ""}</Pill>
               <span className="text-gray-500">{c.practicePasses} passes, {c.independentPasses} without hints, {c.failures} failed, {c.revisionPasses} revision passes</span>
             </li>
           ))}
