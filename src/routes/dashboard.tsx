@@ -312,10 +312,10 @@ function Dashboard() {
                   <Icon className="h-5 w-5" strokeWidth={2} />
                 </span>
                 <span className="min-w-0">
-                  <span className="block truncate text-[12px] font-medium text-muted-foreground">
+                  <span className="block text-[12px] font-medium leading-tight text-muted-foreground">
                     {label}
                   </span>
-                  <span className="block truncate text-[17px] font-bold tracking-[-0.01em]">
+                  <span className="block text-[15px] font-bold leading-tight tracking-[-0.01em] sm:text-[17px]">
                     {value}
                   </span>
                 </span>
@@ -830,4 +830,4 @@ function Dashboard() {
       )}
     </AppShell>
   );
-                          }
+}
