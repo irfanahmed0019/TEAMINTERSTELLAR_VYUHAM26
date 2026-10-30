@@ -72,7 +72,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               key={to}
               to={to}
               onClick={onNavigate}
-              className={`${linkBase} ${linkActive}`}
+              className={linkBase}
               activeProps={{ className: `${linkBase} ${linkActive}` }}
               inactiveProps={{ className: linkBase }}
             >
@@ -382,4 +382,4 @@ export function AppShell({
       </div>
     </div>
   );
-      }
+}
