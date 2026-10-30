@@ -13,6 +13,8 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { DemoLearningPath } from "@/components/demo/DemoScreens";
+import { DEMO_MODE } from "@/lib/demo-mode";
 import { useLoop } from "@/lib/loop-store";
 import { COMPETENCY_LABELS, emptyAf05, SKILL_LABELS } from "@/lib/af05/types";
 import { GOAL_TRACKS } from "@/lib/af05/diagnostic";
@@ -25,8 +27,13 @@ import { getProject } from "@/lib/af05/projects";
 
 export const Route = createFileRoute("/learning-path")({
   head: () => ({ meta: [{ title: "Learning Path - BuildMyLogic" }] }),
-  component: LearningPathPage,
+  component: LearningPathRoute,
 });
+
+function LearningPathRoute() {
+  if (DEMO_MODE) return <DemoLearningPath />;
+  return <LearningPathPage />;
+}
 
 function formatDue(dueAt: number): string {
   const ms = dueAt - Date.now();
