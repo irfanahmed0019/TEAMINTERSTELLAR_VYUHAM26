@@ -83,6 +83,9 @@ const server = createServer(async (req, res) => {
   res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  // Chrome's Private Network Access preflight requires this header when a
+  // public https page calls the loopback bridge.
+  res.setHeader("Access-Control-Allow-Private-Network", "true");
 
   if (req.method === "OPTIONS") return json(res, 204, {});
   if (req.method === "GET" && req.url === "/health") return json(res, 200, { ok: true, platform: process.platform });

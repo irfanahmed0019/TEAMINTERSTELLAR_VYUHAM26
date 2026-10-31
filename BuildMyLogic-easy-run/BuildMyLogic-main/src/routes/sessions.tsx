@@ -237,11 +237,11 @@ function Sessions() {
       }
 
       // A browser can upload directory contents, but it cannot reveal the
-      // absolute local path needed by VS Code. Do not open a misleading file
-      // picker when this action is specifically trying to launch VS Code.
+      // absolute local path needed by VS Code. Still let the learner pick the
+      // folder here (the name is saved and the session works); only the
+      // direct "open this folder in VS Code" step needs the local bridge.
       if (forOpening) {
-        setPickerError("The local folder bridge is not running. Start it with `npm run dev` in BuildMyLogic, then click Open VS Code again.");
-        return "";
+        setPickerError("The local folder bridge is not running, so VS Code cannot open the folder directly. You can still pick the folder below and your session will work. For direct folder opening, run `npm run dev` in BuildMyLogic, then pick the folder again.");
       }
 
       // 2. Browser native file/directory picker fallback
@@ -414,7 +414,7 @@ function Sessions() {
               <div className="mt-4 rounded-xl border border-black/10 bg-black/[0.02] px-3 py-2.5">
                 <p className="text-[10px] font-black uppercase tracking-wider text-black/45">Project folder</p>
                 <p className="mt-1 break-all text-xs font-bold">{workspacePath || "No folder selected"}</p>
-                <button type="button" onClick={() => { void pickProjectFolder(true); }} disabled={pickingProject} className="btn-base btn-outline mt-2 w-full disabled:cursor-wait disabled:opacity-60"><FolderOpen className="h-3.5 w-3.5" />{pickingProject ? "Selecting…" : workspacePath ? "Change folder" : "Select your folder"}</button>
+                <button type="button" onClick={() => { void pickProjectFolder(true); }} disabled={pickingProject} className="btn-base btn-outline mt-2 w-full disabled:cursor-wait disabled:opacity-60"><FolderOpen className="h-3.5 w-3.5" />{pickingProject ? "Selecting…" : workspacePath ? "Change folder" : "Select your folder"}</button>{pickerError && <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-[11px] font-bold text-red-700">{pickerError}</p>}
               </div>
               <button type="button" onClick={() => { void startSession(); }} className="btn-base btn-ink mt-4 w-full">{running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}{running ? "Pause" : "Start Session"}</button><button type="button" onClick={() => { void openAndConnectVsCode(); }} className="btn-base btn-outline mt-2 w-full"><Code2 className="h-4 w-4" />Open VS Code</button><button type="button" onClick={restartSession} className="btn-base btn-outline mt-2 w-full"><RotateCcw className="h-3.5 w-3.5" />Restart your session</button></div>
           </div>
