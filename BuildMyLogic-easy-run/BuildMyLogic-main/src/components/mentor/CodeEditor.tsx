@@ -11,8 +11,11 @@ export function highlightC(code: string): string {
   const re = /(\/\*[\s\S]*?\*\/|\/\/[^\n]*)|("(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|(^[ \t]*#[^\n]*)/gm;
   let out = "";
   let last = 0;
+  // Single pass: chaining replace() calls would re-match digits inside the
+  // span markup inserted by the keyword pass (e.g. font-weight:600).
   const plain = (t: string) =>
-    esc(t).replace(KEYWORDS, '<span style="color:#2563eb;font-weight:600">$1</span>').replace(/\b(\d+(?:\.\d+)?)\b/g, '<span style="color:#b45309">$1</span>');
+    esc(t).replace(/\b(int|char|float|double|void|long|short|unsigned|signed|if|else|for|while|do|switch|case|break|continue|return|const|static|struct|typedef|sizeof|default)\b|\b(\d+(?:\.\d+)?)\b/g, (m, kw, num) =>
+      kw ? `<span style="color:#2563eb;font-weight:600">${kw}</span>` : `<span style="color:#b45309">${num}</span>`);
   for (let m = re.exec(code); m; m = re.exec(code)) {
     out += plain(code.slice(last, m.index));
     const color = m[1] ? "#94a3b8" : m[2] ? "#059669" : "#7c3aed";
