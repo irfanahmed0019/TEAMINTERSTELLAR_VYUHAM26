@@ -226,7 +226,10 @@ export const LESSONS: Lesson[] = [
     ],
     example: { code: '#include <stdio.h>\n\nint main(void) {\n    int n;\n    scanf("%d", &n);\n    printf("Double: %d\\n", n * 2);\n    return 0;\n}\n', output: "Double: 14", stdin: "7" },
     keyPoints: ["%d is int, %f is float, %lf is double (in scanf)", "scanf needs &variable", "Declare a variable before using it"],
-    resources: [{ label: "scanf reference", url: "https://en.cppreference.com/w/c/io/fscanf" }],
+    resources: [
+      { label: "scanf reference", url: "https://en.cppreference.com/w/c/io/fscanf" },
+      { label: "Video: scanf and taking input (CodeWithBasha)", url: "https://www.youtube.com/watch?v=hteZpSeqNK0" },
+    ],
     practice: {
       id: "ex-io",
       title: "Echo a number",
@@ -257,7 +260,11 @@ export const LESSONS: Lesson[] = [
     simpler: ["Read two boxes a and b, make a third box sum = a + b, then print sum."],
     example: { code: '#include <stdio.h>\n\nint main(void) {\n    int a, b;\n    scanf("%d %d", &a, &b);\n    int sum = a + b;\n    printf("%d\\n", sum);\n    return 0;\n}\n', output: "7", stdin: "3 4" },
     keyPoints: ["One scanf can read two values", "Use a variable to hold the result", "Negative numbers work too"],
-    resources: [{ label: "C operators", url: "https://en.cppreference.com/w/c/language/operator_arithmetic" }],
+    resources: [
+      { label: "C operators", url: "https://en.cppreference.com/w/c/language/operator_arithmetic" },
+      { label: "Video: Operators - CS50 Shorts (Doug Lloyd)", url: "https://www.youtube.com/watch?v=f1xZf4iJDWE" },
+      { label: "CS50 Operators short - official course page", url: "https://cs50.harvard.edu/x/shorts/operators/" },
+    ],
     practice: {
       id: "ex-sum",
       title: "Add two numbers",
@@ -317,7 +324,11 @@ export const LESSONS: Lesson[] = [
       output: "3.50\n1",
     },
     keyPoints: ["int / int is an int", "(double)a / b keeps decimals", "Check b == 0 before / or %"],
-    resources: [{ label: "Integer division", url: "https://en.cppreference.com/w/c/language/operator_arithmetic" }],
+    resources: [
+      { label: "Integer division", url: "https://en.cppreference.com/w/c/language/operator_arithmetic" },
+      { label: "Video: Quotient and remainder with / and % (abstractadev)", url: "https://www.youtube.com/watch?v=I07fX_v436k" },
+      { label: "Video: Type conversion and casting (CodeMaster Labs)", url: "https://www.youtube.com/watch?v=GS_LVzQRAWM" },
+    ],
     practice: {
       id: "ex-divmod",
       title: "Quotient and remainder",
