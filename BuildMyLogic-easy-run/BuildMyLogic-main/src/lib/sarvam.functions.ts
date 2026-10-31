@@ -11,6 +11,7 @@ import {
   type LessonState,
 } from "./teaching-guard";
 import { C_CURRICULUM_MAP } from "./curriculum-engine";
+import { CURATED_FOLLOW_UPS, curatedPlan, curatedProjects } from "./curated-fallback";
 
 function key(): string {
   // Read the secret at request time. In Cloudflare/Lovable the custom Worker
@@ -103,18 +104,23 @@ ${data.text}`,
 export const aiFollowUpQuestions = createServerFn({ method: "POST" })
   .validator((input: { profile: Profile }) => input)
   .handler(async ({ data }) => {
-    return await import("./sarvam.server").then(({ sarvamJson }) =>
-      sarvamJson<{ questions: { question: string; placeholder: string }[] }>(
-        key(),
-        COACH,
-        `Based on this builder profile, ask exactly 3 short follow-up questions that you still need answered before designing their build path. Ask about intent, constraints or the specific outcome they want — never about things already answered.
+    try {
+      return await import("./sarvam.server").then(({ sarvamJson }) =>
+        sarvamJson<{ questions: { question: string; placeholder: string }[] }>(
+          key(),
+          COACH,
+          `Based on this builder profile, ask exactly 3 short follow-up questions that you still need answered before designing their build path. Ask about intent, constraints or the specific outcome they want — never about things already answered.
 Return JSON: {"questions": [{"question": string, "placeholder": string}]}
 
 PROFILE:
 ${profileBrief(data.profile)}`,
-        700,
-      ),
-    );
+          700,
+        ),
+      );
+    } catch {
+      // AI offline: honest curated questions, flagged so the UI never calls them AI-written.
+      return { questions: CURATED_FOLLOW_UPS, fallback: true as const };
+    }
   });
 
 export const aiSuggestProjects = createServerFn({ method: "POST" })
@@ -140,19 +146,24 @@ Return JSON: {"projects": [{"title": string, "summary": string (1 sentence), "st
 Use this declared technology stack whenever it is relevant: ${stack}. Do not replace it with C unless the learner selected C.
 Return JSON: {"projects": [{"title": string, "summary": string (1 sentence), "stack": string, "why": string}]}`;
 
-    const result = await import("./sarvam.server").then(({ sarvamJson }) =>
-      sarvamJson<{ projects: { title: string; summary: string; stack: string; why: string }[] }>(
-        key(),
-        COACH,
-        `${instructions}
+    try {
+      const result = await import("./sarvam.server").then(({ sarvamJson }) =>
+        sarvamJson<{ projects: { title: string; summary: string; stack: string; why: string }[] }>(
+          key(),
+          COACH,
+          `${instructions}
 
 PROFILE:
 ${profileBrief(data.profile)}`,
-        1200,
-      ),
-    );
-    requireSelectedStack(data.profile, result.projects ?? []);
-    return result;
+          1200,
+        ),
+      );
+      requireSelectedStack(data.profile, result.projects ?? []);
+      return result;
+    } catch {
+      // AI offline: curated starter projects matched to the declared stack, honestly flagged.
+      return { projects: curatedProjects(data.profile), fallback: true as const };
+    }
   });
 
 const PLAN_SHAPE = `{
@@ -191,24 +202,30 @@ ${PLAN_SHAPE}`
 Return JSON exactly in this shape:
 ${PLAN_SHAPE}`;
 
-    const plan = await import("./sarvam.server").then(({ sarvamJson }) =>
-      sarvamJson<Plan>(
-        key(),
-        COACH,
-        `${planInstructions}
+    try {
+      const plan = await import("./sarvam.server").then(({ sarvamJson }) =>
+        sarvamJson<Plan>(
+          key(),
+          COACH,
+          `${planInstructions}
 
 DECLARED STACK: ${stack}
 
 PROFILE:
 ${profileBrief(data.profile)}`,
-        3000,
-      ),
-    );
-    requireSelectedStack(data.profile, [
-      { title: plan.projectTitle, summary: plan.projectPitch },
-      ...(plan.missions ?? []).map((mission) => ({ title: mission.title, summary: mission.description, stack: mission.stack })),
-    ]);
-    return plan;
+          3000,
+        ),
+      );
+      requireSelectedStack(data.profile, [
+        { title: plan.projectTitle, summary: plan.projectPitch },
+        ...(plan.missions ?? []).map((mission) => ({ title: mission.title, summary: mission.description, stack: mission.stack })),
+      ]);
+      return plan;
+    } catch {
+      // AI offline: curated path (the C curriculum ladder when C is the chosen
+      // stack, otherwise the generic beginner ladder), honestly flagged.
+      return { ...curatedPlan(data.profile), fallback: true as const };
+    }
   });
 
 export const aiRetunePlan = createServerFn({ method: "POST" })

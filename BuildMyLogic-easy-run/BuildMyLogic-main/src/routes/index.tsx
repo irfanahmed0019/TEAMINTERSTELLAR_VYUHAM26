@@ -120,6 +120,7 @@ function Introduction() {
   const [resumeFile, setResumeFile] = useState<string | null>(null);
   const [resumeBusy, setResumeBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [aiFallback, setAiFallback] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [followUps, setFollowUps] = useState<{ question: string; placeholder: string }[]>([]);
   const [followAnswers, setFollowAnswers] = useState<string[]>([]);
@@ -163,6 +164,7 @@ function Introduction() {
     setError(null);
     try {
       const result = await aiFollowUpQuestions({ data: { profile } });
+      if ("fallback" in result && result.fallback) setAiFallback(true);
       const questions = (result.questions ?? []).slice(0, 3);
       setFollowUps(questions);
       setFollowAnswers(questions.map(() => ""));
@@ -184,6 +186,7 @@ function Introduction() {
     setError(null);
     try {
       const result = await aiSuggestProjects({ data: { profile: withAnswers } });
+      if ("fallback" in result && result.fallback) setAiFallback(true);
       setProjects(result.projects ?? []);
       setScreen(7);
     } catch (err) {
@@ -214,6 +217,8 @@ function Introduction() {
     setError(null);
     try {
       const plan = await aiGeneratePlan({ data: { profile: finalProfile } });
+      const usedCurated = "fallback" in plan && plan.fallback;
+      if (usedCurated) setAiFallback(true);
       setLoopState((prev) => ({
         ...prev,
         onboarded: true,
@@ -230,7 +235,12 @@ function Introduction() {
           ]),
         ),
       }));
-      logActivity({ kind: "ai", text: `AI generated your path for “${plan.projectTitle}”` });
+      logActivity({
+        kind: "ai",
+        text: usedCurated
+          ? `Started the curated path for “${plan.projectTitle}” (AI service offline - not AI-generated)`
+          : `AI generated your path for “${plan.projectTitle}”`,
+      });
       setScreen(9);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sarvam AI is unavailable right now.");
@@ -256,6 +266,13 @@ function Introduction() {
       {error && (
         <div className="mb-6 rounded-xl border border-border bg-surface px-4 py-3 text-xs font-medium text-destructive">
           {error}
+        </div>
+      )}
+
+      {aiFallback && (
+        <div className="mb-6 rounded-xl border border-border bg-surface px-4 py-3 text-xs font-medium text-muted-foreground">
+          The AI service is offline right now, so BuildMyLogic is using its curated path instead. Nothing here is
+          AI-generated; you can regenerate a personalised path once the service is back.
         </div>
       )}
 
@@ -643,8 +660,12 @@ function Introduction() {
       {screen === 6 && (
         <section>
           {step("Question 5 of 6")}
-          <h2 className={heading}>A few things the AI still wants to know.</h2>
-          <p className={sub}>Sarvam AI wrote these questions after reading your answers and resume.</p>
+          <h2 className={heading}>{aiFallback ? "A few quick questions." : "A few things the AI still wants to know."}</h2>
+          <p className={sub}>
+            {aiFallback
+              ? "BuildMyLogic's standard questions - the AI service is offline, so these were not written for you personally."
+              : "Sarvam AI wrote these questions after reading your answers and resume."}
+          </p>
           <div className="mt-6 space-y-5">
             {followUps.map((item, index) => (
               <div key={item.question}>
@@ -681,7 +702,11 @@ function Introduction() {
         <section>
           {step("Question 6 of 6")}
           <h2 className={heading}>What do you want to build?</h2>
-          <p className={sub}>BuildMyLogic generated these starting points from your background.</p>
+          <p className={sub}>
+            {aiFallback
+              ? "Curated starter projects matched to your stack - not AI-generated."
+              : "BuildMyLogic generated these starting points from your background."}
+          </p>
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
             {projects.map((project, index) => (
               <button
