@@ -4,6 +4,8 @@ import { loadAppConfig } from './config';
 import { SessionClient, RemoteSession } from './sessionClient';
 import { sidebarHtml } from './webviewHtml';
 import { startBridge, consumeStagedSession, SessionConnect } from './bridge';
+import { MentorClient } from './mentorClient';
+import { MentorPanel, MENTOR_VIEW_ID } from './mentorPanel';
 
 const viewId = 'buildMyLogic.sidebar';
 type Connection = { sessionId: string };
@@ -238,14 +240,17 @@ function valid(v: unknown): v is Message { return !!v && typeof v === 'object' &
 export function activate(context: vscode.ExtensionContext) {
   const config = loadAppConfig();
   const sidebar = new Sidebar(new SessionClient(config.apiBaseUrl));
+  const mentor = new MentorPanel(context, new MentorClient(config.apiBaseUrl));
   const connectSession = (connect: SessionConnect) => sidebar.connectFromUri(vscode.Uri.parse(`vscode://buildmylogic.buildmylogic/connect?sessionId=${encodeURIComponent(connect.sessionId)}&apiBaseUrl=${encodeURIComponent(connect.apiBaseUrl)}`));
   context.subscriptions.push(vscode.window.registerWebviewViewProvider(viewId, sidebar));
+  context.subscriptions.push(vscode.window.registerWebviewViewProvider(MENTOR_VIEW_ID, mentor));
   context.subscriptions.push(vscode.window.registerUriHandler({ handleUri: (uri) => { void sidebar.connectFromUri(uri); } }));
   // Local desktop bridge: lets the BuildMyLogic website pick a project folder
   // and open it here without any dev server running.
   context.subscriptions.push(startBridge(context, {
     extensionVersion: String(context.extension?.packageJSON?.version || ''),
     connectSession: (connect) => connectSession(connect),
+    connectMentor: (connect) => mentor.connectFromBridge(connect),
   }));
   // A folder opened from the website reloads this window; finish its pending
   // session connect here.

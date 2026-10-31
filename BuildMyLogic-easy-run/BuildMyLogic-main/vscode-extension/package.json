@@ -2,8 +2,8 @@
   "name": "buildmylogic",
   "publisher": "buildmylogic",
   "displayName": "BuildMyLogic",
-  "description": "A local-first coding teacher with learning challenges and Python feedback.",
-  "version": "0.0.8",
+  "description": "BuildMyLogic in VS Code: learning challenges plus the AI Mentor - milestones, real graded C submissions, hints and task-aware chat on your persisted learning state.",
+  "version": "0.2.1",
   "files": [
     "dist/**",
     "media/**",
@@ -22,7 +22,8 @@
     "onStartupFinished",
     "onView:buildMyLogic.sidebar",
     "onCommand:buildmylogic.analyzeMyCode",
-    "onUri"
+    "onUri",
+    "onView:buildMyLogic.mentor"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -57,6 +58,11 @@
           "type": "webview",
           "id": "buildMyLogic.sidebar",
           "name": "BuildMyLogic"
+        },
+        {
+          "type": "webview",
+          "id": "buildMyLogic.mentor",
+          "name": "AI Mentor"
         }
       ]
     },

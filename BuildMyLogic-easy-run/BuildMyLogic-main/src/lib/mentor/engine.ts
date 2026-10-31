@@ -161,6 +161,11 @@ function bumpCompetency(c: Competency, kind: "pass" | "fail" | "revision_pass", 
 }
 
 function addHours(h: number) { return new Date(Date.now() + h * 3600_000).toISOString(); }
+export function revisionIsDue(dueAt: string, at = Date.now()): boolean {
+  const due = Date.parse(dueAt);
+  return Number.isFinite(due) && due <= at;
+}
+
 export const REVISION_SCHEDULE_HOURS = [4, 24, 72] as const; // later today, next day, three days
 
 function scheduleRevision(s: MentorState, rev: Omit<Revision, "id" | "status" | "dueAt" | "stage">, stage: number) {

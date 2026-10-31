@@ -7,7 +7,7 @@
  */
 import { authenticatedUserId } from "../request-auth.server";
 import { LESSONS, REMEDIALS, exerciseById, lessonById, type Exercise, type Level } from "./curriculum";
-import { assess, curatedRoadmap, exerciseFor, gradeRun, newState, recordSubmission, unlockedBy, type Attempt, type MentorState, type Roadmap, type RunItem } from "./engine";
+import { assess, curatedRoadmap, exerciseFor, gradeRun, newState, recordSubmission, revisionIsDue, unlockedBy, type Attempt, type MentorState, type Roadmap, type RunItem } from "./engine";
 
 const JUDGE0 = "https://ce.judge0.com";
 const MAX_CODE = 12_000;
@@ -142,7 +142,12 @@ const upsert = (table: string, onConflict: string, rows: unknown[]) =>
 async function loadLatest(userId: string): Promise<MentorState | null> {
   const rows = (await rest(`mentor_sessions?select=state&user_id=eq.${userId}&order=updated_at.desc&limit=1`)) as { state: MentorState }[];
   const st = rows?.[0]?.state;
-  return st && st.version === 1 ? st : null;
+  if (!st || st.version !== 1) return null;
+  // Activity is stored as a separate append-only event, never a full session
+  // upsert: simultaneous saves must not overwrite a graded submission.
+  const events = await rest(`mentor_events?select=detail&session_id=eq.${st.id}&user_id=eq.${userId}&event_type=eq.activity&order=created_at.desc&limit=1`).catch(() => []);
+  try { if (events?.[0]?.detail) st.activity = JSON.parse(events[0].detail); } catch { /* malformed event is ignored */ }
+  return st;
 }
 
 async function loadOwned(userId: string, sessionId: string): Promise<MentorState> {
@@ -206,6 +211,7 @@ function activeExercise(s: MentorState, lessonId: string, exerciseId: string, re
   if (revisionId) {
     const rv = s.revisions.find((r) => r.id === revisionId && r.status === "scheduled");
     if (!rv || rv.exerciseId !== exerciseId || rv.lessonId !== lessonId) throw new HttpError(400, "That revision task is not open.");
+    if (!revisionIsDue(rv.dueAt)) throw new HttpError(409, "This revision is not due yet. Return at its scheduled time so it can check retention.");
     return { exercise: exerciseById(exerciseId)!.exercise, revisionId };
   }
   const lp = s.lessons[lessonId];
@@ -320,8 +326,7 @@ export async function handleMentorApi(request: Request): Promise<Response | null
       if (kind === "file_save") activity.code = String(b["code"] ?? "").slice(0, MAX_CODE);
       else if (kind !== "watch_stopped" && s.activity?.code) activity.code = s.activity.code;
       s.activity = activity;
-      s.updatedAt = new Date().toISOString();
-      await upsert("mentor_sessions", "id", [{ id: s.id, user_id: userId, project_id: s.projectId, language: s.language, level: s.level, roadmap: s.roadmap, state: s, current_lesson_id: s.currentLessonId, updated_at: s.updatedAt }]);
+      await rest("mentor_events", { method: "POST", body: [{ session_id: s.id, user_id: userId, event_type: "activity", detail: JSON.stringify(activity) }], prefer: "return=minimal" });
       return json(request, { ok: true });
     }
 

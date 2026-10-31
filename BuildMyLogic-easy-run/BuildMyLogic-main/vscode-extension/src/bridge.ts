@@ -37,11 +37,24 @@ export interface SessionConnect {
 	apiBaseUrl: string;
 }
 
+/**
+ * AI Mentor connect payload delivered by the signed-in website over the local
+ * bridge. The token is a mentor-scoped, revocable credential (bmlx_...), never
+ * the learner's Supabase session token. It is only stored in VS Code
+ * SecretStorage and is never logged.
+ */
+export interface MentorConnect {
+	apiBaseUrl: string;
+	token: string;
+}
+
 type StagedSessionConnect = SessionConnect & { at: number };
 
 export interface BridgeHandlers {
 	/** Connect an active learning session in the current window. */
 	connectSession(connect: SessionConnect): Promise<void>;
+	/** Deliver a mentor-scoped token for the AI Mentor sidebar. */
+	connectMentor?(connect: MentorConnect): Promise<void>;
 	extensionVersion: string;
 }
 
@@ -95,6 +108,13 @@ function validSessionId(candidate: unknown): string | undefined {
 	if (typeof candidate !== 'string') return undefined;
 	const sessionId = candidate.trim().toUpperCase();
 	return /^[A-Z0-9][A-Z0-9_-]{5,39}$/.test(sessionId) ? sessionId : undefined;
+}
+
+function validMentorToken(candidate: unknown): string | undefined {
+	if (typeof candidate !== 'string') return undefined;
+	const token = candidate.trim();
+	// Mentor-scoped tokens are minted by the website backend as bmlx_<random>.
+	return /^bmlx_[A-Za-z0-9_-]{8,200}$/.test(token) ? token : undefined;
 }
 
 function validApiBaseUrl(candidate: unknown): string | undefined {
@@ -241,6 +261,39 @@ export function startBridge(context: vscode.ExtensionContext, handlers: BridgeHa
 				await openFolderInVsCode(folder, session, context, handlers);
 			})().catch(() => { /* Opening the folder is best-effort; the website already got its answer. */ });
 			return;
+		}
+
+		if (req.method === 'POST' && req.url === '/mentor-connect') {
+			if (!handlers.connectMentor) return json(res, 501, { ok: false, error: 'This extension build cannot connect the AI Mentor.' }, origin);
+			const body = await readBody(req, 8000);
+			let parsed: unknown;
+			try {
+				parsed = JSON.parse(body || '{}');
+			} catch {
+				return json(res, 400, { ok: false, error: 'Request body is not valid JSON.' }, origin);
+			}
+			const fields = parsed as Record<string, unknown>;
+			// The website posts {kind:"mentor-connect", apiBaseUrl, token, sessionId?};
+			// snake_case spellings are accepted for older builds of the site.
+			if (fields.kind !== undefined && fields.kind !== 'mentor-connect') {
+				return json(res, 400, { ok: false, error: 'Unexpected bridge payload kind.' }, origin);
+			}
+			const apiBaseUrl = validApiBaseUrl(fields.api_base_url) ?? validApiBaseUrl(fields.apiBaseUrl);
+			const token = validMentorToken(fields.mentor_token) ?? validMentorToken(fields.token);
+			if (!apiBaseUrl || !token) {
+				return json(res, 400, { ok: false, error: 'A valid API address and mentor token are required.' }, origin);
+			}
+			// Answer only after the token is actually stored: a 200 means the
+			// connection works, a 503 tells the website to show recovery steps.
+			try {
+				await handlers.connectMentor!({ apiBaseUrl, token });
+			} catch (error) {
+				// The real reason stays in the local extension log; the website
+				// gets a sanitized, actionable message with no internals.
+				console.error('[BuildMyLogic] Mentor connect failed:', error instanceof Error ? error.message : error);
+				return json(res, 503, { ok: false, error: 'VS Code could not store the connection securely. Make sure your OS keyring is available (VS Code safe storage) and choose Connect VS Code again.' }, origin);
+			}
+			return json(res, 200, { ok: true }, origin);
 		}
 
 		return json(res, 404, { ok: false, error: 'Not found' }, origin);
