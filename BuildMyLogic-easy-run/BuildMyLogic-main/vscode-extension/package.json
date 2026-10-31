@@ -1,0 +1,94 @@
+{
+  "name": "buildmylogic",
+  "publisher": "buildmylogic",
+  "displayName": "BuildMyLogic",
+  "description": "A local-first coding teacher with learning challenges and Python feedback.",
+  "version": "0.0.8",
+  "files": [
+    "dist/**",
+    "media/**",
+    "package.json",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onView:buildMyLogic.sidebar",
+    "onCommand:buildmylogic.analyzeMyCode",
+    "onUri"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "BuildMyLogic",
+      "properties": {
+        "buildMyLogic.apiBaseUrl": {
+          "type": "string",
+          "default": "https://buildmylogicxyz.vercel.app",
+          "description": "BuildMyLogic API base URL. Use http://localhost:8080 for a local web server. This contains no secret."
+        },
+        "buildMyLogic.session": {
+          "type": "object",
+          "default": {},
+          "scope": "window",
+          "description": "Stored active BuildMyLogic Session ID for the connected learning session."
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "buildMyLogic",
+          "title": "BuildMyLogic",
+          "icon": "media/buildMyLogic.svg"
+        }
+      ]
+    },
+    "views": {
+      "buildMyLogic": [
+        {
+          "type": "webview",
+          "id": "buildMyLogic.sidebar",
+          "name": "BuildMyLogic"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "buildmylogic.analyzeMyCode",
+        "title": "BuildMyLogic: Analyze My Code"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "node esbuild.js",
+    "package": "node esbuild.js --production"
+  },
+  "devDependencies": {
+    "@types/node": "20.x",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.0"
+  },
+  "overrides": {
+    "diff": "^8.0.4",
+    "serialize-javascript": "^7.0.6"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "Local commands and source submissions require a trusted workspace."
+    }
+  }
+}

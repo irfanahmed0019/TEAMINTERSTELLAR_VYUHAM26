@@ -241,7 +241,7 @@ function Sessions() {
       // folder here (the name is saved and the session works); only the
       // direct "open this folder in VS Code" step needs the local bridge.
       if (forOpening) {
-        setPickerError("The local folder bridge is not running, so VS Code cannot open the folder directly. You can still pick the folder below and your session will work. For direct folder opening, run `npm run dev` in BuildMyLogic, then pick the folder again.");
+        setPickerError("The local folder bridge is not running, so VS Code cannot open the folder directly. You can still pick the folder below and your session will work. For direct folder opening, install or update the BuildMyLogic VS Code extension (v0.0.8 or newer) from the extension page and keep VS Code open, then pick the folder again.");
       }
 
       // 2. Browser native file/directory picker fallback
