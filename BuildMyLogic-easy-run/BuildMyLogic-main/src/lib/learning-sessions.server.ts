@@ -35,9 +35,28 @@ function supabaseAdminConfig() {
   return { url, key };
 }
 
+// Serverless instances cache sessions in memory, so a stale instance must
+// never overwrite a further-along status written by another instance
+// (heartbeats fire void persistSession on every beat). Statuses only move
+// forward: active -> connected -> completed/failed/expired.
+const STATUS_RANK: Record<string, number> = { active: 0, connected: 1, completed: 2, failed: 2, expired: 2 };
+const statusRank = (status: string) => STATUS_RANK[status] ?? 0;
+
 async function persistSession(session: LearningSession): Promise<void> {
   const config = supabaseAdminConfig();
   if (!config) return;
+  try {
+    const current = await fetch(`${config.url}/rest/v1/learning_sessions?session_id=eq.${encodeURIComponent(session.sessionId)}&select=status`, {
+      headers: { apikey: config.key, authorization: `Bearer ${config.key}` },
+    });
+    if (current.ok) {
+      const rows = await current.json() as { status?: string }[];
+      const existing = rows[0]?.status;
+      if (existing && statusRank(existing) > statusRank(session.status)) session.status = existing as LearningSession["status"];
+    }
+  } catch {
+    // Best effort: if the read fails, write what this instance knows.
+  }
   const userId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(session.userId) ? session.userId : null;
   try {
     const response = await fetch(`${config.url}/rest/v1/learning_sessions`, {
