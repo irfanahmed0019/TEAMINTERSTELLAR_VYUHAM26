@@ -8,7 +8,7 @@ import { signOut, useAuth } from "@/lib/auth";
 const NAV = [
   { to: "/auth/dashboard", label: "Dashboard", icon: LayoutGrid },
   { to: "/learn", label: "Learn", icon: BookOpen },
-  { to: "/mentor", label: "Chatbot", icon: MessageCircle },
+  { to: "/mentor", label: "AI Mentor", icon: MessageCircle },
   { to: "/missions", label: "Projects", icon: Rocket },
   { to: "/skills", label: "Skill Analysis", icon: Sparkles },
   { to: "/sessions", label: "Sessions", icon: Timer },

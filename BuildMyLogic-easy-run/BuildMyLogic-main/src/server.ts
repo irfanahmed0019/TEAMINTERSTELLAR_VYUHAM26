@@ -2,6 +2,7 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { handleMentorApi } from "./lib/mentor/mentor.api.server";
 import { connectLearningSession, failSession, getHint, getRunPlan, recordEvent, startLearningSession, stateOf, submitProject, verifySession } from "./lib/learning-sessions.server";
 
 type ServerEntry = {
@@ -164,6 +165,9 @@ export default {
         const value = runtimeEnv?.[name];
         if (typeof value === "string" && value.trim()) process.env[name] = value;
       }
+
+      const mentorResponse = await handleMentorApi(request);
+      if (mentorResponse) return mentorResponse;
 
       const apiResponse = await handleBuildMyLogicApi(request);
       if (apiResponse) return apiResponse;
