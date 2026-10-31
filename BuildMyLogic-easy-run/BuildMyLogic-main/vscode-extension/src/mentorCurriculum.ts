@@ -6,7 +6,7 @@
  * web worker ships GET /api/mentor/lessons the client prefers that live data.
  */
 export type MentorTestMeta = { name: string; stdin: string; expected: string; hidden: boolean };
-export type MentorExerciseMeta = { id: string; title: string; prompt: string; starter: string; hints: string[]; skill: string; tests: MentorTestMeta[] };
+export type MentorExerciseMeta = { id: string; title: string; prompt: string; starter: string; hints: string[]; skill: string; tests: MentorTestMeta[]; resources?: { label: string; url: string }[] };
 export type MentorLessonMeta = { id: string; order: number; title: string; objective: string; skill: string; prerequisites: string[]; concepts: string[]; explanation: string[]; example: { code: string; output: string; stdin?: string }; keyPoints: string[]; resources: { label: string; url: string }[]; practice: MentorExerciseMeta };
 
 export const MENTOR_SKILLS: Record<string, string> = {
@@ -603,7 +603,7 @@ export const MENTOR_REMEDIALS: Record<string, MentorExerciseMeta & { remedialFor
   "missing_stdio": {
     "id": "rem-missing_stdio",
     "title": "Targeted practice: include the right header",
-    "prompt": "Write a complete program that prints: Hello, C!\nStart it with the correct #include line.",
+    "prompt": "Mini project: Hello, C!\nBuild a complete program that prints: Hello, C!\nThe tests check the exact printed line. Remember the #include that declares printf.",
     "starter": "int main(void) {\n    return 0;\n}\n",
     "hints": [
       "Which header declares printf?",
@@ -623,7 +623,7 @@ export const MENTOR_REMEDIALS: Record<string, MentorExerciseMeta & { remedialFor
   "scanf_missing_address": {
     "id": "rem-scanf_missing_address",
     "title": "Targeted practice: scanf needs the address",
-    "prompt": "Read your age as an integer and print: Age: <age>",
+    "prompt": "Mini project: Age reader\nBuild a program that reads an age (integer) and prints: Age: <age>\nThe tests type different ages and check the printed line.",
     "starter": "#include <stdio.h>\n\nint main(void) {\n    int age;\n    return 0;\n}\n",
     "hints": [
       "scanf stores into a variable, so it needs where that variable lives.",
@@ -650,12 +650,15 @@ export const MENTOR_REMEDIALS: Record<string, MentorExerciseMeta & { remedialFor
         "hidden": true
       }
     ],
+    "resources": [
+      { "label": "Video: Getting user input with scanf (beginner)", "url": "https://www.youtube.com/watch?v=hteZpSeqNK0" }
+    ],
     "remedialFor": "scanf_missing_address"
   },
   "wrong_format_specifier": {
     "id": "rem-wrong_format_specifier",
     "title": "Targeted practice: match the specifier to the type",
-    "prompt": "Read one decimal number (double) and print: Value: <number with 2 decimals>",
+    "prompt": "Mini project: Decimal echo\nBuild a program that reads one decimal number (double) and prints: Value: <number with 2 decimals>\nThe tests type different numbers and check the formatting.",
     "starter": "#include <stdio.h>\n\nint main(void) {\n    double x;\n    return 0;\n}\n",
     "hints": [
       "scanf uses %lf for double.",
@@ -682,12 +685,16 @@ export const MENTOR_REMEDIALS: Record<string, MentorExerciseMeta & { remedialFor
         "hidden": true
       }
     ],
+    "resources": [
+      { "label": "Video: Getting user input with scanf (beginner)", "url": "https://www.youtube.com/watch?v=hteZpSeqNK0" },
+      { "label": "Video: Type conversion and casting in C, with examples", "url": "https://www.youtube.com/watch?v=GS_LVzQRAWM" }
+    ],
     "remedialFor": "wrong_format_specifier"
   },
   "integer_division": {
     "id": "rem-integer_division",
     "title": "Targeted practice: average with decimals",
-    "prompt": "Read two integers a and b. Print their average with 2 decimals (for example 7 and 2 give 4.50).",
+    "prompt": "Mini project: Average calculator\nBuild a program that reads two integers a and b and prints their average with 2 decimals (7 and 2 give 4.50).\nThe tests try several pairs - watch out for integer division.",
     "starter": "#include <stdio.h>\n\nint main(void) {\n    int a, b;\n    return 0;\n}\n",
     "hints": [
       "(a + b) / 2 is integer division when a and b are ints.",
@@ -721,12 +728,16 @@ export const MENTOR_REMEDIALS: Record<string, MentorExerciseMeta & { remedialFor
         "hidden": true
       }
     ],
+    "resources": [
+      { "label": "Video: Quotient and remainder with / and % in C", "url": "https://www.youtube.com/watch?v=I07fX_v436k" },
+      { "label": "Video: Type conversion and casting in C, with examples", "url": "https://www.youtube.com/watch?v=GS_LVzQRAWM" }
+    ],
     "remedialFor": "integer_division"
   },
   "division_by_zero": {
     "id": "rem-division_by_zero",
     "title": "Targeted practice: safe modulus",
-    "prompt": "Read two integers a and b. If b is 0 print: Undefined\nOtherwise print a % b.",
+    "prompt": "Mini project: Safe remainder\nBuild a program that reads two integers a and b. If b is 0 print: Undefined\nOtherwise print a % b.\nThe tests include b = 0.",
     "starter": "#include <stdio.h>\n\nint main(void) {\n    int a, b;\n    return 0;\n}\n",
     "hints": [
       "Check b first.",
@@ -759,12 +770,15 @@ export const MENTOR_REMEDIALS: Record<string, MentorExerciseMeta & { remedialFor
         "hidden": true
       }
     ],
+    "resources": [
+      { "label": "Video: Quotient and remainder with / and % in C", "url": "https://www.youtube.com/watch?v=I07fX_v436k" }
+    ],
     "remedialFor": "division_by_zero"
   },
   "modulus_confusion": {
     "id": "rem-modulus_confusion",
     "title": "Targeted practice: remainders",
-    "prompt": "Read two positive integers a and b (b is not 0). Print the remainder of a divided by b.",
+    "prompt": "Mini project: Remainder finder\nBuild a program that reads two positive integers a and b (b is not 0) and prints the remainder of a divided by b.\nThe tests check several pairs.",
     "starter": "#include <stdio.h>\n\nint main(void) {\n    int a, b;\n    return 0;\n}\n",
     "hints": [
       "% gives the remainder.",
@@ -797,12 +811,16 @@ export const MENTOR_REMEDIALS: Record<string, MentorExerciseMeta & { remedialFor
         "hidden": true
       }
     ],
+    "resources": [
+      { "label": "Video: Quotient and remainder with / and % in C", "url": "https://www.youtube.com/watch?v=I07fX_v436k" },
+      { "label": "Video: Operators in C - CS50 Shorts", "url": "https://www.youtube.com/watch?v=f1xZf4iJDWE" }
+    ],
     "remedialFor": "modulus_confusion"
   },
   "assignment_in_condition": {
     "id": "rem-assignment_in_condition",
     "title": "Targeted practice: compare with ==",
-    "prompt": "Read two integers. Print Equal if they are the same, otherwise print Different.",
+    "prompt": "Mini project: Equality checker\nBuild a program that reads two integers and prints Equal if they are the same, otherwise Different.\nThe tests try equal and unequal pairs.",
     "starter": "#include <stdio.h>\n\nint main(void) {\n    int a, b;\n    return 0;\n}\n",
     "hints": [
       "Use == inside the if.",
@@ -835,12 +853,15 @@ export const MENTOR_REMEDIALS: Record<string, MentorExerciseMeta & { remedialFor
         "hidden": true
       }
     ],
+    "resources": [
+      { "label": "Video: Operators in C - CS50 Shorts", "url": "https://www.youtube.com/watch?v=f1xZf4iJDWE" }
+    ],
     "remedialFor": "assignment_in_condition"
   },
   "char_whitespace": {
     "id": "rem-char_whitespace",
     "title": "Targeted practice: reading a character",
-    "prompt": "Read an integer then a single letter (for example: 5 x). Print: <letter> repeated <number> times on one line, like xxxxx.",
+    "prompt": "Mini project: Letter repeater\nBuild a program that reads an integer then a single letter (for example: 5 x) and prints the letter repeated that many times on one line, like xxxxx.\nThe tests try different counts and letters.",
     "starter": "#include <stdio.h>\n\nint main(void) {\n    int n; char c;\n    return 0;\n}\n",
     "hints": [
       "Use scanf(\"%d %c\", &n, &c); with a space before %c.",

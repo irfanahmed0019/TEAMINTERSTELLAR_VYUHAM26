@@ -3,7 +3,7 @@
   "publisher": "buildmylogic",
   "displayName": "BuildMyLogic",
   "description": "BuildMyLogic in VS Code: learning challenges plus the AI Mentor - milestones, real graded C submissions, hints and task-aware chat on your persisted learning state.",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "files": [
     "dist/**",
     "media/**",

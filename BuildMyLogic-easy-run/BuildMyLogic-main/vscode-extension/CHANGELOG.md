@@ -4,6 +4,10 @@ All notable changes to the "logic-analyser" extension will be documented in this
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## 0.2.2
+
+- Remedial practice tasks are now framed as mini projects (clear goal plus what the tests check, hints stay progressive). Concept-matched teaching videos verified against their actual captions are attached to the matching remedials (scanf, type casting, quotient/remainder, operators) and shown on the Resources tab under "For the current practice task" when a remedial is active. Videos open externally; embed/region availability is not guaranteed by the extension.
+
 ## 0.2.1
 
 - Results are now attributed: the results card is titled "Results for <task title> (<exercise id>)" and clears when the current task changes, so old results can no longer look like the new task passed. A passed submit also raises a confirmation notification. Revision tasks moved off the Learning tab into the Progress tab (still clickable to work on them), so the current question stays above the fold.

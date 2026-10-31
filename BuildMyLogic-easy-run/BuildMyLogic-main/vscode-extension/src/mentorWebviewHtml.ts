@@ -226,7 +226,12 @@ function renderProgress() {
 
 function renderResources() {
   const lesson = model.current ? model.lessons.find((l) => l.id === model.current.lessonId) : model.lessons.find((l) => l.id === model.state.currentLessonId);
-  let html = '<div class="card"><b>Resources</b>';
+  const ex = model.current ? model.current.exercise : null;
+  let html = '';
+  if (ex && ex.resources && ex.resources.length) {
+    html += '<div class="card"><b>For the current practice task</b>' + ex.resources.map((r) => '<div class="test"><span>' + esc(r.label) + '</span><a href="' + esc(r.url) + '">Open</a></div>').join('') + '<div class="muted">Videos open externally in your browser.</div></div>';
+  }
+  html += '<div class="card"><b>Resources</b>';
   if (lesson && lesson.resources && lesson.resources.length) {
     html += lesson.resources.map((r) => '<div class="test"><span>' + esc(r.label) + '</span><a href="' + esc(r.url) + '">Open</a></div>').join('');
   } else {
