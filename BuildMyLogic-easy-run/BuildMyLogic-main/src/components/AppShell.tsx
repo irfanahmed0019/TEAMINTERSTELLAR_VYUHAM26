@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 import { LayoutGrid, BookOpen, Rocket, Sparkles, Timer, Settings as SettingsIcon, LogOut, Bell, ChevronDown, MessageCircle } from "lucide-react";
-import { resetLoop, setLoopState, useLoop } from "@/lib/loop-store";
+import { getLoopState, resetLoop, setLoopState, useLoop } from "@/lib/loop-store";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
 import { signOut, useAuth } from "@/lib/auth";
 
@@ -21,9 +21,14 @@ export function AppShell({ crumb, title, subtitle, quote, children, wide = false
   const [notice, setNotice] = useState<string | null>(null);
   const name = state.profile?.name?.trim() || "Builder";
   useEffect(() => {
-    if (!state.onboarded) {
-      void navigate({ to: "/" });
-    }
+    if (state.onboarded) return;
+    // During SSR hydration the first client render still carries the empty
+    // server snapshot, so check the real store after hydration settles
+    // instead of bouncing signed-in learners off deep links like /mentor.
+    const timer = window.setTimeout(() => {
+      if (!getLoopState().onboarded) void navigate({ to: "/" });
+    }, 150);
+    return () => window.clearTimeout(timer);
   }, [state.onboarded, navigate]);
 
   useEffect(() => {
