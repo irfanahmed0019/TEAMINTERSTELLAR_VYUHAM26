@@ -344,7 +344,7 @@ function Dashboard() {
                 <div className="mt-5 space-y-4">
                   {[
                     ["Onboarding", "Completed"],
-                    ["Personalized Path", plan ? "Ready" : "Waiting"],
+                    ["Build Path", plan ? "Ready" : "Waiting"],
                     ["Build & Learn", current ? `${currentSteps}/${currentTotalSteps} mission steps` : "Waiting"],
                     ["Prove & Grow", `${doneCount}/${missions.length} missions completed`],
                   ].map(([t, s], i) => (
