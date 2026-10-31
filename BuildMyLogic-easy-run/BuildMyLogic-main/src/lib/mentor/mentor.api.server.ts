@@ -98,6 +98,44 @@ async function rest(path: string, init: { method?: string; body?: unknown; prefe
   return text ? JSON.parse(text) : null;
 }
 
+
+/* --------------------- scoped extension tokens --------------------- */
+
+const EXT_TOKEN_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+
+async function sha256Hex(text: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** Mints a user-bound mentor token for the VS Code extension. Only the SHA-256 hash is stored; the plaintext is returned once. */
+async function issueExtensionToken(userId: string): Promise<{ token: string; expiresAt: string }> {
+  const token = `bmlx_${Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("")}`;
+  const expiresAt = new Date(Date.now() + EXT_TOKEN_TTL_MS).toISOString();
+  await rest("mentor_tokens", { method: "POST", body: [{ token_hash: await sha256Hex(token), user_id: userId, expires_at: expiresAt }], prefer: "return=minimal" });
+  return { token, expiresAt };
+}
+
+/** Resolves a bmlx_ bearer token to its owner. Undefined when unknown, expired or revoked. */
+async function extensionTokenUserId(request: Request): Promise<string | undefined> {
+  const authorization = request.headers.get("authorization")?.trim() ?? "";
+  const token = /^bearer /i.test(authorization) ? authorization.slice(7).trim() : "";
+  if (!/^bmlx_[0-9a-f]{32}$/.test(token)) return undefined;
+  const rows = (await rest(`mentor_tokens?select=user_id,expires_at,revoked_at&token_hash=eq.${await sha256Hex(token)}&limit=1`).catch(() => null)) as { user_id?: string; expires_at?: string; revoked_at?: string | null }[] | null;
+  const row = rows?.[0];
+  if (!row?.user_id || row.revoked_at) return undefined;
+  if (!row.expires_at || Date.parse(row.expires_at) <= Date.now()) return undefined;
+  return row.user_id;
+}
+
+/** Revokes every active extension token owned by the learner. */
+async function revokeExtensionTokens(userId: string): Promise<number> {
+  const rows = (await rest(`mentor_tokens?select=token_hash&user_id=eq.${userId}&revoked_at=is.null`)) as { token_hash: string }[];
+  if (!rows?.length) return 0;
+  await rest(`mentor_tokens?user_id=eq.${userId}&revoked_at=is.null`, { method: "PATCH", body: { revoked_at: new Date().toISOString() }, prefer: "return=minimal" });
+  return rows.length;
+}
+
 const upsert = (table: string, onConflict: string, rows: unknown[]) =>
   rows.length ? rest(`${table}?on_conflict=${onConflict}`, { method: "POST", body: rows, prefer: "resolution=merge-duplicates,return=minimal" }) : Promise.resolve(null);
 
@@ -197,8 +235,44 @@ export async function handleMentorApi(request: Request): Promise<Response | null
       return json(request, { ok: true, items, sandbox: "Judge0 CE public sandbox (ce.judge0.com), GCC 9.2" });
     }
 
-    // Everything below needs a verified account.
-    const userId = await authenticatedUserId(request);
+
+    // Mint a scoped VS Code extension token. Requires the site's own Supabase
+    // session: a bmlx_ token cannot mint more tokens. Plaintext returned once;
+    // only its hash is stored. Delivery to the extension happens over the
+    // loopback bridge by the page, never through URLs or logs.
+    if (request.method === "POST" && p === "/api/mentor/extension-token") {
+      const uid = await authenticatedUserId(request);
+      if (!uid) return json(request, { ok: false, error: "Sign in on the website to connect VS Code." }, 401);
+      if (limited(uid, "ext-token", 6)) return json(request, { ok: false, error: "Too many tokens requested. Try again shortly." }, 429);
+      const { token, expiresAt } = await issueExtensionToken(uid);
+      return json(request, { ok: true, token, expiresAt });
+    }
+
+    // Revoke every active extension token for the signed-in learner ("Disconnect VS Code").
+    if (request.method === "POST" && p === "/api/mentor/extension-token/revoke") {
+      const uid = await authenticatedUserId(request);
+      if (!uid) return json(request, { ok: false, error: "Sign in to manage VS Code connections." }, 401);
+      const revoked = await revokeExtensionTokens(uid);
+      return json(request, { ok: true, revoked });
+    }
+
+    // Public curriculum metadata for the extension. Lesson structure and
+    // starter code only - never hidden tests, expected outputs or solutions.
+    if (request.method === "GET" && p === "/api/mentor/lessons") {
+      if (limited(ip, "lessons", 30)) return json(request, { ok: false, error: "Too many requests. Try again shortly." }, 429);
+      return json(request, {
+        ok: true,
+        project: { id: "arithmetic-c", title: "Arithmetic Operations in C", language: "C" },
+        lessons: LESSONS.map((l) => ({
+          id: l.id, order: l.order, title: l.title, objective: l.objective, skill: l.skill, concepts: l.concepts,
+          exercise: { id: l.practice.id, title: l.practice.title, prompt: l.practice.prompt, starter: l.practice.starter, hintCount: l.practice.hints.length },
+        })),
+      });
+    }
+
+    // Everything below needs a verified account: the site session (Supabase
+    // bearer) or a scoped, revocable extension token resolving to the same owner.
+    const userId = (await authenticatedUserId(request)) ?? (await extensionTokenUserId(request));
     if (!userId) return json(request, { ok: false, error: "Sign in to save and verify your learning." }, 401);
     if (limited(userId, "acct", 40)) return json(request, { ok: false, error: "Too many requests. Try again shortly." }, 429);
 
@@ -214,6 +288,79 @@ export async function handleMentorApi(request: Request): Promise<Response | null
       s.verified = true;
       await persist(userId, s, undefined, `Session started (${level}, roadmap: ${roadmap.source})`);
       return json(request, { ok: true, state: s });
+    }
+
+
+
+    // Live, UNVERIFIED activity signal from the VS Code extension: which
+    // watched file the learner is editing and its current diagnostics. It is
+    // stored for display only - it is never graded and never advances progress.
+    if (request.method === "POST" && p === "/api/mentor/activity") {
+      if (limited(userId, "activity", 20)) return json(request, { ok: false, error: "Too many activity updates." }, 429);
+      const b = await body(request);
+      const s = await loadOwned(userId, String(b["sessionId"]));
+      const kind = String(b["kind"] ?? "");
+      if (!["watch_started", "file_save", "diagnostics", "watch_stopped"].includes(kind)) throw new HttpError(400, "Unknown activity kind.");
+      const file = ((b["file"] ?? {}) as Record<string, unknown>) ?? {};
+      const rel = String(file["path"] ?? "").slice(0, 180).replace(/\\/g, "/");
+      if (rel && (rel.startsWith("/") || /^[a-zA-Z]:/.test(rel) || rel.split("/").some((seg) => seg === ".."))) throw new HttpError(400, "Bad file path.");
+      const diagnostics = (Array.isArray(b["diagnostics"]) ? (b["diagnostics"] as unknown[]) : []).slice(0, 10).map((d) => {
+        const o = (d ?? {}) as Record<string, unknown>;
+        return { line: Math.max(1, Math.min(100000, Number(o["line"]) || 1)), message: String(o["message"] ?? "").slice(0, 300), severity: (o["severity"] === "warning" ? "warning" : "error") as "error" | "warning" };
+      });
+      const lines = Math.max(0, Math.min(200000, Number(file["lines"]) || 0));
+      const activity: NonNullable<MentorState["activity"]> = {
+        kind: kind as NonNullable<MentorState["activity"]>["kind"],
+        status: kind === "watch_stopped" ? "stopped" : "watching",
+        diagnostics,
+        at: new Date().toISOString(),
+      };
+      if (rel) activity.file = rel;
+      if (lines) activity.lines = lines;
+      if (kind === "file_save") activity.code = String(b["code"] ?? "").slice(0, MAX_CODE);
+      else if (kind !== "watch_stopped" && s.activity?.code) activity.code = s.activity.code;
+      s.activity = activity;
+      s.updatedAt = new Date().toISOString();
+      await upsert("mentor_sessions", "id", [{ id: s.id, user_id: userId, project_id: s.projectId, language: s.language, level: s.level, roadmap: s.roadmap, state: s, current_lesson_id: s.currentLessonId, updated_at: s.updatedAt }]);
+      return json(request, { ok: true });
+    }
+
+    // Task-aware mentor chat for the VS Code extension: the same Sarvam logic
+    // the website's mentorAsk uses, callable with a scoped extension token.
+    if (request.method === "POST" && p === "/api/mentor/ask") {
+      if (limited(userId, "ask", 20)) return json(request, { ok: false, error: "Too many messages. Try again shortly." }, 429);
+      const b = await body(request);
+      const kind = String(b["kind"] ?? "");
+      const task: Record<string, string> = {
+        simpler: "Explain the current concept in simpler words with a small analogy.",
+        another_example: "Show one different small C example with its expected output.",
+        why_works: "Explain why the student's current code works or fails, line by line, briefly.",
+        similar_problem: "Give a similar practice problem (statement and sample input/output only, no solution).",
+        explain_mistake: "Explain the student's mistake using the last test feedback. Do not give the full corrected program.",
+        hint: "Give one hint. Do NOT reveal the full answer or complete code.",
+        chat: "Answer the student's question about this lesson only.",
+      };
+      if (!task[kind]) throw new HttpError(400, "Unknown ask kind.");
+      const key = process.env["SARVAM_API_KEY"]?.trim();
+      if (!key || /^(your_|sk_your|sk_placeholder|replace_with_)/i.test(key)) throw new HttpError(503, "The AI service is not configured.");
+      const { sarvamJson } = await import("../sarvam.server");
+      const level = String(b["level"] ?? "").slice(0, 20);
+      const lessonTitle = String(b["lessonTitle"] ?? "").slice(0, 100);
+      const objective = String(b["objective"] ?? "").slice(0, 240);
+      const exercisePrompt = String(b["exercisePrompt"] ?? "").slice(0, 700);
+      const code = String(b["code"] ?? "").slice(0, 4000);
+      const lastFeedback = String(b["lastFeedback"] ?? "").slice(0, 500);
+      const misconceptions = (Array.isArray(b["misconceptions"]) ? (b["misconceptions"] as unknown[]) : []).slice(0, 5).map((x) => String(x).slice(0, 160));
+      const hintsUsed = Number(b["hintsUsed"]) || 0;
+      const message = String(b["message"] ?? "").slice(0, 600);
+      const out = await sarvamJson<{ message?: string }>(
+        key,
+        `You are the BuildMyLogic AI Mentor teaching ${level} students C programming. Stay on the current lesson. Be concise (under 140 words), plain English. Never reveal a full solution. ${task[kind]}`,
+        `Lesson: ${lessonTitle}\nObjective: ${objective}\nExercise: ${exercisePrompt}\nStudent code:\n${code}\nLast test feedback: ${lastFeedback || "none yet"}\nKnown recurring misconceptions: ${misconceptions.join("; ") || "none"}\nHints used so far: ${hintsUsed}\nStudent says: ${message || "(nothing)"}\nReturn JSON {"message": string}.`,
+        600,
+      );
+      if (!out.message) throw new HttpError(502, "The AI returned an empty answer.");
+      return json(request, { ok: true, message: String(out.message).slice(0, 1500) });
     }
 
     if (request.method === "POST" && p === "/api/mentor/select-lesson") {

@@ -236,6 +236,23 @@ function Workspace({ state, commit, persist, signedIn, onReset }: { state: Mento
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [decision, setDecision] = useState("");
   const [busy, setBusy] = useState<"run" | "submit" | "ask" | null>(null);
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
+  useEffect(() => {
+    if (!state.verified) return;
+    const t = setInterval(() => {
+      if (busyRef.current) return;
+      void mentorApi<{ state: MentorState | null }>("/api/mentor/sessions/latest", { method: "GET" })
+        .then((d) => {
+          const act = d.state?.activity;
+          const cur = stateRef.current;
+          if (cur && act && act.at !== cur.activity?.at) void commit({ ...cur, activity: act });
+        })
+        .catch(() => { /* offline or signed out: ignore */ });
+    }, 20000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.verified]);
   const [error, setError] = useState<string | null>(null);
   const [mentor, setMentor] = useState<Mentor | null>(null);
   const [question, setQuestion] = useState("");
@@ -387,6 +404,7 @@ function Workspace({ state, commit, persist, signedIn, onReset }: { state: Mento
             <p className="mt-2 text-[11px] text-gray-400">Your level</p>
             <Pill tone="green">{LEVEL_RULES[state.level].label}</Pill>
             <button type="button" onClick={() => { if (confirm("Start a new learning session? Your current session stays saved only if you are signed in.")) onReset(); }} className="mt-3 block text-[12px] font-semibold text-blue-600 hover:underline">New learning session</button>
+            {signedIn && state.verified ? <ConnectVsCode sessionId={state.id} activity={state.activity} /> : null}
           </Card>
           <Card className="p-4">
             <p className="mb-2 text-[13.5px] font-bold">Learning steps</p>
@@ -624,3 +642,55 @@ function ProgressPanel({ state, onRevision }: { state: MentorState; onRevision: 
 }
 
 export { useMemo };
+
+/** Sends the live mentor session to the VS Code extension over the local
+ *  loopback bridge (127.0.0.1:8091). The scoped token is minted on demand and
+ *  travels only in this POST body - never in a URL, log or paste field. */
+function ConnectVsCode({ sessionId, activity }: { sessionId: string; activity?: MentorState["activity"] }) {
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  async function connect() {
+    setBusy(true);
+    setNote(null);
+    try {
+      const health = await fetch("http://127.0.0.1:8091/health", { cache: "no-store", signal: AbortSignal.timeout(900) }).catch(() => null);
+      if (!health?.ok) throw new Error("__bridge_down__");
+      const { token } = await mentorApi<{ token: string }>("/api/mentor/extension-token", { body: {} });
+      const res = await fetch("http://127.0.0.1:8091/mentor-connect", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: "mentor-connect", apiBaseUrl: window.location.origin, token, sessionId }),
+        signal: AbortSignal.timeout(2000),
+      });
+      const r = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+      if (!res.ok || !r?.ok) throw new Error(r?.error || "VS Code refused the connection.");
+      setNote({ ok: true, text: "Connected. This mentor session is now in the VS Code sidebar." });
+    } catch (e) {
+      setNote({ ok: false, text: e instanceof Error && e.message === "__bridge_down__" ? "VS Code bridge not found. Open VS Code with the BuildMyLogic extension installed, then try again." : errMsg(e) });
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="mt-3 border-t border-gray-100 pt-3">
+      <button type="button" disabled={busy} onClick={() => void connect()} className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-[12px] font-bold text-blue-700 hover:bg-blue-100 disabled:opacity-50">
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+        Connect VS Code
+      </button>
+      {note ? (
+        <p className={`mt-1.5 text-[11.5px] ${note.ok ? "text-emerald-600" : "text-amber-700"}`}>{note.text}</p>
+      ) : (
+        <p className="mt-1.5 text-[11.5px] text-gray-400">Sends this session to the BuildMyLogic extension on this computer. Nothing to copy.</p>
+      )}
+      {activity ? (
+        <p className="mt-1.5 text-[11.5px] text-gray-500">
+          {activity.status === "watching"
+            ? `VS Code is watching ${activity.file ?? "your exercise file"}${activity.diagnostics?.length ? ` - ${activity.diagnostics.length} problem${activity.diagnostics.length === 1 ? "" : "s"}${activity.lines ? `, ${activity.lines} lines` : ""}` : ""}`
+            : "VS Code is not watching right now"}
+          {activity.at ? ` (synced ${new Date(activity.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })})` : ""}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+

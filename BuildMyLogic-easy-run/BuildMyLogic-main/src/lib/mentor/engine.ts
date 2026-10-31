@@ -50,11 +50,20 @@ export type MisconceptionRecord = { id: string; concept: string; count: number; 
 export type Revision = { id: string; skill: string; concept: string; exerciseId: string; lessonId: string; misconceptionId?: string; stage: number; dueAt: string; status: "scheduled" | "done"; reason: string; completedAt?: string };
 export type MentorEvent = { ts: string; type: string; detail: string };
 
+export type MentorActivity = {
+  kind: "watch_started" | "file_save" | "diagnostics" | "watch_stopped";
+  status: "watching" | "stopped";
+  file?: string; lines?: number; code?: string;
+  diagnostics?: { line: number; message: string; severity: "error" | "warning" }[];
+  at: string; // server receive time; client clocks are not trusted
+};
 export type MentorState = {
   version: 1; /** true only when created and graded by the server for a signed-in account */ verified?: boolean; id: string; projectId: string; language: string; level: Level; roadmap: Roadmap;
   currentLessonId: string; lessons: Record<string, LessonProgress>; attempts: Attempt[];
   competencies: Record<string, Competency>; misconceptions: Record<string, MisconceptionRecord>;
   revisions: Revision[]; events: MentorEvent[]; createdAt: string; updatedAt: string;
+  /** Latest unverified activity signal from the VS Code extension. Never graded, never progress evidence. */
+  activity?: MentorActivity;
 };
 
 const now = () => new Date().toISOString();
