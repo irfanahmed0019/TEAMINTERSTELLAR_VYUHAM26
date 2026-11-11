@@ -44,9 +44,9 @@ export function ConversationalOnboarding() {
       setMessages((old) => [...old, { role: "mentor", text: prompts[nextAnswers.length] }]);
       return;
     }
-    const goal = nextAnswers[0];
-    const experienceText = nextAnswers[1];
-    const scheduleText = nextAnswers[2];
+    const goal = nextAnswers[0] ?? "";
+    const experienceText = nextAnswers[1] ?? "";
+    const scheduleText = nextAnswers[2] ?? "";
     const isBeginner = /beginner|new|never|zero|no experience/i.test(experienceText);
     const techMatch = goal.match(/\b(python|javascript|typescript|java|c\+\+|c|react|django|html|css|machine learning|data science)\b/i);
     const tech = techMatch?.[0] ?? "Python";
