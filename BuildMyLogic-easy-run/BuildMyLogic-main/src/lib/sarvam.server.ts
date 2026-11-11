@@ -1,4 +1,4 @@
-const ENDPOINT = "https://api.sarvam.ai/v1/chat/completions";
+const ENDPOINT = "https://api.sarvam.ai/v2/chat/completions";
 
 export type Msg = { role: "system" | "user" | "assistant"; content: string };
 
@@ -30,11 +30,14 @@ export async function sarvamChat(apiKey: string, messages: Msg[], maxTokens = 80
           "api-subscription-key": apiKey.trim(),
         },
         body: JSON.stringify({
-          model: process.env["SARVAM_MODEL"]?.trim() || "sarvam-105b",
+          model: process.env["SARVAM_MODEL"]?.trim() || "glm5.3-flash",
           messages,
           temperature: 0.1,
           max_tokens: maxTokens,
-          reasoning_effort: null,
+          // Token Factory reasoning levels: low | high | max (default high).
+          // Low keeps beginner-tutor replies fast and cheap; user prefers
+          // minimal reasoning-token spend (his own sarvam-code runs ran off).
+          reasoning_effort: "low",
           response_format: { type: "json_object" },
         }),
         signal: controller.signal,
