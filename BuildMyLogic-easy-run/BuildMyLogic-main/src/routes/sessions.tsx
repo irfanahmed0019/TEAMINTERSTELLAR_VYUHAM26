@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { CalendarDays, Check, CheckCircle2, ChevronDown, Code2, FolderOpen, Flame, Pause, Play, RotateCcw, ShieldCheck, Sparkles, Timer, Upload, X, XCircle } from "lucide-react";
+import { ArrowRight, Check, CheckCircle2, ChevronDown, Clock3, Code2, FolderOpen, Lightbulb, Pause, Play, RotateCcw, ShieldCheck, Sparkles, Timer, Upload, X, XCircle } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { applyBuildSessionEvidence, applySarvamDashboardPlan, getLoopState, logActivity, recordMissionEvidence, setLoopState, useLoop } from "@/lib/loop-store";
 import type { BuildSessionState, SessionReview } from "@/lib/loop-types";
@@ -9,18 +9,25 @@ import { getAuthSessionForApi } from "@/lib/auth";
 import type { ProjectReview } from "@/lib/project-review";
 
 export const Route = createFileRoute("/sessions")({ head: () => ({ meta: [{ title: "Sessions — BuildMyLogic" }] }), component: Sessions });
-function fmt(total: number) { return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`; }
 const BRIDGE_URL = "http://127.0.0.1:8091";
 type RemoteSessionState = BuildSessionState & { extension_status: string; checkpoints?: RemoteCheckpoint[] };
 type RemoteCheckpoint = { index: number; title: string; detail: string; status: "locked" | "active" | "passed" | "failed"; evidence?: "not_verified" | "detected" | "verified"; attempts: number; lastOutput?: string };
 
+function difficultyLabel(difficulty: number) {
+  if (difficulty <= 1) return "Beginner";
+  if (difficulty === 2) return "Intermediate";
+  return "Advanced";
+}
+
 function Sessions() {
   const state = useLoop();
+  const navigate = useNavigate();
   const plan = state.plan;
   const sessionPlan = plan?.session;
   const planned = sessionPlan?.totalMinutes ?? 45;
   const missions = plan?.missions ?? [];
   const activeMission = missions.find((m) => state.missionProgress[m.id]?.status !== "done") ?? missions[0];
+  const nextMission = activeMission ? missions[missions.findIndex((m) => m.id === activeMission.id) + 1] : undefined;
   const storedStartedAt = typeof window !== "undefined" ? Number(window.localStorage.getItem("loop-session-started-at") || 0) : 0;
   const storedDuration = typeof window !== "undefined" ? Number(window.localStorage.getItem("loop-session-duration") || 0) : 0;
   const initialRemaining = storedStartedAt && storedDuration ? Math.max(0, storedDuration - Math.floor((Date.now() - storedStartedAt) / 1000)) : planned * 60;
@@ -133,11 +140,21 @@ function Sessions() {
   const pct = startRef.current ? Math.min(100, ((startRef.current - seconds) / startRef.current) * 100) : 0;
   const total = state.sessions.reduce((sum, item) => sum + item.minutes, 0);
   const currentTasks = sessionPlan?.tasks ?? [{ title: "Read the mission brief", minutes: 5 }, { title: "Implement the next piece", minutes: 25 }, { title: "Run and verify your work", minutes: 10 }, { title: "Write down what changed", minutes: 5 }];
-  const currentHistory = state.sessions.filter((item) => item.missionTitle === activeMission?.title);
   const extensionStatus = remoteState?.extension_status ?? vscodeSession?.status ?? "waiting";
   const extensionConnected = extensionStatus === "active" || extensionStatus === "connected";
   const sessionLabel = extensionStatus === "completed" ? "Challenge completed" : extensionStatus === "failed" ? "Recovery mode" : extensionStatus === "disconnected" ? "VS Code disconnected" : extensionConnected ? "VS Code connected" : "Waiting for VS Code";
-  const score = remoteState?.test_score ? `${remoteState.test_score.passed}/${remoteState.test_score.total}` : "Not run";
+  const remoteCheckpoints = (remoteState?.checkpoints ?? []) as RemoteCheckpoint[];
+  const verifiedCount = remoteCheckpoints.length
+    ? remoteCheckpoints.filter((task) => (task.evidence ?? (task.status === "passed" ? "verified" : "not_verified")) === "verified").length
+    : done.length;
+  const tasksTotal = remoteCheckpoints.length || currentTasks.length;
+  const testsLabel = remoteState?.test_score ? `${remoteState.test_score.passed} / ${remoteState.test_score.total}` : `${verifiedCount} / ${tasksTotal}`;
+  const attemptsLabel = remoteState ? remoteState.attempts : Math.max(1, state.sessions.length + 1);
+  const activeStepsDone = activeMission ? (state.missionProgress[activeMission.id]?.completedSteps?.length ?? 0) : 0;
+  const activeStepsTotal = activeMission?.steps.length ?? 1;
+  const missionPct = activeMission ? Math.min(100, Math.round((activeStepsDone / activeStepsTotal) * 100)) : 0;
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  const todayMinutes = state.sessions.filter((s) => s.at >= todayStart.getTime()).reduce((sum, s) => sum + s.minutes, 0) + (running || seconds < startRef.current ? elapsed : 0);
 
   async function createVscodeSession() {
     if (!activeMission) throw new Error("No active mission is selected.");
@@ -256,11 +273,6 @@ function Sessions() {
     }
   }
 
-  function saveWorkspace(value: string) {
-    setWorkspacePath(value);
-    window.localStorage.setItem("loop-vscode-path", value.trim());
-  }
-
   function restartSession() {
     const duration = planned * 60;
     startRef.current = duration;
@@ -316,6 +328,12 @@ function Sessions() {
     } catch (error) {
       setPickerError(error instanceof Error ? error.message : "Could not connect VS Code.");
     }
+  }
+
+  function disconnectVsCode() {
+    setVscodeSession(null);
+    setRemoteState(null);
+    window.localStorage.removeItem("bml-vscode-session");
   }
 
   async function copySessionId() {
@@ -397,54 +415,226 @@ function Sessions() {
     } finally { setZipBusy(false); }
   }
 
-  return <AppShell crumb="Sessions" title="Your Learning Sessions" subtitle="Stay consistent. Build a better you, one session at a time." quote="Small sessions, big progress." wide>
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="flex gap-2"><button className="btn-base btn-ink">All Sessions</button><button className="btn-base btn-outline">Current</button><button className="btn-base btn-outline">Upcoming</button><button className="btn-base btn-outline">Past</button></div>
-      <button type="button" onClick={() => { void startSession(true); }} className="btn-base btn-ink"><span className="text-lg leading-none">+</span> Start a New Session</button>
+  return <AppShell crumb="Sessions" title="Your Learning Sessions" subtitle="Code, build and improve with real projects." quote="Turn your learning into real work." wide>
+    {/* VS Code Integration banner */}
+    <section className="card-surface flex flex-wrap items-center gap-4 p-5">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary">
+        <Code2 className="h-6 w-6" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <h2 className="text-[16px] font-extrabold">VS Code Integration</h2>
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${extensionConnected ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${extensionConnected ? "bg-emerald-500" : "bg-red-500"}`} />
+            {extensionConnected ? "Connected" : "Not connected"}
+          </span>
+        </div>
+        <p className="mt-0.5 text-[13px] text-muted-foreground">
+          {extensionConnected
+            ? "BuildMyLogic extension is running and tracking your progress."
+            : vscodeSession
+              ? `${sessionLabel}. Open VS Code and paste the Session ID into the extension.`
+              : "Connect the BuildMyLogic extension to track your real work."}
+        </p>
+      </div>
+      <div className="flex items-center gap-2.5">
+        <button type="button" onClick={() => { void openAndConnectVsCode(); }} disabled={pickingProject} className="btn-base btn-outline rounded-full disabled:cursor-wait disabled:opacity-60">
+          <Code2 className="h-4 w-4" /> Open VS Code
+        </button>
+        {vscodeSession ? (
+          <button type="button" onClick={disconnectVsCode} className="rounded-full px-3 py-2 text-[13px] font-semibold text-muted-foreground hover:bg-muted">
+            Disconnect
+          </button>
+        ) : (
+          <a href="/extension.html" className="rounded-full px-3 py-2 text-[13px] font-semibold text-accent-foreground hover:bg-muted">
+            Install extension →
+          </a>
+        )}
+      </div>
+    </section>
+
+    {remoteState?.project_review && <SessionProjectReview review={remoteState.project_review} />}
+
+    {/* Current Session + Your Progress */}
+    <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-12">
+      <section className="card-surface p-6 sm:p-7 lg:col-span-7">
+        <div className="flex h-full flex-col justify-between gap-6 sm:flex-row">
+          <div className="min-w-0">
+            <span className="pill bg-primary-soft text-accent-foreground">Current Session</span>
+            <h2 className="display mt-4 text-[22px] font-extrabold leading-tight tracking-[-0.02em]">{activeMission?.title ?? "Your build"}</h2>
+            <p className="mt-2 max-w-md text-[13.5px] leading-6 text-muted-foreground">{activeMission?.description ?? "Build something useful and prove what you learned."}</p>
+            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12.5px] font-medium text-muted-foreground">
+              <span className="flex items-center gap-1.5"><Timer className="h-4 w-4 text-primary" />Level {difficultyLabel(activeMission?.difficulty ?? 1)}</span>
+              <span className="flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-primary" />{(activeMission?.skills ?? []).join(" · ") || "Skills"}</span>
+              <span className="flex items-center gap-1.5"><Clock3 className="h-4 w-4 text-primary" />Est. Time ~{activeMission?.minutes ?? planned} min</span>
+            </div>
+            <div className="mt-5 flex flex-wrap items-center gap-2.5">
+              <button type="button" onClick={() => { void startSession(); }} disabled={!activeMission} className="btn-base btn-primary-solid">
+                {running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                {running ? "Pause Session" : seconds < startRef.current ? "Continue Session" : "Start Session"}
+              </button>
+              <a href="#session-tasks" className="btn-base btn-outline">
+                View Tasks
+              </a>
+              {(running || seconds < startRef.current) && (
+                <button type="button" onClick={restartSession} className="flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-[12px] font-semibold text-muted-foreground hover:bg-muted">
+                  <RotateCcw className="h-3.5 w-3.5" /> Restart
+                </button>
+              )}
+            </div>
+            {(running || seconds < startRef.current) && (
+              <p className="mt-3 text-[12px] font-semibold text-muted-foreground">
+                {running ? "● Live now" : "Ⅱ Paused"} · {elapsed} min elapsed · {Math.max(0, Math.ceil(seconds / 60))} min remaining
+              </p>
+            )}
+          </div>
+          <div className="relative hidden h-32 w-40 shrink-0 items-center justify-center sm:flex">
+            <div className="absolute inset-0 rounded-full bg-primary-soft" />
+            <div className="relative flex h-20 w-28 items-center justify-center rounded-2xl border border-primary/20 bg-card shadow-sm">
+              <Code2 className="h-8 w-8 text-primary" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="card-surface p-6 lg:col-span-5">
+        <div className="flex items-center justify-between">
+          <h3 className="text-[16px] font-extrabold">Your Progress</h3>
+          <span className="text-[13px] font-bold">{missionPct}% Complete</span>
+        </div>
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${missionPct}%` }} />
+        </div>
+        <div className="mt-4 space-y-1.5">
+          {(activeMission?.steps ?? []).map((step, index) => {
+            const isDone = activeMission ? (state.missionProgress[activeMission.id]?.completedSteps?.includes(index) ?? false) : false;
+            const isCurrent = !isDone && index === activeStepsDone;
+            return (
+              <div key={step.title} className={`flex items-center gap-3 rounded-xl px-3 py-2.5 ${isCurrent ? "bg-primary-soft" : ""}`}>
+                <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${isDone ? "bg-emerald-500 text-white" : isCurrent ? "border-2 border-primary bg-card" : "border-2 border-border"}`}>
+                  {isDone && <Check className="h-3 w-3" strokeWidth={3.2} />}
+                </span>
+                <p className={`text-[13px] ${isDone ? "font-semibold" : isCurrent ? "font-semibold" : "text-muted-foreground"}`}>
+                  {step.title} {isCurrent && <span className="font-bold text-accent-foreground">(Current)</span>}
+                </p>
+              </div>
+            );
+          })}
+          {!activeMission && <p className="text-[13px] font-semibold text-muted-foreground">Finish onboarding to unlock your session plan.</p>}
+        </div>
+      </section>
     </div>
 
-    <ExtensionInstallBanner />
-    {remoteState?.project_review && <SessionProjectReview review={remoteState.project_review} />}
-    <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
-      <div className="space-y-5">
-        <section className="card-surface p-5">
-          <div className="flex items-center justify-between"><div><p className="text-[11px] font-black uppercase tracking-wider text-primary">Current session</p><h2 className="mt-1 text-xl font-black">{activeMission?.title ?? "Your build"}</h2></div><span className="pill bg-primary-soft text-black">{running ? "✦ Live Now" : seconds < startRef.current ? "Ⅱ Paused" : "○ Ready"}</span></div>
-          <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_220px]">
-            <div className="flex gap-4"><div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-black text-white"><Code2 className="h-7 w-7" /></div><div className="min-w-0 flex-1"><p className="text-sm font-black">{activeMission?.stack ?? "Build"} <span className="mx-1">•</span> Difficulty {activeMission?.difficulty ?? 1}</p><p className="mt-2 text-sm font-semibold">{activeMission?.description ?? "Build something useful and prove what you learned."}</p><div className="mt-4 h-2.5 rounded-full bg-black/10"><div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} /></div><div className="mt-2 flex justify-between text-xs font-black"><span>{elapsed} min elapsed</span><span>{Math.max(0, Math.ceil(seconds / 60))} min remaining</span></div></div></div>
-            <div className="border-t-2 border-black/10 pt-4 lg:border-l-2 lg:border-t-0 lg:pl-5"><p className="text-xs font-black">Tests / Tasks Passed</p><p className="display text-2xl font-black">{done.length} / {currentTasks.length}</p><p className="mt-4 text-xs font-black">Attempts</p><p className="text-xl font-black">{Math.max(1, state.sessions.length + 1)}</p>
-              <div className="mt-4 rounded-xl border border-black/10 bg-black/[0.02] px-3 py-2.5">
-                <p className="text-[10px] font-black uppercase tracking-wider text-black/45">Project folder</p>
-                <p className="mt-1 break-all text-xs font-bold">{workspacePath || "No folder selected"}</p>
-                <button type="button" onClick={() => { void pickProjectFolder(true); }} disabled={pickingProject} className="btn-base btn-outline mt-2 w-full disabled:cursor-wait disabled:opacity-60"><FolderOpen className="h-3.5 w-3.5" />{pickingProject ? "Selecting…" : workspacePath ? "Change folder" : "Select your folder"}</button>{pickerError && <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-[11px] font-bold text-red-700">{pickerError}</p>}
-              </div>
-              <button type="button" onClick={() => { void startSession(); }} className="btn-base btn-ink mt-4 w-full">{running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}{running ? "Pause" : "Start Session"}</button><button type="button" onClick={() => { void openAndConnectVsCode(); }} className="btn-base btn-outline mt-2 w-full"><Code2 className="h-4 w-4" />Open VS Code</button><button type="button" onClick={restartSession} className="btn-base btn-outline mt-2 w-full"><RotateCcw className="h-3.5 w-3.5" />Restart your session</button></div>
+    {/* Stat tiles */}
+    <div className="mt-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <section className="card-surface p-5">
+        <div className="flex items-center gap-2 text-[12px] font-semibold text-muted-foreground"><Code2 className="h-4 w-4 text-primary" />Tests / Tasks Passed</div>
+        <p className="display mt-2 text-[24px] font-black">{testsLabel}</p>
+      </section>
+      <section className="card-surface p-5">
+        <div className="flex items-center gap-2 text-[12px] font-semibold text-muted-foreground"><RotateCcw className="h-4 w-4 text-primary" />Attempts</div>
+        <p className="display mt-2 text-[24px] font-black">{attemptsLabel}</p>
+      </section>
+      <section className="card-surface p-5">
+        <div className="flex items-center gap-2 text-[12px] font-semibold text-muted-foreground"><FolderOpen className="h-4 w-4 text-primary" />Project Folder</div>
+        <p className="mt-2 break-all text-[13px] font-bold leading-5">{workspacePath || projectFolder || "No folder selected"}</p>
+        <button type="button" onClick={() => { void pickProjectFolder(true); }} disabled={pickingProject} className="btn-base btn-outline mt-2.5 w-full py-1.5 text-[11.5px] disabled:cursor-wait disabled:opacity-60">
+          <FolderOpen className="h-3.5 w-3.5" />{pickingProject ? "Selecting…" : workspacePath || projectFolder ? "Change Folder" : "Select Folder"}
+        </button>
+        {pickerError && <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-[11px] font-bold text-red-700">{pickerError}</p>}
+      </section>
+      <section className="card-surface p-5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-[12px] font-semibold text-muted-foreground"><ShieldCheck className="h-4 w-4 text-primary" />Session ID</div>
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${extensionConnected ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${extensionConnected ? "bg-emerald-500" : "bg-red-500"}`} />
+            {extensionConnected ? "Connected" : "Not connected"}
+          </span>
+        </div>
+        {vscodeSession ? (
+          <>
+            <button type="button" title="Click to copy session ID" aria-label="Copy session ID" onClick={() => { void copySessionId(); }} className="mt-2.5 flex w-full items-center justify-center rounded-xl bg-ink px-3 py-2.5 text-center text-lg font-black tracking-[0.08em] text-ink-foreground transition hover:opacity-85">
+              {vscodeSession.sessionId}
+            </button>
+            <p className="mt-1.5 text-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Click the ID to copy</p>
+            {copyNotice && <p className="mt-1.5 text-center text-[10px] font-bold text-emerald-700">{copyNotice}</p>}
+          </>
+        ) : (
+          <p className="mt-2.5 rounded-xl bg-muted px-3 py-3.5 text-center text-[12px] font-semibold text-muted-foreground">Open VS Code to generate an ID.</p>
+        )}
+      </section>
+    </div>
+
+    {/* Session Activity + Next in Your Path */}
+    <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-12">
+      <section className="card-surface p-5 sm:p-6 lg:col-span-7">
+        <div className="flex items-center gap-2.5">
+          <Clock3 className="h-[18px] w-[18px] text-primary" />
+          <h2 className="text-[16px] font-extrabold">Session Activity</h2>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-2xl bg-muted/70 p-4 text-center">
+            <Code2 className="mx-auto h-5 w-5 text-primary" />
+            <p className="display mt-2 text-[20px] font-black">{todayMinutes} min</p>
+            <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">Coding Time</p>
           </div>
-        </section>
+          <div className="rounded-2xl bg-muted/70 p-4 text-center">
+            <Timer className="mx-auto h-5 w-5 text-primary" />
+            <p className="display mt-2 text-[20px] font-black">{state.sessions.length}</p>
+            <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">Sessions Logged</p>
+          </div>
+          <div className="rounded-2xl bg-muted/70 p-4 text-center">
+            <CheckCircle2 className="mx-auto h-5 w-5 text-primary" />
+            <p className="display mt-2 text-[20px] font-black">{verifiedCount} / {tasksTotal}</p>
+            <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">Tasks Verified</p>
+          </div>
+          <div className="rounded-2xl bg-muted/70 p-4 text-center">
+            <CheckCircle2 className={`mx-auto h-5 w-5 ${extensionConnected ? "text-emerald-600" : "text-muted-foreground"}`} />
+            <p className="display mt-2 text-[20px] font-black">{extensionConnected ? "Synced" : "Local"}</p>
+            <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">Evidence</p>
+          </div>
+        </div>
+      </section>
 
-        {vscodeSession && <section className="card-surface border-2 border-primary/30 bg-primary-soft/30 p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-[11px] font-black uppercase tracking-wider text-primary">BuildMyLogic ↔ VS Code</p><h2 className="mt-1 text-lg font-black">{remoteState?.title ?? activeMission?.title}</h2></div><span className={`rounded-full px-3 py-1 text-xs font-black ${extensionStatus === "completed" || extensionConnected ? "bg-emerald-100 text-emerald-800" : extensionStatus === "failed" || extensionStatus === "disconnected" ? "bg-amber-100 text-amber-800" : "bg-white text-black/60"}`}>● {sessionLabel}</span></div><div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4"><div className="rounded-xl bg-white p-3"><p className="text-[10px] font-black uppercase text-black/50">Attempts</p><p className="mt-1 text-xl font-black">{remoteState?.attempts ?? 0}</p></div><div className="rounded-xl bg-white p-3"><p className="text-[10px] font-black uppercase text-black/50">Tests</p><p className="mt-1 text-xl font-black">{score}</p></div><div className="rounded-xl bg-white p-3"><p className="text-[10px] font-black uppercase text-black/50">Hints</p><p className="mt-1 text-xl font-black">{remoteState?.hints_used ?? 0}</p></div><div className="rounded-xl bg-white p-3"><p className="text-[10px] font-black uppercase text-black/50">Learning state</p><p className="mt-1 text-sm font-black">{remoteState?.status === "completed" ? "Skill proven ✓" : remoteState?.potential_struggle ? "Needs attention" : remoteState?.status ?? "active"}</p></div></div>{remoteState?.latest_mentor_feedback && <p className="mt-4 rounded-xl bg-black px-4 py-3 text-sm font-bold text-white">BuildMyLogic Mentor: {remoteState.latest_mentor_feedback}</p>}</section>}
+      <section className="rounded-2xl border border-primary/20 bg-primary-soft/60 p-5 sm:p-6 lg:col-span-5">
+        <div className="flex items-center gap-2.5">
+          <Lightbulb className="h-[18px] w-[18px] text-primary" />
+          <h2 className="text-[16px] font-extrabold">Next in Your Path</h2>
+        </div>
+        {nextMission ? (
+          <>
+            <div className="mt-4 flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-card text-primary"><Code2 className="h-5 w-5" /></span>
+              <div className="min-w-0">
+                <p className="text-[14.5px] font-bold">{nextMission.title}</p>
+                <p className="mt-0.5 line-clamp-2 text-[12.5px] leading-5 text-muted-foreground">{nextMission.description}</p>
+              </div>
+            </div>
+            <button type="button" onClick={() => void navigate({ to: "/learn" })} className="btn-base btn-outline mt-4 rounded-full bg-card">
+              View Next Task <ArrowRight className="h-4 w-4" />
+            </button>
+          </>
+        ) : (
+          <p className="mt-4 text-[13px] font-semibold text-muted-foreground">
+            {activeMission ? "This is the last mission on your path. Finish it to complete the path." : "Finish onboarding to unlock your path."}
+          </p>
+        )}
+      </section>
+    </div>
 
-        <SessionTasks remote={remoteState?.checkpoints ?? []} fallback={currentTasks} done={done} onToggle={(index) => setDone((prev) => prev.includes(index) ? prev.filter((x) => x !== index) : [...prev, index])} />
+    <div className="mt-5 space-y-5">
+      <SessionTasks remote={remoteCheckpoints} fallback={currentTasks} done={done} onToggle={(index) => setDone((prev) => prev.includes(index) ? prev.filter((x) => x !== index) : [...prev, index])} />
 
-        <section className="card-surface p-5"><div className="flex items-center justify-between"><h2 className="text-lg font-black">Upcoming Sessions</h2><span className="text-xs font-black">View All →</span></div><div className="mt-3 divide-y divide-black/10">{missions.slice(1, 3).map((mission) => <div key={mission.id} className="flex items-center gap-4 py-4"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-black text-white"><Timer className="h-5 w-5" /></div><div className="min-w-0 flex-1"><p className="text-sm font-black">{mission.title}</p><p className="mt-1 text-xs font-semibold">{mission.stack} · Difficulty {mission.difficulty} · Tomorrow, {state.profile?.startTime ?? "19:00"}</p><p className="mt-1 text-xs font-semibold">{mission.description}</p></div><button type="button" onClick={() => { void startSession(); }} className="btn-base btn-outline hidden md:inline-flex">Start Session</button></div>)}</div></section>
+      <section className="card-surface p-5"><div className="flex items-center justify-between"><h2 className="text-lg font-black">Upcoming Sessions</h2><span className="text-xs font-black">View All →</span></div><div className="mt-3 divide-y divide-black/10">{missions.slice(1, 3).map((mission) => <div key={mission.id} className="flex items-center gap-4 py-4"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-ink text-ink-foreground"><Timer className="h-5 w-5" /></div><div className="min-w-0 flex-1"><p className="text-sm font-black">{mission.title}</p><p className="mt-1 text-xs font-semibold">{mission.stack} · Difficulty {mission.difficulty} · Tomorrow, {state.profile?.startTime ?? "19:00"}</p><p className="mt-1 text-xs font-semibold">{mission.description}</p></div><button type="button" onClick={() => { void startSession(); }} className="btn-base btn-outline hidden md:inline-flex">Start Session</button></div>)}{missions.length <= 1 && <p className="py-4 text-sm font-semibold text-muted-foreground">No upcoming missions yet.</p>}</div></section>
 
-        <section><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-black">Past Sessions</h2><span className="text-xs font-black">{total} min total</span></div><div className="card-surface overflow-hidden">{state.sessions.length === 0 ? <p className="p-6 text-center text-sm font-bold">No past sessions yet. Your first completed session will appear here.</p> : state.sessions.slice(0, 8).map((item) => { const open = selectedHistory === item.at; return <div key={item.at} className="border-b border-black/10 last:border-0"><button type="button" onClick={() => setSelectedHistory(open ? null : item.at)} className="grid w-full grid-cols-[1fr_1.6fr_.7fr_.8fr_28px] items-center gap-3 px-4 py-4 text-left hover:bg-primary-soft/40"><span className="text-xs font-black">{new Date(item.at).toLocaleDateString()}</span><span className="truncate text-xs font-black">{item.missionTitle}</span><span className="text-xs font-black">{item.minutes} min</span><span className="flex items-center gap-1 text-xs font-black"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-700" />Completed</span><ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} /></button>{open && <div className="bg-black p-5 text-white"><p className="text-[11px] font-black uppercase tracking-wider text-white">Session history</p><p className="mt-2 text-sm font-black">{item.note || "No note added."}</p>{item.completedTasks?.length ? <p className="mt-3 text-xs font-bold">Tasks completed: {item.completedTasks.length}/{item.tasks?.length ?? 0}</p> : null}{item.review && <div className="mt-4 grid gap-3 md:grid-cols-3"><div><p className="text-[10px] font-black uppercase">What BuildMyLogic saw</p><p className="mt-1 text-xs font-bold">{item.review.feedback}</p></div><div><p className="text-[10px] font-black uppercase">Next</p><p className="mt-1 text-xs font-bold">{item.review.nextStep}</p></div><div><p className="text-[10px] font-black uppercase">Skill</p><p className="mt-1 text-xs font-bold">{item.review.skillBoost}</p></div></div>}</div>}</div>; })}</div></section>
+      <section><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-black">Past Sessions</h2><span className="text-xs font-black">{total} min total</span></div><div className="card-surface overflow-hidden">{state.sessions.length === 0 ? <p className="p-6 text-center text-sm font-bold">No past sessions yet. Your first completed session will appear here.</p> : state.sessions.slice(0, 8).map((item) => { const open = selectedHistory === item.at; return <div key={item.at} className="border-b border-black/10 last:border-0"><button type="button" onClick={() => setSelectedHistory(open ? null : item.at)} className="grid w-full grid-cols-[1fr_1.6fr_.7fr_.8fr_28px] items-center gap-3 px-4 py-4 text-left hover:bg-primary-soft/40"><span className="text-xs font-black">{new Date(item.at).toLocaleDateString()}</span><span className="truncate text-xs font-black">{item.missionTitle}</span><span className="text-xs font-black">{item.minutes} min</span><span className="flex items-center gap-1 text-xs font-black"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-700" />Completed</span><ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} /></button>{open && <div className="bg-black p-5 text-white"><p className="text-[11px] font-black uppercase tracking-wider text-white">Session history</p><p className="mt-2 text-sm font-black">{item.note || "No note added."}</p>{item.completedTasks?.length ? <p className="mt-3 text-xs font-bold">Tasks completed: {item.completedTasks.length}/{item.tasks?.length ?? 0}</p> : null}{item.review && <div className="mt-4 grid gap-3 md:grid-cols-3"><div><p className="text-[10px] font-black uppercase">What BuildMyLogic saw</p><p className="mt-1 text-xs font-bold">{item.review.feedback}</p></div><div><p className="text-[10px] font-black uppercase">Next</p><p className="mt-1 text-xs font-bold">{item.review.nextStep}</p></div><div><p className="text-[10px] font-black uppercase">Skill</p><p className="mt-1 text-xs font-bold">{item.review.skillBoost}</p></div></div>}</div>}</div>; })}</div></section>
 
-        <section className="card-surface p-5"><div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-black">Submit completed project</h2><p className="mt-1 text-sm font-semibold">Select your real project folder on this computer, or upload a ZIP for AI review.</p></div><ShieldCheck className="h-5 w-5 text-primary" /></div><div className="mt-4 grid gap-3 md:grid-cols-2"><button type="button" onClick={() => { void pickProjectFolder(); }} disabled={pickingProject} className="flex min-h-24 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary/40 bg-primary-soft/40 px-4 py-5 text-sm font-black text-black hover:bg-primary-soft disabled:cursor-wait disabled:opacity-60"><FolderOpen className="h-5 w-5" />{pickingProject ? "Opening folder picker…" : projectFolder ? `Project: ${projectFolder}` : "Select your project folder"}</button><input ref={folderInputRef} type="file" multiple className="hidden" onChange={(e) => selectProjectFolder(e.target.files)} /><label className="flex min-h-24 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-black/15 bg-white px-4 py-5 text-sm font-black text-black hover:bg-black/[0.02]"><Upload className="h-4 w-4" />{zipBusy ? "Analyzing ZIP…" : zipName ? `Review ${zipName}` : "Upload project ZIP for AI review"}<input type="file" accept=".zip,application/zip" className="hidden" disabled={zipBusy} onChange={(e) => { void reviewZip(e.target.files?.[0]); e.currentTarget.value = ""; }} /></label></div>{projectFolder && <div className="mt-3 rounded-xl border border-black/10 bg-white px-4 py-3"><p className="text-[10px] font-black uppercase tracking-wider text-black/50">Selected project</p><div className="mt-1 flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-black">{projectFolder}</p>{projectFileCount > 0 && <span className="text-xs font-bold text-black/60">{projectFileCount} files selected</span>}</div><p className="mt-2 break-all text-[10px] font-bold text-black/45">{workspacePath}</p></div>}{pickerError && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700">{pickerError}</p>}<p className="mt-3 text-xs font-bold text-black/55">BuildMyLogic's local bridge reads the exact folder path on your computer, so VS Code can open that workspace directly.</p></section>
+      <section className="card-surface p-5"><div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-black">Submit completed project</h2><p className="mt-1 text-sm font-semibold">Select your real project folder on this computer, or upload a ZIP for AI review.</p></div><ShieldCheck className="h-5 w-5 text-primary" /></div><div className="mt-4 grid gap-3 md:grid-cols-2"><button type="button" onClick={() => { void pickProjectFolder(); }} disabled={pickingProject} className="flex min-h-24 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary/40 bg-primary-soft/40 px-4 py-5 text-sm font-black text-black hover:bg-primary-soft disabled:cursor-wait disabled:opacity-60"><FolderOpen className="h-5 w-5" />{pickingProject ? "Opening folder picker…" : projectFolder ? `Project: ${projectFolder}` : "Select your project folder"}</button><input ref={folderInputRef} type="file" multiple className="hidden" onChange={(e) => selectProjectFolder(e.target.files)} /><label className="flex min-h-24 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-black/15 bg-white px-4 py-5 text-sm font-black text-black hover:bg-black/[0.02]"><Upload className="h-4 w-4" />{zipBusy ? "Analyzing ZIP…" : zipName ? `Review ${zipName}` : "Upload project ZIP for AI review"}<input type="file" accept=".zip,application/zip" className="hidden" disabled={zipBusy} onChange={(e) => { void reviewZip(e.target.files?.[0]); e.currentTarget.value = ""; }} /></label></div>{projectFolder && <div className="mt-3 rounded-xl border border-black/10 bg-white px-4 py-3"><p className="text-[10px] font-black uppercase tracking-wider text-black/50">Selected project</p><div className="mt-1 flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-black">{projectFolder}</p>{projectFileCount > 0 && <span className="text-xs font-bold text-black/60">{projectFileCount} files selected</span>}</div><p className="mt-2 break-all text-[10px] font-bold text-black/45">{workspacePath}</p></div>}<p className="mt-3 text-xs font-bold text-black/55">BuildMyLogic's local bridge reads the exact folder path on your computer, so VS Code can open that workspace directly.</p></section>
 
-        {projectReview && <ProjectReviewCard review={projectReview} onClose={() => setProjectReview(null)} />}
-        {review && <section className="rounded-2xl border-2 border-primary bg-primary-soft p-5"><div className="flex items-center justify-between"><h2 className="flex items-center gap-2 text-base font-black"><Sparkles className="h-4 w-4 text-primary" /> Session review</h2><button type="button" onClick={() => setReview(null)}><XCircle className="h-4 w-4" /></button></div><p className="mt-3 text-sm font-black">{review.feedback}</p><div className="mt-4 grid gap-3 md:grid-cols-2"><div className="rounded-xl bg-white p-4"><p className="text-[10px] font-black uppercase">Next action</p><p className="mt-1 text-sm font-black">{review.nextStep}</p></div><div className="rounded-xl bg-white p-4"><p className="text-[10px] font-black uppercase">Skill evidence</p><p className="mt-1 text-sm font-black">{review.skillBoost}</p></div></div></section>}
+      {projectReview && <ProjectReviewCard review={projectReview} onClose={() => setProjectReview(null)} />}
+      {review && <section className="rounded-2xl border-2 border-primary bg-primary-soft p-5"><div className="flex items-center justify-between"><h2 className="flex items-center gap-2 text-base font-black"><Sparkles className="h-4 w-4 text-primary" /> Session review</h2><button type="button" onClick={() => setReview(null)}><XCircle className="h-4 w-4" /></button></div><p className="mt-3 text-sm font-black">{review.feedback}</p><div className="mt-4 grid gap-3 md:grid-cols-2"><div className="rounded-xl bg-white p-4"><p className="text-[10px] font-black uppercase">Next action</p><p className="mt-1 text-sm font-black">{review.nextStep}</p></div><div className="rounded-xl bg-white p-4"><p className="text-[10px] font-black uppercase">Skill evidence</p><p className="mt-1 text-sm font-black">{review.skillBoost}</p></div></div></section>}
 
-        <section className="card-surface p-5"><h2 className="text-lg font-black">Close the session</h2><p className="mt-1 text-sm font-semibold">Write what you actually built. BuildMyLogic keeps this as your learning history.</p><textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="I wired the form to the API but validation is still broken…" className="mt-3 w-full rounded-xl border border-black/15 bg-white p-3 text-sm font-semibold outline-none focus:border-primary" /><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={finish} disabled={saving || !activeMission} className="btn-base btn-primary-solid"><Timer className="h-4 w-4" />{saving ? "Reviewing…" : `Log ${elapsed} min & get feedback`}</button><button type="button" onClick={completeMission} disabled={!activeMission} className="btn-base btn-outline"><Check className="h-4 w-4" />Complete mission</button></div></section>
-      </div>
-
-      <aside className="space-y-5">
-        <section className="card-surface p-5"><div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-soft text-primary"><Flame className="h-6 w-6" /></span><div><p className="text-sm font-black">Session Streak</p><p className="display text-2xl font-black">{streak(state.sessions)} days</p></div></div><p className="mt-2 text-xs font-semibold">Consistency compounds.</p></section>
-        <section className="card-surface p-5"><div className="flex items-center justify-between"><h2 className="text-sm font-black">{new Date().toLocaleDateString(undefined, { month: "long", year: "numeric" })}</h2><CalendarDays className="h-4 w-4" /></div><MiniCalendar sessions={state.sessions} progress={pct} running={running} /></section>
-        <section className="card-surface border-2 border-black/10 p-5"><div className="flex items-center justify-between gap-3"><h2 className="text-sm font-black">Session ID</h2><span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black ${vscodeSession?.status === "active" || vscodeSession?.status === "connected" ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"}`}><span className={`h-2 w-2 rounded-full ${vscodeSession?.status === "active" || vscodeSession?.status === "connected" ? "bg-emerald-500" : "bg-red-500"}`} />{vscodeSession?.status === "active" || vscodeSession?.status === "connected" ? "Connected" : "Not connected"}</span></div>{vscodeSession ? <><button type="button" title="Click to copy session ID" aria-label="Copy session ID" onClick={() => { void copySessionId(); }} className="mt-3 flex min-h-16 w-full items-center justify-center rounded-xl bg-black px-3 py-3 text-center text-2xl font-black tracking-[0.08em] text-white shadow-sm transition hover:bg-primary hover:text-black">{vscodeSession.sessionId}</button><p className="mt-2 text-center text-[10px] font-black uppercase tracking-wider text-black/60">Click the ID to copy</p>{copyNotice && <p className="mt-2 text-center text-[10px] font-bold text-emerald-700">{copyNotice}</p>}</> : <p className="mt-3 rounded-xl bg-black/[0.04] px-3 py-4 text-center text-xs font-semibold text-black/55">Open VS Code to generate an ID.</p>}</section>
-        <section className="card-surface p-5"><h2 className="text-sm font-black">Session Insights</h2><div className="mt-3 rounded-xl bg-primary-soft p-4"><p className="text-sm font-black">{state.sessions.length ? "You are building a real history." : "Your first session starts the history."}</p><p className="mt-2 text-xs font-semibold">Average logged time: {state.sessions.length ? Math.round(total / state.sessions.length) : 0} minutes.</p></div></section>
-        <section className="card-surface p-5"><div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /><h2 className="text-sm font-black">Tips from BuildMyLogic Mentor</h2></div><p className="mt-3 text-sm font-semibold">“Consistency beats intensity. Even a small session can move a skill forward.”</p><p className="mt-2 text-xs font-black">— BuildMyLogic Mentor</p></section>
-        <section className="card-surface p-5"><h2 className="text-sm font-black">Code with VS Code</h2><p className="mt-1 text-sm font-semibold">Open VS Code launches the extension in your selected project. Starting the timer does not open VS Code.</p>{vscodeSession && <div className="mt-3 rounded-xl border border-primary/30 bg-primary-soft p-3"><p className="text-[10px] font-black uppercase tracking-wider">Build session</p><p className="mt-2 flex items-center gap-1.5 text-[10px] font-bold"><span className={`h-2 w-2 rounded-full ${vscodeSession.status === "active" || vscodeSession.status === "connected" ? "bg-emerald-500" : "bg-red-500"}`} />{vscodeSession.status === "active" || vscodeSession.status === "connected" ? "VS Code connected." : "Paste this Session ID into the extension."}</p></div>}<button type="button" onClick={() => { void openAndConnectVsCode(); }} disabled={pickingProject} className="btn-base btn-outline mt-3 w-full disabled:cursor-wait disabled:opacity-60"><Code2 className="h-4 w-4" />Open VS Code</button><button type="button" onClick={() => { void pickProjectFolder(true); }} disabled={pickingProject} className="btn-base btn-outline mt-2 w-full disabled:cursor-wait disabled:opacity-60"><FolderOpen className="h-4 w-4" />{pickingProject ? "Selecting…" : "Change your project folder"}</button><div className="mt-3 rounded-xl border border-black/10 bg-black/[0.02] px-3 py-2.5"><p className="text-[10px] font-black uppercase tracking-wider text-black/45">Selected folder</p><p className="mt-1 break-all text-xs font-bold">{workspacePath || "No project selected"}</p></div><p className="mt-2 text-[10px] font-bold">Open VS Code uses this selected folder and the active Session ID.</p></section>
-      </aside>
+      <section className="card-surface p-5"><h2 className="text-lg font-black">Close the session</h2><p className="mt-1 text-sm font-semibold">Write what you actually built. BuildMyLogic keeps this as your learning history.</p><textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="I wired the form to the API but validation is still broken…" className="mt-3 w-full rounded-xl border border-black/15 bg-white p-3 text-sm font-semibold outline-none focus:border-primary" /><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={finish} disabled={saving || !activeMission} className="btn-base btn-primary-solid"><Timer className="h-4 w-4" />{saving ? "Reviewing…" : `Log ${elapsed} min & get feedback`}</button><button type="button" onClick={completeMission} disabled={!activeMission} className="btn-base btn-outline"><Check className="h-4 w-4" />Complete mission</button></div></section>
     </div>
   </AppShell>;
 }
@@ -453,11 +643,8 @@ function SessionTasks({ remote, fallback, done, onToggle }: { remote?: RemoteChe
   const evidenceTasks = remote?.length ? remote : undefined;
   const verified = evidenceTasks?.filter((task) => (task.evidence ?? (task.status === "passed" ? "verified" : "not_verified")) === "verified").length ?? done.length;
   const total = evidenceTasks?.length ?? fallback.length;
-  return <section className="card-surface p-5"><div className="flex items-center justify-between"><div><h2 className="text-lg font-black">Session Tasks</h2><p className="mt-1 text-sm font-semibold">Work through these in order. Code can be detected automatically; only passing tests verify a task.</p></div><span className="text-xs font-black">{verified}/{total} verified</span></div>{evidenceTasks && <p className="mt-3 text-[10px] font-black uppercase tracking-wider text-black/50">✓ Verified · ◐ Detected · ○ Not verified</p>}<div className="mt-4 space-y-2">{evidenceTasks ? evidenceTasks.map((task) => { const evidence = task.evidence ?? (task.status === "passed" ? "verified" : "not_verified"); return <div key={`${task.title}-${task.index}`} className={`flex items-start gap-3 rounded-xl border p-4 ${evidence === "verified" ? "border-primary bg-primary-soft" : "border-black/10 bg-white"}`}><span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 ${evidence === "verified" ? "border-primary bg-primary text-white" : evidence === "detected" ? "border-primary text-primary" : "border-black/20 text-black/40"}`}>{evidence === "verified" ? <Check className="h-4 w-4" /> : evidence === "detected" ? "◐" : "○"}</span><span className="min-w-0 flex-1"><b className="block text-sm">{task.title}</b><span className="mt-1 block text-xs font-semibold text-black/60">{evidence === "verified" ? "VERIFIED by passing tests" : evidence === "detected" ? "DETECTED from code activity · run tests to verify" : "NOT VERIFIED"}</span></span></div>; }) : fallback.map((task, index) => { const checked = done.includes(index); return <button type="button" key={`${task.title}-${index}`} onClick={() => onToggle(index)} className={`flex w-full items-center gap-3 rounded-xl border p-4 text-left ${checked ? "border-primary bg-primary-soft" : "border-black/10 bg-white"}`}><span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 ${checked ? "border-primary bg-primary text-white" : "border-black/20"}`}>{checked && <Check className="h-4 w-4" />}</span><span className="min-w-0 flex-1"><b className="block text-sm">{task.title}</b><span className="mt-1 block text-xs font-semibold">{task.minutes} minutes</span></span></button>; })}</div></section>;
+  return <section id="session-tasks" className="card-surface scroll-mt-24 p-5"><div className="flex items-center justify-between"><div><h2 className="text-lg font-black">Session Tasks</h2><p className="mt-1 text-sm font-semibold">Work through these in order. Code can be detected automatically; only passing tests verify a task.</p></div><span className="text-xs font-black">{verified}/{total} verified</span></div>{evidenceTasks && <p className="mt-3 text-[10px] font-black uppercase tracking-wider text-black/50">✓ Verified · ◐ Detected · ○ Not verified</p>}<div className="mt-4 space-y-2">{evidenceTasks ? evidenceTasks.map((task) => { const evidence = task.evidence ?? (task.status === "passed" ? "verified" : "not_verified"); return <div key={`${task.title}-${task.index}`} className={`flex items-start gap-3 rounded-xl border p-4 ${evidence === "verified" ? "border-primary bg-primary-soft" : "border-black/10 bg-white"}`}><span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 ${evidence === "verified" ? "border-primary bg-primary text-white" : evidence === "detected" ? "border-primary text-primary" : "border-black/20 text-black/40"}`}>{evidence === "verified" ? <Check className="h-4 w-4" /> : evidence === "detected" ? "◐" : "○"}</span><span className="min-w-0 flex-1"><b className="block text-sm">{task.title}</b><span className="mt-1 block text-xs font-semibold text-black/60">{evidence === "verified" ? "VERIFIED by passing tests" : evidence === "detected" ? "DETECTED from code activity · run tests to verify" : "NOT VERIFIED"}</span></span></div>; }) : fallback.map((task, index) => { const checked = done.includes(index); return <button type="button" key={`${task.title}-${index}`} onClick={() => onToggle(index)} className={`flex w-full items-center gap-3 rounded-xl border p-4 text-left ${checked ? "border-primary bg-primary-soft" : "border-black/10 bg-white"}`}><span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 ${checked ? "border-primary bg-primary text-white" : "border-black/20"}`}>{checked && <Check className="h-4 w-4" />}</span><span className="min-w-0 flex-1"><b className="block text-sm">{task.title}</b><span className="mt-1 block text-xs font-semibold">{task.minutes} minutes</span></span></button>; })}</div></section>;
 }
-function streak(sessions: { at: number }[]) { const days = new Set(sessions.map((s) => new Date(s.at).toDateString())); let cursor = new Date(); let count = 0; while (days.has(cursor.toDateString())) { count += 1; cursor.setDate(cursor.getDate() - 1); } return count; }
-function MiniCalendar({ sessions, progress, running }: { sessions: { at: number }[]; progress: number; running: boolean }) { const now = new Date(); const today = now.toDateString(); const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(); const leading = new Date(now.getFullYear(), now.getMonth(), 1).getDay(); const active = new Set(sessions.map((s) => new Date(s.at).toDateString())); return <><div className="mt-3 flex items-center justify-between rounded-xl bg-primary-soft px-3 py-2"><div><p className="text-[10px] font-black uppercase tracking-wider">Today</p><p className="mt-0.5 text-xs font-black">{now.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}</p></div><p className="text-xs font-black">{Math.round(progress)}% {running ? "in progress" : "complete"}</p></div><div className="mt-4 h-2 overflow-hidden rounded-full bg-black/10"><div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} /></div><div className="mt-4 grid grid-cols-7 gap-y-3 text-center text-[10px] font-black">{["S", "M", "T", "W", "T", "F", "S"].map((x, i) => <span key={`${x}-${i}`}>{x}</span>)}{Array.from({ length: leading + days }, (_, i) => { const day = i - leading + 1; if (day < 1) return <span key={i} />; const d = new Date(now.getFullYear(), now.getMonth(), day); const date = d.toDateString(); const on = active.has(date); const isToday = date === today; return <span key={i} className={`mx-auto flex h-6 w-6 items-center justify-center rounded-full ${on ? "bg-primary text-white" : isToday ? "border-2 border-primary text-primary" : ""}`}>{day}</span>; })}</div><div className="mt-4 text-[10px] font-black">● Session completed &nbsp; ◉ Today &nbsp; ○ No session</div></>; }
 
 function ProjectReviewCard({ review, onClose }: { review: ProjectReview; onClose: () => void }) { const groups: [string, string[]][] = [["Strengths", review.strengths], ["Issues", review.issues], ["Security", review.security], ["Missing", review.missing], ["Next steps", review.nextSteps]]; return <section className="card-surface overflow-hidden"><div className="bg-black px-5 py-4 text-white"><div className="flex items-center justify-between"><h2 className="flex items-center gap-2 text-base font-black"><ShieldCheck className="h-4 w-4" /> Project Review</h2><div className="flex items-center gap-2"><span className="rounded-full bg-white px-3 py-1 text-xs font-black text-black">{review.score}/100</span><button type="button" onClick={onClose}><X className="h-4 w-4" /></button></div></div><p className="mt-3 text-sm font-black">{review.verdict}</p></div><div className="grid gap-5 p-5 md:grid-cols-2">{groups.map(([title, items]) => <div key={title} className="rounded-xl border border-black/10 bg-white p-4"><h3 className="text-sm font-black">{title}</h3><ul className="mt-2 space-y-2">{items.length ? items.map((item, i) => <li key={i} className="text-sm font-bold leading-5">• {item}</li>) : <li className="text-sm font-bold">• None reported.</li>}</ul></div>)}</div></section>; }
-function SessionProjectReview({ review }: { review: NonNullable<RemoteSessionState["project_review"]> }) { const groups: [string, string[]][] = [["Strengths", review.strengths], ["Issues", review.issues], ["Missing", review.missing], ["Next steps", review.nextSteps]]; return <section className="card-surface overflow-hidden border-2 border-primary/30"><div className="bg-black px-5 py-4 text-white"><div className="flex items-center justify-between gap-3"><h2 className="flex items-center gap-2 text-base font-black"><ShieldCheck className="h-4 w-4" /> BuildMyLogic project review</h2><span className="rounded-full bg-white px-3 py-1 text-xs font-black text-black">{review.score}/100</span></div><p className="mt-3 text-sm font-black">{review.verdict}</p></div><div className="grid gap-3 p-4 md:grid-cols-4">{groups.map(([title, items]) => <div key={title} className="rounded-xl border border-black/10 bg-white p-3"><h3 className="text-xs font-black">{title}</h3><p className="mt-2 text-xs font-bold leading-5">{items[0] ?? "None reported."}</p></div>)}</div></section>; }
-function ExtensionInstallBanner() { return <section className="card-surface flex flex-wrap items-center justify-between gap-4 border-2 border-primary/30 bg-primary-soft/40 p-4"><div><p className="text-[10px] font-black uppercase tracking-wider text-primary">VS Code connection</p><h2 className="mt-1 text-base font-black">Are you using the BuildMyLogic extension?</h2><p className="mt-1 text-xs font-semibold">Install it once to run checkpoints locally, submit your whole project, and receive BuildMyLogic Mentor's review here.</p></div><a href="/extension.html" className="btn-base btn-ink whitespace-nowrap">Install the extension →</a></section>; }
+function SessionProjectReview({ review }: { review: NonNullable<RemoteSessionState["project_review"]> }) { const groups: [string, string[]][] = [["Strengths", review.strengths], ["Issues", review.issues], ["Missing", review.missing], ["Next steps", review.nextSteps]]; return <section className="card-surface mt-5 overflow-hidden border-2 border-primary/30"><div className="bg-black px-5 py-4 text-white"><div className="flex items-center justify-between gap-3"><h2 className="flex items-center gap-2 text-base font-black"><ShieldCheck className="h-4 w-4" /> BuildMyLogic project review</h2><span className="rounded-full bg-white px-3 py-1 text-xs font-black text-black">{review.score}/100</span></div><p className="mt-3 text-sm font-black">{review.verdict}</p></div><div className="grid gap-3 p-4 md:grid-cols-4">{groups.map(([title, items]) => <div key={title} className="rounded-xl border border-black/10 bg-white p-3"><h3 className="text-xs font-black">{title}</h3><p className="mt-2 text-xs font-bold leading-5">{items[0] ?? "None reported."}</p></div>)}</div></section>; }

@@ -1,30 +1,25 @@
 /**
  * BuildMyLogic — Learner Dashboard
- * 
- * Central hub for the learner's journey: active missions, skill radar,
- * daily build rhythm scheduler (Google Calendar sync), and real-time telemetry.
+ *
+ * Central hub for the learner's journey: daily build rhythm scheduler
+ * (Google Calendar sync), the 6-stage learning loop, the current task,
+ * real progress, and the learning path timeline.
  */
 
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import {
   ArrowRight,
-  BookOpen,
   Calendar,
-  CheckCircle2,
-  Lock,
+  Check,
+  Code2,
   Rocket,
-  Sparkles,
-  Terminal,
-  TrendingUp,
-  Clock,
-  ExternalLink,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { applyBuildSessionEvidence, applySarvamDashboardPlan, getLoopState, logActivity, setMissionProgress, useLoop } from "@/lib/loop-store";
 import type { BuildSessionState } from "@/lib/loop-types";
 import { aiRetunePlan } from "@/lib/sarvam.functions";
-import { ScheduleModal, ScheduleSyncCard } from "@/components/ScheduleModal";
+import { ScheduleModal } from "@/components/ScheduleModal";
 
 export const Route = createFileRoute("/auth/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — BuildMyLogic" }] }),
@@ -39,6 +34,15 @@ function greeting() {
   return hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 }
 
+const LOOP_STEPS: [string, string][] = [
+  ["Learn", "Understand the concept"],
+  ["Build", "Write code"],
+  ["Fail", "Face challenges"],
+  ["Understand", "Get feedback"],
+  ["Improve", "Fix & improve"],
+  ["Loop", "Repeat & level up"],
+];
+
 function Dashboard() {
   const state = useLoop();
   const navigate = useNavigate();
@@ -46,11 +50,10 @@ function Dashboard() {
   const name = state.profile?.name?.trim() || "Builder";
   const missions = plan?.missions ?? [];
   const current = missions.find((m) => state.missionProgress[m.id]?.status === "active") ?? missions[0];
-  const currentIndex = Math.max(0, missions.findIndex((m) => m.id === current?.id));
   const doneCount = missions.filter((m) => state.missionProgress[m.id]?.status === "done").length;
-  const currentSteps = current ? (state.missionProgress[current.id]?.completedSteps?.length ?? 0) : 0;
-  const currentTotalSteps = current?.steps.length ?? 1;
-  const goal = state.profile?.goal || "Build real-world skills";
+  const pct = missions.length ? Math.round((doneCount / missions.length) * 100) : 0;
+  const doneMissions = missions.filter((m) => state.missionProgress[m.id]?.status === "done");
+  const nextMission = current ? missions[missions.findIndex((m) => m.id === current.id) + 1] : undefined;
 
   // Google Calendar scheduling modal state
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
@@ -111,8 +114,8 @@ function Dashboard() {
     <AppShell
       crumb="Dashboard"
       title={`${greeting()}, ${name}.`}
-      subtitle={plan?.headline ?? "Your next skill is waiting to be proven."}
-      quote={plan?.quote}
+      subtitle={plan ? `Let's continue your ${state.profile?.goal || plan.projectTitle} journey.` : "Your next skill is waiting to be proven."}
+      quote={plan?.quote ?? "Small steps every day build big skills."}
       wide
     >
       {/* Schedule & Google Calendar Modal */}
@@ -139,23 +142,23 @@ function Dashboard() {
         <>
           {/* Daily Build Rhythm Banner (Google Calendar reminder prompt) */}
           {showPromptBanner && (
-            <div className="mb-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-primary/30 bg-primary-soft/50 p-4 shadow-sm backdrop-blur-sm">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <div className="mb-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl bg-primary-soft/60 p-4 sm:px-5">
+              <div className="flex items-center gap-3.5">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
                   <Calendar className="h-5 w-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-foreground">Set your daily learning time</h4>
-                  <p className="text-xs text-muted-foreground">
-                    Block {state.profile?.startTime || "19:00"} - {state.profile?.endTime || "20:00"} on Google Calendar so you never miss your build streak.
+                  <h4 className="text-[15px] font-bold text-foreground">Set your daily learning time</h4>
+                  <p className="mt-0.5 text-[13px] text-muted-foreground">
+                    Block {state.profile?.startTime || "19:00"} – {state.profile?.endTime || "21:00"} on Google Calendar so you never miss your build streak.
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 self-end sm:self-auto">
+              <div className="flex items-center gap-3 self-end sm:self-auto">
                 <button
                   type="button"
                   onClick={() => setScheduleModalOpen(true)}
-                  className="btn-base btn-primary-solid text-xs py-2 px-3.5 flex items-center gap-1.5 font-bold shadow-sm"
+                  className="btn-base btn-primary-solid rounded-full text-xs py-2.5 px-4 flex items-center gap-1.5 font-bold"
                 >
                   <Calendar className="h-3.5 w-3.5" />
                   <span>Add to Google Calendar</span>
@@ -172,249 +175,136 @@ function Dashboard() {
           )}
 
           {/* 6-Stage Pedagogical Loop Progress Tracker */}
-          <section className="card-surface overflow-hidden">
-            <div className="grid grid-cols-2 md:grid-cols-6">
-              {["Learn", "Build", "Fail", "Understand", "Improve", "Loop"].map((label, i) => (
-                <div
-                  key={label}
-                  className={`border-r border-border px-4 py-4 last:border-r-0 ${
-                    i === 0 ? "bg-primary-soft/60" : ""
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold ${
-                        i === 0
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {i + 1}
-                    </span>
-                    <span className="text-xs font-bold">{label}</span>
-                  </div>
-                  <p className="mt-1 pl-9 text-[10px] text-muted-foreground">
-                    {[
-                      "Understand the concept",
-                      "Write code",
-                      "Face challenges",
-                      "Get feedback",
-                      "Fix & improve",
-                      "Repeat & level up",
-                    ][i]}
-                  </p>
+          <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {LOOP_STEPS.map(([label, caption], i) => (
+              <div
+                key={label}
+                className={`rounded-2xl border px-4 py-4 ${i === 0 ? "border-primary/20 bg-primary-soft" : "border-border bg-card"}`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+                      i === 0 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {i + 1}
+                  </span>
+                  <span className="text-[13px] font-bold">{label}</span>
                 </div>
-              ))}
-            </div>
+                <p className="mt-1.5 text-[11px] leading-4 text-muted-foreground">{caption}</p>
+              </div>
+            ))}
           </section>
 
-          {/* Main Dashboard Grid */}
+          {/* Current Task + Your Progress */}
           <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-12">
-            {/* Left Column — Current Mission & Skills */}
-            <div className="space-y-5 lg:col-span-8">
-              {/* Current Active Mission Card */}
-              <section className="card-surface p-6">
-                <div className="flex items-center justify-between">
-                  <p className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground">
-                    Current Mission
-                  </p>
-                  <span className="pill bg-primary-soft text-accent-foreground flex items-center gap-1">
-                    <Sparkles className="h-3 w-3" /> Recommended for you
-                  </span>
-                </div>
-
-                <div className="mt-5 flex items-start gap-5">
-                  <div className="flex h-[74px] w-[74px] shrink-0 items-center justify-center rounded-2xl bg-muted">
-                    <Terminal className="h-8 w-8 text-foreground" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h2 className="display text-2xl font-bold">{current.title}</h2>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {current.stack} <span className="mx-1">•</span> Difficulty {current.difficulty}{" "}
-                      <span className="mx-1">•</span> ~{current.minutes} mins
-                    </p>
-                    <p className="mt-3 text-sm leading-6 text-muted-foreground">{current.description}</p>
-                  </div>
-                </div>
-
-                <div className="mt-5">
-                  <p className="text-[11px] font-semibold text-muted-foreground">Skills you'll practice</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {current.skills.map((skill) => (
-                      <span key={skill} className="rounded-lg bg-muted px-2.5 py-1.5 text-xs font-medium">
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-5 flex flex-wrap items-center justify-between gap-4 border-t border-border pt-4">
+            <section className="card-surface p-6 sm:p-7 lg:col-span-7">
+              <div className="flex h-full flex-col justify-between gap-6 sm:flex-row sm:items-center">
+                <div className="min-w-0">
+                  <span className="pill bg-primary-soft text-accent-foreground">Current Task</span>
+                  <h2 className="display mt-4 text-[24px] font-extrabold leading-tight tracking-[-0.02em]">{current.title}</h2>
+                  <p className="mt-2 max-w-md text-[14px] leading-6 text-muted-foreground">{current.description}</p>
                   <button
                     type="button"
-                    className="group inline-flex items-center gap-1.5 text-xs font-semibold text-accent-foreground hover:text-primary transition-colors"
+                    className="btn-base btn-primary-solid mt-6"
                     onClick={() => {
                       setMissionProgress(current.id, { status: "active" });
-                      void navigate({ to: "/learn" });
-                    }}
-                  >
-                    <BookOpen className="h-4 w-4" />
-                    <span>Need to learn something?</span>
-                    <span className="font-bold underline">Learn for this mission →</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-base btn-ink"
-                    onClick={() => {
                       window.localStorage.setItem("loop-auto-start-session", "1");
                       void navigate({ to: "/sessions" });
                     }}
                   >
-                    <Terminal className="h-4 w-4" />
-                    <span>Start building</span>
+                    <span>Start Task</span>
                     <ArrowRight className="h-4 w-4" />
                   </button>
                 </div>
-              </section>
-
-              {/* Skills Radar & Recent Activity */}
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                <section className="card-surface p-5">
-                  <div className="mb-4 flex items-center justify-between">
-                    <h3 className="text-sm font-bold">Your Skills</h3>
-                    <Link to="/skills" className="text-xs font-semibold text-accent-foreground hover:underline">
-                      View all →
-                    </Link>
+                <div className="relative hidden h-36 w-44 shrink-0 items-center justify-center sm:flex">
+                  <div className="absolute inset-0 rounded-full bg-primary-soft" />
+                  <div className="relative flex h-24 w-32 items-center justify-center rounded-2xl border border-primary/20 bg-card shadow-sm">
+                    <Code2 className="h-10 w-10 text-primary" />
                   </div>
-                  <div className="space-y-3.5">
-                    {(plan.skills ?? []).slice(0, 5).map((s) => (
-                      <div key={s.name} className="flex items-center gap-3 text-xs">
-                        <span className="w-28 truncate font-medium">{s.name}</span>
-                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                          <div className="h-1.5 rounded-full bg-primary" style={{ width: `${s.level}%` }} />
-                        </div>
-                        <span className="w-8 text-right text-[11px] font-semibold">{s.level}%</span>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-
-                <section className="card-surface p-5">
-                  <div className="mb-4 flex items-center justify-between">
-                    <h3 className="text-sm font-bold">Recent Activity</h3>
-                    <TrendingUp className="h-4 w-4 text-primary" />
-                  </div>
-                  {state.activity.length === 0 ? (
-                    <p className="text-xs leading-5 text-muted-foreground">
-                      Finish a session and your real build history will appear here.
-                    </p>
-                  ) : (
-                    <div className="space-y-3">
-                      {state.activity.slice(0, 4).map((a) => (
-                        <div key={a.at} className="border-l-2 border-primary pl-3">
-                          <p className="text-xs font-medium">{a.text}</p>
-                          <p className="mt-0.5 text-[10px] text-muted-foreground">
-                            {new Date(a.at).toLocaleString()}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </section>
+                </div>
               </div>
-            </div>
+            </section>
 
-            {/* Right Column — Calendar Rhythm & Insights */}
-            <aside className="space-y-5 lg:col-span-4">
-              {/* Daily Build Rhythm Quick Sync Card */}
-              <ScheduleSyncCard onOpenModal={() => setScheduleModalOpen(true)} />
-
-              {/* Learning Flow Progress */}
-              <section className="card-surface p-5">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold">Your Learning Flow</h3>
-                  <span className="text-xs font-bold text-primary">
-                    {current
-                      ? `${Math.min(
-                          4,
-                          2 + (currentSteps > 0 ? 1 : 0) + (doneCount > 0 ? 1 : 0)
-                        )} / 4`
-                      : "0 / 4"}
-                  </span>
-                </div>
-                <div className="mt-5 space-y-4">
-                  {[
-                    ["Onboarding", "Completed"],
-                    ["Build Path", plan ? "Ready" : "Waiting"],
-                    ["Build & Learn", current ? `${currentSteps}/${currentTotalSteps} mission steps` : "Waiting"],
-                    ["Prove & Grow", `${doneCount}/${missions.length} missions completed`],
-                  ].map(([t, s], i) => (
-                    <div key={t} className="flex items-start gap-3">
-                      <span
-                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                          i < 2
-                            ? "border-ink bg-ink text-white"
-                            : i === 2
-                            ? "border-primary text-primary"
-                            : "border-border"
-                        }`}
-                      >
-                        {i < 2 ? (
-                          <CheckCircle2 className="h-3 w-3 text-white" />
-                        ) : i === 2 ? (
-                          <span className="h-2 w-2 rounded-full bg-primary" />
-                        ) : null}
-                      </span>
-                      <div>
-                        <p className="text-xs font-semibold">{t}</p>
-                        <p className="text-[11px] text-muted-foreground">{s}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              {/* AI Insight Card */}
-              <section className="card-surface p-5">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  <h3 className="text-sm font-bold">BuildMyLogic Insight</h3>
-                  <span className="pill bg-primary-soft text-accent-foreground text-[10px]">AI</span>
-                </div>
-                <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                  {plan.progress.insights?.[0] ?? `Your path is optimized for ${goal}. Each mission produces verifiable proof that you can architect, test, and ship.`}
-                </p>
-                <div className="mt-3 rounded-xl bg-primary-soft px-3 py-2.5 text-xs font-bold">
-                  Next adaptive task: {current?.title ?? "Start a mission"}
-                </div>
-              </section>
-
-              {/* Next Upcoming Missions */}
-              <section className="card-surface p-5">
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-sm font-bold">Next Missions</h3>
-                  <Link to="/missions" className="text-xs font-semibold text-accent-foreground hover:underline">
-                    View all →
-                  </Link>
-                </div>
-                {missions.slice(currentIndex + 1, currentIndex + 4).map((m) => (
-                  <div key={m.id} className="flex items-center gap-3 border-t border-border py-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                      <Lock className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-xs font-semibold">{m.title}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {m.stack} · Difficulty {m.difficulty}
-                      </p>
-                    </div>
+            <section className="card-surface p-6 lg:col-span-5">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[16px] font-extrabold">Your Progress</h3>
+                <span className="display text-[22px] font-black">{pct}%</span>
+              </div>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+              </div>
+              <div className="mt-4 space-y-2">
+                {doneMissions.slice(-1).map((m) => (
+                  <div key={m.id} className="flex items-center gap-3 rounded-xl bg-emerald-50 px-3.5 py-3">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white"><Check className="h-3 w-3" strokeWidth={3.2} /></span>
+                    <p className="truncate text-[13px] font-semibold">{m.title}</p>
                   </div>
                 ))}
-                <p className="mt-2 text-[10px] text-muted-foreground">
-                  {doneCount} of {missions.length} missions completed
-                </p>
-              </section>
-            </aside>
+                <div className="flex items-center gap-3 rounded-xl bg-primary-soft px-3.5 py-3">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-card" />
+                  <p className="truncate text-[13px] font-semibold">
+                    {current.title} <span className="font-bold text-accent-foreground">(Current)</span>
+                  </p>
+                </div>
+                {nextMission && (
+                  <div className="flex items-center gap-3 px-3.5 py-3">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-border" />
+                    <p className="truncate text-[13px] font-medium text-muted-foreground">Next: {nextMission.title}</p>
+                  </div>
+                )}
+              </div>
+            </section>
           </div>
+
+          {/* Learning Path Timeline */}
+          <section className="card-surface mt-5 p-6 sm:p-7">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="display text-[19px] font-extrabold tracking-[-0.02em]">
+                Your Learning Path – {plan.projectTitle}
+              </h3>
+              <button
+                type="button"
+                onClick={() => void navigate({ to: "/missions" })}
+                className="shrink-0 text-[13px] font-bold text-accent-foreground hover:text-primary"
+              >
+                View Full Path →
+              </button>
+            </div>
+            <div className="mt-8 overflow-x-auto pb-2">
+              <div className="flex min-w-[640px] items-start">
+                {missions.slice(0, 9).map((mission, index) => {
+                  const status = state.missionProgress[mission.id]?.status ?? (index === 0 ? "active" : "locked");
+                  const isCurrent = mission.id === current.id;
+                  const isDone = status === "done";
+                  const last = index === Math.min(9, missions.length) - 1;
+                  return (
+                    <div key={mission.id} className="flex flex-1 flex-col items-center text-center">
+                      <div className="flex w-full items-center">
+                        <span className={`h-[3px] flex-1 ${index === 0 ? "bg-transparent" : isDone || isCurrent ? "bg-primary" : "bg-border"}`} />
+                        <span
+                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ${
+                            isDone
+                              ? "bg-emerald-500 text-white"
+                              : isCurrent
+                                ? "bg-primary text-primary-foreground"
+                                : "border border-border bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {isDone ? <Check className="h-4 w-4" strokeWidth={3.2} /> : index + 1}
+                        </span>
+                        <span className={`h-[3px] flex-1 ${last ? "bg-transparent" : isDone ? "bg-primary" : "bg-border"}`} />
+                      </div>
+                      <p className="mt-3 max-w-[110px] text-[11.5px] font-semibold leading-4">{mission.title}</p>
+                      {isCurrent && (
+                        <span className="mt-1.5 rounded-full bg-primary-soft px-2.5 py-0.5 text-[10px] font-bold text-accent-foreground">Now</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
         </>
       )}
     </AppShell>

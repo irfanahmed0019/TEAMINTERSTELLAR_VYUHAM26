@@ -1,12 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronRight, Code2, File, FolderOpen, Paperclip, Send, Sparkles, Terminal, UserRound, X, Lightbulb } from "lucide-react";
+import { ArrowLeft, ArrowRight, BarChart3, BookOpen, Camera, Check, ChevronRight, Code2, File, FolderOpen, Layers, Lock, Paperclip, Play, Send, Sparkles, Target, Terminal, UserRound, X, Lightbulb } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AppShell } from "@/components/AppShell";
 import { clearLearningChatMessages, logActivity, recordMissionEvidence, recordSkillEvidence, resetLoop, saveLearningChat, selectLearningMission, setMissionProgress, useLoop } from "@/lib/loop-store";
-import type { LearningMode, LearningState } from "@/lib/loop-types";
+import type { LearningMode, Mission } from "@/lib/loop-types";
 import { aiTeachMicroLesson } from "@/lib/sarvam.functions";
 import { getAuthSessionForApi } from "@/lib/auth";
-import { C_CURRICULUM_MAP, parseDrillState, type CConceptId } from "@/lib/curriculum-engine";
+import { C_CURRICULUM_MAP, parseDrillState } from "@/lib/curriculum-engine";
 
 
 export const Route = createFileRoute("/learn")({ head: () => ({ meta: [{ title: "Learn — BuildMyLogic" }] }), component: Learn });
@@ -59,6 +59,12 @@ const levelOptions: { id: Level; title: string; detail: string; emoji: string }[
 
 const textLike = /\.(c|h|cpp|cc|cxx|py|js|jsx|ts|tsx|java|go|rs|rb|php|html?|css|scss|json|md|txt|sql|sh|bash|yml|yaml|xml|toml|env)$/i;
 
+function difficultyLabel(difficulty: number) {
+  if (difficulty <= 1) return "Beginner";
+  if (difficulty === 2) return "Intermediate";
+  return "Advanced";
+}
+
 function Learn() {
   const state = useLoop();
   const navigate = useNavigate();
@@ -66,6 +72,8 @@ function Learn() {
   const selectedMission = missions.find((m) => m.id === state.selectedLearningMissionId);
   const activeMission = missions.find((m) => state.missionProgress[m.id]?.status === "active") ?? missions[0];
   const current = selectedMission ?? activeMission;
+  const [tab, setTab] = useState<"path" | "topics" | "resources">("path");
+  const [view, setView] = useState<"path" | "setup">("path");
   const [topic, setTopic] = useState("");
   const [mode, setMode] = useState<LearningMode>("balanced");
   const [level, setLevel] = useState<Level | null>(null);
@@ -129,10 +137,31 @@ function Learn() {
   }, [answer]);
 
   if (!state.plan || !current) {
-    return <AppShell crumb="Learn" title="What do you want to learn today?" subtitle="BuildMyLogic learns what you need before you build it." quote="Learn only what helps you build."><section className="card-surface p-10 text-center"><BookOpen className="mx-auto h-9 w-9 text-primary" /><h2 className="display mt-4 text-2xl font-black">Your learning path is waiting.</h2><p className="mx-auto mt-2 max-w-xl text-sm font-semibold">Finish onboarding and BuildMyLogic will connect learning directly to your first mission.</p><Link to="/" className="btn-base btn-primary-solid mt-5">Start onboarding</Link></section></AppShell>;
+    return <AppShell crumb="Learn" title="Your Learning Path" subtitle="Build skills step by step, with practical tasks and real projects." quote="Learn by doing, not just by watching."><section className="card-surface p-10 text-center"><BookOpen className="mx-auto h-9 w-9 text-primary" /><h2 className="display mt-4 text-2xl font-black">Your learning path is waiting.</h2><p className="mx-auto mt-2 max-w-xl text-sm font-semibold">Finish onboarding and BuildMyLogic will connect learning directly to your first mission.</p><Link to="/" className="btn-base btn-primary-solid mt-5">Start onboarding</Link></section></AppShell>;
   }
 
   const chatKey = `v5::${current.id}::${topic}`;
+  const doneCount = missions.filter((m) => state.missionProgress[m.id]?.status === "done").length;
+  const pathPct = missions.length ? Math.round((doneCount / missions.length) * 100) : 0;
+  const activeStepsDone = state.missionProgress[activeMission?.id ?? ""]?.completedSteps?.length ?? 0;
+  const activeStepsTotal = activeMission?.steps.length ?? 1;
+  const projectPct = Math.min(100, Math.round((activeStepsDone / activeStepsTotal) * 100));
+  const goals: [string, boolean][] = [
+    ["Complete the current topic", doneCount > 0 && (state.missionProgress[activeMission?.id ?? ""]?.status === "done")],
+    ["Log at least one practice session", state.sessions.length > 0],
+    ["Make progress on the current project", activeStepsDone > 0],
+  ];
+  const goalsDone = goals.filter(([, done]) => done).length;
+
+  function chooseMission(mission: Mission) {
+    selectLearningMission(mission.id);
+    setTopic(mission.skills?.[0] ?? fallbackTopics[0][0]);
+    setMessages([]);
+    setStarted(false);
+    setUnderstood(false);
+    setReadyForProject(false);
+    setView("setup");
+  }
 
   async function readAttachment(file: File, relativePath?: string): Promise<Attachment> {
     const base = { name: relativePath || file.name, size: file.size, path: relativePath };
@@ -258,7 +287,7 @@ function Learn() {
       <div className="mx-auto flex max-w-[980px] flex-col">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={() => setStarted(false)} className="btn-base btn-outline"><ArrowLeft className="h-4 w-4" />Change setup</button>
+            <button type="button" onClick={() => { setStarted(false); setView("path"); }} className="btn-base btn-outline"><ArrowLeft className="h-4 w-4" />Back to learning path</button>
             <button type="button" onClick={() => { if (window.confirm("Reset your build path and start fresh onboarding with simple beginner projects?")) { resetLoop(); void navigate({ to: "/" }); } }} className="btn-base btn-outline text-xs text-muted-foreground hover:text-destructive">Reset project path</button>
           </div>
           <div className="flex items-center gap-2"><span className="rounded-full border border-black/15 bg-white px-3 py-1 text-xs font-bold">{modeOptions.find((x) => x.id === mode)?.emoji} {modeOptions.find((x) => x.id === mode)?.title}</span><span className="rounded-full border border-black/15 bg-white px-3 py-1 text-xs font-bold">Saved</span></div>
@@ -389,45 +418,267 @@ function Learn() {
     </AppShell>;
   }
 
-  return <AppShell crumb="Learn" title="Before we teach, choose what you're building. 👋" subtitle="Pick the real project part you want to work on. Then BuildMyLogic Mentor will meet you at your level." quote="Don't collect lessons. Build evidence." wide>
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-      <section className="card-surface p-7">
-        <div className="rounded-2xl bg-black p-5 text-white"><div className="flex items-start gap-4"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-black"><Terminal className="h-5 w-5" /></span><div className="min-w-0 flex-1"><p className="text-[10px] font-black uppercase tracking-widest text-white/55">Current project</p><h2 className="mt-1 text-xl font-black">{state.plan.projectTitle}</h2><p className="mt-2 text-xs font-semibold leading-5 text-white/70">{state.plan.projectPitch}</p></div><span className="rounded-full border border-white/25 px-3 py-1 text-[10px] font-black">✓ Selected</span></div></div>
-        <div className="mt-7"><p className="text-xs font-black uppercase tracking-widest text-muted-foreground">1 · Project part</p><h2 className="display mt-2 text-3xl font-black">What are you working on right now?</h2><p className="mt-2 text-sm font-semibold">BuildMyLogic remembers each conversation separately. Switching missions won't erase your previous learning.</p></div>
-        <div className="mt-5 grid gap-2.5">{missions.map((mission, index) => { const isSelected = mission.id === current.id; const status = state.missionProgress[mission.id]?.status ?? (index === 0 ? "active" : "locked"); return <button key={mission.id} type="button" onClick={() => { selectLearningMission(mission.id); setTopic(mission.skills?.[0] ?? fallbackTopics[0][0]); setMessages([]); setStarted(false); setUnderstood(false); setReadyForProject(false); }} className={`flex items-center gap-4 rounded-2xl border-2 p-4 text-left transition ${isSelected ? "border-black bg-primary-soft" : "border-black/10 hover:border-black"}`}><span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isSelected ? "bg-black text-white" : "bg-muted"}`}>{status === "done" ? "✓" : index + 1}</span><span className="min-w-0 flex-1"><b className="block text-sm">{mission.title}</b><span className="mt-1 block text-xs font-semibold text-muted-foreground">{mission.stack} · {mission.description}</span></span>{isSelected && <Check className="h-5 w-5" />}</button>; })}</div>
-        <div className="mt-8"><p className="text-xs font-black uppercase tracking-widest text-muted-foreground">2 · Learning style</p><h2 className="display mt-2 text-3xl font-black">How should BuildMyLogic Mentor teach you?</h2></div>
-        <div className="mt-5 grid gap-2.5">{modeOptions.map((option) => <button key={option.id} type="button" onClick={() => setMode(option.id)} className={`flex items-center gap-4 rounded-2xl border-2 p-4 text-left ${mode === option.id ? "border-black bg-primary-soft" : "border-black/10 hover:border-black"}`}><span className="text-xl">{option.emoji}</span><span className="flex-1"><b className="block text-sm">{option.title}</b><span className="mt-1 block text-xs font-semibold text-muted-foreground">{option.detail}</span></span>{mode === option.id && <Check className="h-5 w-5" />}</button>)}</div>
-        <div className="mt-8"><p className="text-xs font-black uppercase tracking-widest text-muted-foreground">3 · Starting point</p><h2 className="display mt-2 text-3xl font-black">Do you know this already?</h2></div>
-        <div className="mt-5 grid gap-2.5">{levelOptions.map((option) => <button key={option.id} type="button" onClick={() => setLevel(option.id)} className={`flex items-center gap-4 rounded-2xl border-2 p-4 text-left ${level === option.id ? "border-black bg-primary-soft" : "border-black/10 hover:border-black"}`}><span className="text-xl">{option.emoji}</span><span className="flex-1"><b className="block text-sm">{option.title}</b><span className="mt-1 block text-xs font-semibold text-muted-foreground">{option.detail}</span></span>{level === option.id && <Check className="h-5 w-5" />}</button>)}</div>
-        <button type="button" disabled={!level || busy} onClick={() => void startChat()} className="btn-base btn-primary-solid mt-6 disabled:opacity-50">{state.learningChats[chatKey]?.messages?.length ? "Continue where I left off" : "Start with BuildMyLogic Mentor"}<ArrowRight className="h-4 w-4" /></button>
-      </section>
-      <aside className="space-y-4">
-        <section className="card-surface p-5">
-          <p className="text-xs font-black uppercase tracking-widest">BuildMyLogic Mentor's rule</p>
-          <h2 className="mt-2 text-xl font-black">Simple first. Build next.</h2>
-          <p className="mt-3 text-sm font-semibold leading-6">BuildMyLogic Mentor starts with a basic question, listens to your answer, then teaches only the next thing you need.</p>
+  if (view === "setup") {
+    return <AppShell crumb="Learn" title="Before we teach, choose what you're building. 👋" subtitle="Pick the real project part you want to work on. Then BuildMyLogic Mentor will meet you at your level." quote="Don't collect lessons. Build evidence." wide>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <section className="card-surface p-7">
+          <button type="button" onClick={() => setView("path")} className="btn-base btn-outline mb-5 text-xs"><ArrowLeft className="h-3.5 w-3.5" />Back to learning path</button>
+          <div className="rounded-2xl bg-black p-5 text-white"><div className="flex items-start gap-4"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-black"><Terminal className="h-5 w-5" /></span><div className="min-w-0 flex-1"><p className="text-[10px] font-black uppercase tracking-widest text-white/55">Current project</p><h2 className="mt-1 text-xl font-black">{state.plan.projectTitle}</h2><p className="mt-2 text-xs font-semibold leading-5 text-white/70">{state.plan.projectPitch}</p></div><span className="rounded-full border border-white/25 px-3 py-1 text-[10px] font-black">✓ Selected</span></div></div>
+          <div className="mt-7"><p className="text-xs font-black uppercase tracking-widest text-muted-foreground">1 · Project part</p><h2 className="display mt-2 text-3xl font-black">What are you working on right now?</h2><p className="mt-2 text-sm font-semibold">BuildMyLogic remembers each conversation separately. Switching missions won't erase your previous learning.</p></div>
+          <div className="mt-5 grid gap-2.5">{missions.map((mission, index) => { const isSelected = mission.id === current.id; const status = state.missionProgress[mission.id]?.status ?? (index === 0 ? "active" : "locked"); return <button key={mission.id} type="button" onClick={() => { selectLearningMission(mission.id); setTopic(mission.skills?.[0] ?? fallbackTopics[0][0]); setMessages([]); setStarted(false); setUnderstood(false); setReadyForProject(false); }} className={`flex items-center gap-4 rounded-2xl border-2 p-4 text-left transition ${isSelected ? "border-black bg-primary-soft" : "border-black/10 hover:border-black"}`}><span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isSelected ? "bg-black text-white" : "bg-muted"}`}>{status === "done" ? "✓" : index + 1}</span><span className="min-w-0 flex-1"><b className="block text-sm">{mission.title}</b><span className="mt-1 block text-xs font-semibold text-muted-foreground">{mission.stack} · {mission.description}</span></span>{isSelected && <Check className="h-5 w-5" />}</button>; })}</div>
+          <div className="mt-8"><p className="text-xs font-black uppercase tracking-widest text-muted-foreground">2 · Learning style</p><h2 className="display mt-2 text-3xl font-black">How should BuildMyLogic Mentor teach you?</h2></div>
+          <div className="mt-5 grid gap-2.5">{modeOptions.map((option) => <button key={option.id} type="button" onClick={() => setMode(option.id)} className={`flex items-center gap-4 rounded-2xl border-2 p-4 text-left ${mode === option.id ? "border-black bg-primary-soft" : "border-black/10 hover:border-black"}`}><span className="text-xl">{option.emoji}</span><span className="flex-1"><b className="block text-sm">{option.title}</b><span className="mt-1 block text-xs font-semibold text-muted-foreground">{option.detail}</span></span>{mode === option.id && <Check className="h-5 w-5" />}</button>)}</div>
+          <div className="mt-8"><p className="text-xs font-black uppercase tracking-widest text-muted-foreground">3 · Starting point</p><h2 className="display mt-2 text-3xl font-black">Do you know this already?</h2></div>
+          <div className="mt-5 grid gap-2.5">{levelOptions.map((option) => <button key={option.id} type="button" onClick={() => setLevel(option.id)} className={`flex items-center gap-4 rounded-2xl border-2 p-4 text-left ${level === option.id ? "border-black bg-primary-soft" : "border-black/10 hover:border-black"}`}><span className="text-xl">{option.emoji}</span><span className="flex-1"><b className="block text-sm">{option.title}</b><span className="mt-1 block text-xs font-semibold text-muted-foreground">{option.detail}</span></span>{level === option.id && <Check className="h-5 w-5" />}</button>)}</div>
+          <button type="button" disabled={!level || busy} onClick={() => void startChat()} className="btn-base btn-primary-solid mt-6 disabled:opacity-50">{state.learningChats[chatKey]?.messages?.length ? "Continue where I left off" : "Start with BuildMyLogic Mentor"}<ArrowRight className="h-4 w-4" /></button>
         </section>
+        <aside className="space-y-4">
+          <section className="card-surface p-5">
+            <p className="text-xs font-black uppercase tracking-widest">BuildMyLogic Mentor's rule</p>
+            <h2 className="mt-2 text-xl font-black">Simple first. Build next.</h2>
+            <p className="mt-3 text-sm font-semibold leading-6">BuildMyLogic Mentor starts with a basic question, listens to your answer, then teaches only the next thing you need.</p>
+          </section>
+          <section className="card-surface p-5">
+            <h2 className="text-sm font-black">Mission skills</h2>
+            <div className="mt-3 flex flex-wrap gap-2">{current.skills.map((skill) => <span key={skill} className="rounded-full border border-black/15 bg-white px-3 py-1.5 text-xs font-black">{skill}</span>)}</div>
+          </section>
+        </aside>
+      </div>
+    </AppShell>;
+  }
 
-        {/* VS Code Extension Connect Panel */}
-        <section className="card-surface p-5">
-          <div className="mb-3 flex items-center gap-2"><Code2 className="h-4 w-4" /><h2 className="text-sm font-black">Build with VS Code</h2>{vscodeSession && <span className="ml-auto rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-black text-green-700">● {vscodeSession.status === "active" || vscodeSession.status === "connected" ? "CONNECTED" : "READY"}</span>}</div>
-        {!vscodeSession ? <><p className="mb-3 text-xs font-semibold text-muted-foreground">Open the existing BuildMyLogic extension with the same challenge. Only the Session ID is needed.</p><button type="button" disabled={vscodeLoading} onClick={async () => { setVscodeLoading(true); try { const auth = await getAuthSessionForApi(); const headers: Record<string, string> = { "content-type": "application/json" }; if (auth?.idToken) headers["Authorization"] = `Bearer ${auth.idToken}`; const res = await fetch("/api/sessions/start", { method: "POST", headers, body: JSON.stringify({ challenge_id: current.id, user_id: auth?.uid || "local-user", title: current.title, language: current.stack, concept: current.skills?.[0] || "problem solving", instructions: current.description + "\\n\\nRequirements:\\n" + current.steps.map((step) => `• ${step.title}: ${step.detail}`).join("\\n"), expected_skills: current.skills }) }); const data = await res.json() as { ok?: boolean; session_id?: string; error?: string }; if (!res.ok || !data.ok || !data.session_id) throw new Error(data.error || "Could not start the VS Code session."); const next = { sessionId: data.session_id, challengeId: current.id, status: "waiting" }; setVscodeSession(next); const anchor = document.createElement("a"); anchor.href = `vscode://buildmylogic.buildmylogic/connect?sessionId=${encodeURIComponent(next.sessionId)}&apiBaseUrl=${encodeURIComponent(window.location.origin)}`; anchor.click(); } catch (e) { setError(e instanceof Error ? e.message : "Could not open the VS Code session."); } finally { setVscodeLoading(false); } }} className="btn-base btn-ink w-full text-xs">{vscodeLoading ? "Opening VS Code…" : "Open session in VS Code"}</button></> : <div className="space-y-3"><p className="text-xs font-black text-green-700">✅ Session ID ready. VS Code is opening the same mission.</p><button type="button" onClick={() => { const anchor = document.createElement("a"); anchor.href = `vscode://buildmylogic.buildmylogic/connect?sessionId=${encodeURIComponent(vscodeSession.sessionId)}&apiBaseUrl=${encodeURIComponent(window.location.origin)}`; anchor.click(); }} className="btn-base btn-outline w-full text-xs">Open VS Code again</button><button type="button" onClick={() => setVscodeSession(null)} className="w-full text-center text-[10px] font-bold text-muted-foreground hover:text-destructive">Start a new session</button></div>}
-        </section>
+  return (
+    <AppShell
+      crumb="Learn"
+      title="Your Learning Path"
+      subtitle="Build skills step by step, with practical tasks and real projects."
+      quote="Learn by doing, not just by watching."
+      wide
+    >
+      {/* Tabs */}
+      <div className="inline-flex flex-wrap gap-1 rounded-2xl border border-border bg-card p-1.5">
+        {([
+          { id: "path", label: "Learning Path", icon: BookOpen },
+          { id: "topics", label: "Topics", icon: Layers },
+          { id: "resources", label: "Resources", icon: Play },
+        ] as const).map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setTab(id)}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-bold transition ${tab === id ? "bg-primary-soft text-accent-foreground" : "text-muted-foreground hover:bg-muted"}`}
+          >
+            <Icon className="h-4 w-4" />
+            {label}
+          </button>
+        ))}
+      </div>
 
-        <section className="card-surface p-5">
-          <h2 className="text-sm font-black">What can you bring?</h2>
-          <div className="mt-3 space-y-2 text-xs font-semibold">
-            <p>📄 Files — code, notes, docs</p>
-            <p>📁 Folders — upload a whole project</p>
-            <p>💬 Chat — ask questions in plain English</p>
-            <p>🗣️ Manglish ok! Type freely.</p>
-          </div>
-        </section>
-        <section className="card-surface p-5">
-          <h2 className="text-sm font-black">Mission skills</h2>
-          <div className="mt-3 flex flex-wrap gap-2">{current.skills.map((skill) => <span key={skill} className="rounded-full border border-black/15 bg-white px-3 py-1.5 text-xs font-black">{skill}</span>)}</div>
-        </section>
-      </aside>
-    </div>
-  </AppShell>;
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-12">
+        {/* Main column */}
+        <div className="lg:col-span-7 xl:col-span-8">
+          {tab === "path" && (
+            <>
+              <section className="card-surface flex items-center gap-4 p-5 sm:p-6">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary">
+                  <Code2 className="h-6 w-6" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <h2 className="display text-[19px] font-extrabold tracking-[-0.02em]">{state.plan.projectTitle} Path</h2>
+                  <p className="mt-0.5 text-[13px] text-muted-foreground">From basics to building real-world projects.</p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-[13px] font-bold">{pathPct}% Complete</p>
+                  <div className="mt-1.5 h-1.5 w-24 overflow-hidden rounded-full bg-muted sm:w-36">
+                    <div className="h-full rounded-full bg-primary" style={{ width: `${pathPct}%` }} />
+                  </div>
+                </div>
+              </section>
+
+              <h3 className="display mt-7 text-[19px] font-extrabold tracking-[-0.02em]">Learning Path</h3>
+              <div className="mt-4 space-y-3">
+                {missions.map((mission, index) => {
+                  const status = state.missionProgress[mission.id]?.status ?? (index === 0 ? "active" : "locked");
+                  const isDone = status === "done";
+                  const isActive = !isDone && mission.id === activeMission?.id;
+                  const locked = !isDone && !isActive && status === "locked";
+                  return (
+                    <button
+                      key={mission.id}
+                      type="button"
+                      onClick={() => chooseMission(mission)}
+                      className={`flex w-full items-center gap-4 rounded-2xl border bg-card p-4 text-left transition hover:border-primary sm:p-5 ${isActive ? "border-primary/30 shadow-sm" : "border-border"}`}
+                    >
+                      <div className="flex flex-col items-center">
+                        <span
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                            isDone
+                              ? "bg-emerald-500 text-white"
+                              : isActive
+                                ? "border-[3px] border-primary bg-card"
+                                : "border border-border bg-muted"
+                          }`}
+                        >
+                          {isDone && <Check className="h-4 w-4" strokeWidth={3.2} />}
+                        </span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[15px] font-bold">{index + 1}. {mission.title}</p>
+                        <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-muted-foreground">{mission.description}</p>
+                      </div>
+                      {isDone ? (
+                        <span className="pill shrink-0 bg-emerald-100 font-bold text-emerald-700">Completed</span>
+                      ) : isActive ? (
+                        <span className="pill shrink-0 bg-primary-soft font-bold text-accent-foreground">In Progress</span>
+                      ) : locked ? (
+                        <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      ) : null}
+                      {!locked && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-6 text-center">
+                <button type="button" onClick={() => void navigate({ to: "/missions" })} className="btn-base btn-outline rounded-full px-6">
+                  View Full Roadmap <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
+            </>
+          )}
+
+          {tab === "topics" && (
+            <section className="card-surface p-5 sm:p-6">
+              <h2 className="display text-[19px] font-extrabold tracking-[-0.02em]">Topics for {current.title}</h2>
+              <p className="mt-1 text-[13px] text-muted-foreground">Pick a topic and BuildMyLogic Mentor will teach it at your level, connected to what you're building.</p>
+              <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
+                {missionTopics.map(([name, detail]) => (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => { setTopic(name); setView("setup"); }}
+                    className={`rounded-2xl border p-4 text-left transition hover:border-primary ${topic === name ? "border-primary/40 bg-primary-soft/60" : "border-border bg-card"}`}
+                  >
+                    <p className="text-[14px] font-bold">{name}</p>
+                    <p className="mt-1 text-[12.5px] leading-5 text-muted-foreground">{detail}</p>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {tab === "resources" && (
+            <div className="space-y-4">
+              <Link to="/videos" className="card-surface flex items-center gap-4 p-5 transition hover:border-primary">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary"><Camera className="h-6 w-6" /></span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[15px] font-bold">Watch the full course video</p>
+                  <p className="mt-0.5 text-[13px] text-muted-foreground">A free full-length course video with an on-device focus check. Nothing is recorded or uploaded.</p>
+                </div>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </Link>
+              <a href="/extension.html" className="card-surface flex items-center gap-4 p-5 transition hover:border-primary">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary"><Code2 className="h-6 w-6" /></span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[15px] font-bold">VS Code extension</p>
+                  <p className="mt-0.5 text-[13px] text-muted-foreground">Install once to run checkpoints locally and sync real evidence from your editor.</p>
+                </div>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </a>
+              <Link to="/mentor" className="card-surface flex items-center gap-4 p-5 transition hover:border-primary">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary"><Sparkles className="h-6 w-6" /></span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[15px] font-bold">Practice workspace (C)</p>
+                  <p className="mt-0.5 text-[13px] text-muted-foreground">Guided C exercises with real test runs, checked by the mentor.</p>
+                </div>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </Link>
+              <section className="card-surface p-5">
+                <div className="mb-3 flex items-center gap-2"><Code2 className="h-4 w-4" /><h2 className="text-sm font-black">Build with VS Code</h2>{vscodeSession && <span className="ml-auto rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-black text-green-700">● {vscodeSession.status === "active" || vscodeSession.status === "connected" ? "CONNECTED" : "READY"}</span>}</div>
+              {!vscodeSession ? <><p className="mb-3 text-xs font-semibold text-muted-foreground">Open the existing BuildMyLogic extension with the same challenge. Only the Session ID is needed.</p><button type="button" disabled={vscodeLoading} onClick={async () => { setVscodeLoading(true); try { const auth = await getAuthSessionForApi(); const headers: Record<string, string> = { "content-type": "application/json" }; if (auth?.idToken) headers["Authorization"] = `Bearer ${auth.idToken}`; const res = await fetch("/api/sessions/start", { method: "POST", headers, body: JSON.stringify({ challenge_id: current.id, user_id: auth?.uid || "local-user", title: current.title, language: current.stack, concept: current.skills?.[0] || "problem solving", instructions: current.description + "\n\nRequirements:\n" + current.steps.map((step) => `• ${step.title}: ${step.detail}`).join("\n"), expected_skills: current.skills }) }); const data = await res.json() as { ok?: boolean; session_id?: string; error?: string }; if (!res.ok || !data.ok || !data.session_id) throw new Error(data.error || "Could not start the VS Code session."); const next = { sessionId: data.session_id, challengeId: current.id, status: "waiting" }; setVscodeSession(next); const anchor = document.createElement("a"); anchor.href = `vscode://buildmylogic.buildmylogic/connect?sessionId=${encodeURIComponent(next.sessionId)}&apiBaseUrl=${encodeURIComponent(window.location.origin)}`; anchor.click(); } catch (e) { setError(e instanceof Error ? e.message : "Could not open the VS Code session."); } finally { setVscodeLoading(false); } }} className="btn-base btn-ink w-full text-xs">{vscodeLoading ? "Opening VS Code…" : "Open session in VS Code"}</button></> : <div className="space-y-3"><p className="text-xs font-black text-green-700">✅ Session ID ready. VS Code is opening the same mission.</p><button type="button" onClick={() => { const anchor = document.createElement("a"); anchor.href = `vscode://buildmylogic.buildmylogic/connect?sessionId=${encodeURIComponent(vscodeSession.sessionId)}&apiBaseUrl=${encodeURIComponent(window.location.origin)}`; anchor.click(); }} className="btn-base btn-outline w-full text-xs">Open VS Code again</button><button type="button" onClick={() => setVscodeSession(null)} className="w-full text-center text-[10px] font-bold text-muted-foreground hover:text-destructive">Start a new session</button></div>}
+              </section>
+            </div>
+          )}
+        </div>
+
+        {/* Right rail */}
+        <aside className="space-y-5 lg:col-span-5 xl:col-span-4">
+          {activeMission && (
+            <section className="card-surface p-5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5">
+                <Layers className="h-[18px] w-[18px] text-primary" />
+                <h3 className="text-[15px] font-extrabold">Current Project</h3>
+                </div>
+                <span className="pill bg-primary-soft text-accent-foreground">In Progress</span>
+              </div>
+              <div className="mt-4 flex items-start gap-3.5">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary">
+                  <Terminal className="h-5 w-5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[15px] font-bold">{activeMission.title}</p>
+                  <p className="mt-1 line-clamp-2 text-[12.5px] leading-5 text-muted-foreground">{activeMission.description}</p>
+                </div>
+              </div>
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted">
+                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${projectPct}%` }} />
+              </div>
+              <p className="mt-1.5 text-right text-[12px] font-bold">{projectPct}%</p>
+              <button
+                type="button"
+                onClick={() => void navigate({ to: "/sessions" })}
+                className="btn-base btn-outline mt-3 w-full rounded-full"
+              >
+                Open Project in Sessions <ArrowRight className="h-4 w-4" />
+              </button>
+            </section>
+          )}
+
+          {activeMission && (
+            <section className="card-surface p-5">
+              <div className="flex items-center gap-2.5">
+                <Target className="h-[18px] w-[18px] text-primary" />
+                <h3 className="text-[15px] font-extrabold">Next Milestone</h3>
+              </div>
+              <p className="mt-3 text-[14px] font-bold">Complete {activeMission.title}</p>
+              <div className="mt-3 space-y-2.5">
+                {activeMission.steps.slice(0, 3).map((step, index) => {
+                  const done = state.missionProgress[activeMission.id]?.completedSteps?.includes(index) ?? false;
+                  return (
+                    <div key={step.title} className="flex items-center gap-2.5">
+                      <span className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2 ${done ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>
+                        {done && <Check className="h-2.5 w-2.5" strokeWidth={3.5} />}
+                      </span>
+                      <p className={`text-[13px] ${done ? "font-semibold" : "text-muted-foreground"}`}>{step.title}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          <section className="card-surface p-5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <BarChart3 className="h-[18px] w-[18px] text-primary" />
+                <h3 className="text-[15px] font-extrabold">Learning Goals</h3>
+              </div>
+              <span className="pill bg-primary-soft text-accent-foreground">{goalsDone} / {goals.length}</span>
+            </div>
+            <p className="mt-1.5 text-[12px] text-muted-foreground">Your targets for this week.</p>
+            <div className="mt-3 space-y-2.5">
+              {goals.map(([label, done]) => (
+                <div key={label} className="flex items-center gap-2.5">
+                  <span className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-md border-2 ${done ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>
+                    {done && <Check className="h-2.5 w-2.5" strokeWidth={3.5} />}
+                  </span>
+                  <p className={`text-[13px] ${done ? "font-semibold" : "text-muted-foreground"}`}>{label}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        </aside>
+      </div>
+    </AppShell>
+  );
 }
