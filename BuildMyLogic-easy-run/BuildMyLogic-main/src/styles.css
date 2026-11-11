@@ -444,3 +444,35 @@
     justify-content: flex-end;
   }
 }
+
+/* Mentor code blocks: fenced code renders as a real block, not raw backticks. */
+.learn-code-block {
+  display: block;
+  margin: .55rem 0 .2rem;
+  padding: .7rem .9rem;
+  border-radius: .75rem;
+  background: #17130f;
+  color: #f5f2ec;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: .86rem;
+  line-height: 1.6;
+  font-weight: 600;
+  overflow-x: auto;
+  white-space: pre;
+}
+.learn-code-block code {
+  background: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+}
+.learn-code-block[data-lang]::before {
+  content: attr(data-lang);
+  display: block;
+  margin-bottom: .35rem;
+  font-size: .62rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.45);
+}

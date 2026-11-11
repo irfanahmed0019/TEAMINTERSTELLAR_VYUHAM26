@@ -26,23 +26,48 @@ type Attachment = { name: string; size: number; path?: string | undefined; text?
 type ChatMessage = { role: "mentor" | "student"; text: string; attachments?: { name: string; size: number }[] };
 
 function renderRichText(text: string, role: ChatMessage["role"]): ReactNode {
-  const lines = text.split(/\n/);
-  return lines.map((line, lineIndex) => {
-    const tokens = line.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean);
-    return (
-      <span key={`line-${lineIndex}`} className="learn-rich-line">
-        {tokens.map((token, tokenIndex) => {
-          if (token.startsWith("**") && token.endsWith("**")) {
-            return <strong key={`token-${tokenIndex}`} className="font-black">{token.slice(2, -2)}</strong>;
-          }
-          if (token.startsWith("`") && token.endsWith("`")) {
-            return <code key={`token-${tokenIndex}`} className={`learn-inline-code ${role === "student" ? "is-student" : ""}`}>{token.slice(1, -1)}</code>;
-          }
-          return <span key={`token-${tokenIndex}`}>{token}</span>;
-        })}
-        {lineIndex < lines.length - 1 ? <br /> : null}
-      </span>
-    );
+  const renderProse = (segment: string, keyPrefix: string): ReactNode =>
+    segment.split(/\n/).map((line, lineIndex, lines) => {
+      const tokens = line.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean);
+      return (
+        <span key={`${keyPrefix}-line-${lineIndex}`} className="learn-rich-line">
+          {tokens.map((token, tokenIndex) => {
+            if (token.startsWith("**") && token.endsWith("**")) {
+              return <strong key={`token-${tokenIndex}`} className="font-black">{token.slice(2, -2)}</strong>;
+            }
+            if (token.startsWith("`") && token.endsWith("`")) {
+              return <code key={`token-${tokenIndex}`} className={`learn-inline-code ${role === "student" ? "is-student" : ""}`}>{token.slice(1, -1)}</code>;
+            }
+            return <span key={`token-${tokenIndex}`}>{token}</span>;
+          })}
+          {lineIndex < lines.length - 1 ? <br /> : null}
+        </span>
+      );
+    });
+
+  // Fenced code blocks (```lang ... ```) render as real code blocks instead of
+  // raw backtick lines. Anything outside fences keeps the plain-line treatment.
+  const blocks = text.split(/(```[\s\S]*?(?:```|$))/g);
+  return blocks.map((block, blockIndex) => {
+    if (blockIndex % 2 === 1) {
+      const body = block.replace(/^```/, "").replace(/```\s*$/, "");
+      const newline = body.indexOf("\n");
+      let lang = "";
+      let code = body;
+      if (newline !== -1) {
+        const firstLine = body.slice(0, newline).trim();
+        if (/^[A-Za-z0-9#+._-]{1,24}$/.test(firstLine)) {
+          lang = firstLine;
+          code = body.slice(newline + 1);
+        }
+      }
+      return (
+        <pre key={`code-${blockIndex}`} className="learn-code-block" data-lang={lang || undefined}>
+          <code>{code.replace(/\n$/, "")}</code>
+        </pre>
+      );
+    }
+    return block ? <span key={`prose-${blockIndex}`}>{renderProse(block, `prose-${blockIndex}`)}</span> : null;
   });
 }
 
