@@ -65,11 +65,11 @@ export function AppShell({ crumb, title, subtitle, quote, children, wide = false
             <Link to="/settings" className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[14px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"><SettingsIcon className="h-[19px] w-[19px]" strokeWidth={1.9} />Settings</Link>
             <button type="button" onClick={() => { signOut(); resetLoop(); void navigate({ to: "/" }); }} className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-[14px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"><LogOut className="h-[19px] w-[19px]" strokeWidth={1.9} />Logout</button>
           </div>
-          <div className="rounded-xl bg-primary-soft px-4 py-4">
-            <p className="text-[13px] font-bold">Keep Building.</p>
-            <p className="mt-1 text-[12px] leading-5 text-muted-foreground">A better you is a more capable builder.</p>
-            <div className="mt-2 text-right text-xl text-primary">↗</div>
-          </div>
+          <Link to="/settings" className="flex items-center gap-2.5 rounded-xl px-2 py-2 hover:bg-muted">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-ink text-xs font-semibold text-ink-foreground">{name.slice(0, 1).toUpperCase()}</span>
+            <span className="text-sm font-semibold">{name}</span>
+            <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground" />
+          </Link>
         </div>
       </aside>
 

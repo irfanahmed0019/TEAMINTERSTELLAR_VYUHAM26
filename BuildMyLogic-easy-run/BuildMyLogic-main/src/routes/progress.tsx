@@ -37,7 +37,7 @@ const COMPETENCY_AXES: { axis: string; keywords: string[] }[] = [
   { axis: "Coding", keywords: ["python", "javascript", "typescript", "java", "c", "coding", "programming", "react", "html", "css"] },
   { axis: "Data Handling", keywords: ["data", "input", "output", "file", "pandas", "variable", "sql"] },
   { axis: "Project Building", keywords: ["project", "build", "deploy", "api", "app"] },
-  { axis: "Concept Understanding", keywords: ["concept", "function", "oop", "control", "loop", "condition", "array", "string"] },
+  { axis: "Concepts", keywords: ["concept", "function", "oop", "control", "loop", "condition", "array", "string"] },
   { axis: "Debugging", keywords: ["debug", "error", "test", "fix"] },
 ];
 
