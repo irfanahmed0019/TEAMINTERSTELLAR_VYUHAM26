@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, ArrowRight, BarChart3, BookOpen, Camera, Check, ChevronRight, Code2, File, FolderOpen, Layers, Lock, Paperclip, Play, Send, Sparkles, Target, Terminal, UserRound, X, Lightbulb } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, BarChart3, BookOpen, Camera, Check, ChevronRight, Code2, File, FolderOpen, Layers, Lock, Paperclip, Play, Send, Sparkles, Target, Terminal, UserRound, X, Lightbulb } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AppShell } from "@/components/AppShell";
 import { clearLearningChatMessages, logActivity, recordMissionEvidence, recordSkillEvidence, resetLoop, saveLearningChat, selectLearningMission, setMissionProgress, useLoop } from "@/lib/loop-store";
@@ -63,6 +63,10 @@ function difficultyLabel(difficulty: number) {
   if (difficulty <= 1) return "Beginner";
   if (difficulty === 2) return "Intermediate";
   return "Advanced";
+}
+
+function PythonMark({ className = "h-7 w-7" }: { className?: string }) {
+  return <img src="/python-logo.png" alt="" className={`${className} object-contain`} />;
 }
 
 function Learn() {
@@ -141,6 +145,7 @@ function Learn() {
   }
 
   const chatKey = `v5::${current.id}::${topic}`;
+  const isPythonPlan = /python/i.test(`${state.plan.projectTitle} ${activeMission?.stack ?? ""} ${current.stack ?? ""}`);
   const doneCount = missions.filter((m) => state.missionProgress[m.id]?.status === "done").length;
   const pathPct = missions.length ? Math.round((doneCount / missions.length) * 100) : 0;
   const activeStepsDone = state.missionProgress[activeMission?.id ?? ""]?.completedSteps?.length ?? 0;
@@ -481,7 +486,7 @@ function Learn() {
             <>
               <section className="card-surface flex items-center gap-4 p-5 sm:p-6">
                 <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary">
-                  <Code2 className="h-6 w-6" />
+                  {isPythonPlan ? <PythonMark className="h-8 w-8" /> : <Code2 className="h-6 w-6" />}
                 </span>
                 <div className="min-w-0 flex-1">
                   <h2 className="display text-[19px] font-extrabold tracking-[-0.02em]">{state.plan.projectTitle} Path</h2>
@@ -502,14 +507,18 @@ function Learn() {
                   const isDone = status === "done";
                   const isActive = !isDone && mission.id === activeMission?.id;
                   const locked = !isDone && !isActive && status === "locked";
+                  const isLast = index === missions.length - 1;
+                  const prevDone = index > 0 && (state.missionProgress[missions[index - 1]!.id]?.status === "done");
                   return (
                     <button
                       key={mission.id}
                       type="button"
                       onClick={() => chooseMission(mission)}
-                      className={`flex w-full items-center gap-4 rounded-2xl border bg-card p-4 text-left transition hover:border-primary sm:p-5 ${isActive ? "border-primary/30 shadow-sm" : "border-border"}`}
+                      className={`flex w-full items-stretch rounded-2xl border bg-card text-left transition hover:border-primary ${isActive ? "border-primary/40 bg-primary-soft/50 shadow-sm" : "border-border"}`}
                     >
-                      <div className="flex flex-col items-center">
+                      <span className="relative flex w-14 shrink-0 flex-col items-center self-stretch sm:w-16">
+                        {index > 0 && <span aria-hidden className={`w-0.5 flex-none basis-4 sm:basis-5 ${prevDone ? "bg-emerald-400" : "bg-border"}`} />}
+                        {index === 0 && <span aria-hidden className="basis-4 sm:basis-5" />}
                         <span
                           className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
                             isDone
@@ -521,19 +530,22 @@ function Learn() {
                         >
                           {isDone && <Check className="h-4 w-4" strokeWidth={3.2} />}
                         </span>
-                      </div>
-                      <div className="min-w-0 flex-1">
+                        {!isLast && <span aria-hidden className={`absolute bottom-[-12px] left-1/2 top-[48px] w-0.5 -translate-x-1/2 sm:top-[52px] ${isDone ? "bg-emerald-400" : "bg-border"}`} />}
+                      </span>
+                      <span className="min-w-0 flex-1 py-4 sm:py-5">
                         <p className="text-[15px] font-bold">{index + 1}. {mission.title}</p>
                         <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-muted-foreground">{mission.description}</p>
-                      </div>
-                      {isDone ? (
-                        <span className="pill shrink-0 bg-emerald-100 font-bold text-emerald-700">Completed</span>
-                      ) : isActive ? (
-                        <span className="pill shrink-0 bg-primary-soft font-bold text-accent-foreground">In Progress</span>
-                      ) : locked ? (
-                        <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      ) : null}
-                      {!locked && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                      </span>
+                      <span className="flex items-center gap-2 pr-4 sm:pr-5">
+                        {isDone ? (
+                          <span className="pill shrink-0 bg-emerald-100 font-bold text-emerald-700">Completed</span>
+                        ) : isActive ? (
+                          <span className="pill shrink-0 bg-primary-soft font-bold text-accent-foreground">In Progress</span>
+                        ) : locked ? (
+                          <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        ) : null}
+                        {!locked && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                      </span>
                     </button>
                   );
                 })}
@@ -613,7 +625,7 @@ function Learn() {
               </div>
               <div className="mt-4 flex items-start gap-3.5">
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary">
-                  <Terminal className="h-5 w-5" />
+                  {isPythonPlan ? <PythonMark className="h-7 w-7" /> : <Terminal className="h-5 w-5" />}
                 </span>
                 <div className="min-w-0">
                   <p className="text-[15px] font-bold">{activeMission.title}</p>
@@ -627,9 +639,9 @@ function Learn() {
               <button
                 type="button"
                 onClick={() => void navigate({ to: "/sessions" })}
-                className="btn-base btn-outline mt-3 w-full rounded-full"
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-primary/25 bg-primary-soft py-3 text-[13px] font-bold text-accent-foreground transition hover:bg-primary/20"
               >
-                Open Project in Sessions <ArrowRight className="h-4 w-4" />
+                Open Project in Sessions <ArrowUpRight className="h-4 w-4" />
               </button>
             </section>
           )}
