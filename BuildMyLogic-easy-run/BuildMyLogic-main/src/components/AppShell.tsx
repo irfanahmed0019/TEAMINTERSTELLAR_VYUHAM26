@@ -26,9 +26,9 @@ export function AppShell({ crumb, title, subtitle, quote, children, wide = false
     // instead of bouncing signed-in learners off deep links like /mentor.
     const timer = window.setTimeout(() => {
       if (!getLoopState().onboarded) void navigate({ to: "/" });
-    }, 150);
+    }, auth ? 2500 : 150);
     return () => window.clearTimeout(timer);
-  }, [state.onboarded, navigate]);
+  }, [state.onboarded, navigate, auth]);
 
   useEffect(() => {
     if (auth?.displayName && state.profile && (state.profile.name === "Builder" || !state.profile.name)) {
@@ -41,7 +41,7 @@ export function AppShell({ crumb, title, subtitle, quote, children, wide = false
 
   return (
     <div className="min-h-screen bg-background">
-      <aside className="fixed inset-y-0 left-0 z-30 flex w-[236px] flex-col justify-between border-r border-border bg-surface px-5 py-6">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[236px] lg:flex flex-col justify-between border-r border-border bg-surface px-5 py-6">
         <div>
           <Link to="/auth/dashboard" className="block px-2">
             <span className="display flex items-center text-[22px] font-black tracking-[-0.05em]">BuildMyLogic<span className="mb-3 ml-0.5 h-1.5 w-1.5 rounded-full bg-primary" /></span>
@@ -68,8 +68,9 @@ export function AppShell({ crumb, title, subtitle, quote, children, wide = false
         </div>
       </aside>
 
-      <div className="ml-[236px] min-w-0">
-        <header className="flex h-[76px] items-center justify-end gap-5 border-b border-border/60 px-8">
+      <div className="min-w-0 pb-20 lg:ml-[236px] lg:pb-0">
+        <header className="flex h-16 items-center justify-between gap-3 border-b border-border/60 px-4 sm:px-6 lg:h-[76px] lg:justify-end lg:gap-5 lg:px-8">
+          <Link to="/auth/dashboard" className="display text-lg font-black tracking-[-0.05em] lg:hidden">BuildMyLogic<span className="text-primary">•</span></Link>
           <button type="button" onClick={() => setNotice(`${state.activity.length} updates in your build log.`)} aria-label="Notifications" className="relative rounded-full p-2 text-foreground hover:bg-muted">
             <Bell className="h-[21px] w-[21px]" strokeWidth={1.8} />
             {state.activity.length > 0 && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary" />}
@@ -83,19 +84,27 @@ export function AppShell({ crumb, title, subtitle, quote, children, wide = false
           </div>
         </header>
 
-        <main className={`mx-auto px-7 pb-12 pt-7 ${wide ? "max-w-[1420px]" : "max-w-[1320px]"}`}>
+        <main className={`mx-auto px-4 pb-12 pt-5 sm:px-7 sm:pt-7 ${wide ? "max-w-[1420px]" : "max-w-[1320px]"}`}>
           <div className="mb-7 flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
             <div>
               <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">{crumb}</p>
-              <h1 className="display text-[42px] font-extrabold leading-[1.04] tracking-[-0.055em]">{title}</h1>
-              <p className="mt-2 max-w-4xl text-[17px] leading-6 text-muted-foreground">{subtitle}</p>
+              <h1 className="display text-[28px] font-extrabold leading-[1.08] sm:text-[42px] sm:leading-[1.04] tracking-[-0.055em]">{title}</h1>
+              <p className="mt-2 max-w-4xl text-[15px] leading-6 sm:text-[17px] text-muted-foreground">{subtitle}</p>
             </div>
-            {quote && <p className="max-w-[190px] pt-3 text-right text-[13px] leading-5 text-muted-foreground">“{quote}”</p>}
+            {quote && <p className="hidden max-w-[190px] pt-3 text-right lg:block text-[13px] leading-5 text-muted-foreground">“{quote}”</p>}
           </div>
           {notice && <div className="mb-5 rounded-xl border border-primary/20 bg-primary-soft px-4 py-3 text-xs font-medium text-accent-foreground">{notice}</div>}
           {children}
         </main>
       </div>
+      <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden" aria-label="Main">
+        {[...NAV, { to: "/settings", label: "Settings", icon: SettingsIcon }].map(({ to, label, icon: Icon }) => (
+          <Link key={to} to={to} className="flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-2 text-[10px] font-medium text-muted-foreground" activeProps={{ className: "flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-2 text-[10px] font-bold text-primary" }}>
+            <Icon className="h-5 w-5" strokeWidth={1.9} />
+            <span className="max-w-full truncate">{label === "AI Mentor" ? "Mentor" : label === "My Progress" ? "Progress" : label}</span>
+          </Link>
+        ))}
+      </nav>
     </div>
   );
 }
