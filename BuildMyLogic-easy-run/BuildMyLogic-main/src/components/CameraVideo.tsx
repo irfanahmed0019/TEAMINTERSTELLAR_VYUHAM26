@@ -55,7 +55,6 @@ export function CameraVideo({
   const [phase, setPhase] = useState<Phase>("idle");
   const [status, setStatus] = useState("Camera is off");
   const [message, setMessage] = useState("");
-  const [micOn, setMicOn] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const playerHost = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<YTPlayer | null>(null);
@@ -74,7 +73,6 @@ export function CameraVideo({
     detectorRef.current?.close();
     detectorRef.current = null;
     playerRef.current?.pauseVideo();
-    setMicOn(false);
   }, []);
   useEffect(
     () => () => {
@@ -88,13 +86,12 @@ export function CameraVideo({
     setPhase("starting");
     setMessage("");
     try {
-      // The browser asks for camera and microphone permission here.
+      // The browser asks for camera permission here. The microphone is never
+      // requested: no audio is listened to, analysed or saved.
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user" },
-        audio: true,
       });
       streamRef.current = stream;
-      setMicOn(stream.getAudioTracks().some((t) => t.readyState === "live"));
       const video = videoRef.current;
       if (video) {
         video.srcObject = stream;
@@ -198,11 +195,16 @@ export function CameraVideo({
       if (name === "NotAllowedError" || name === "SecurityError") {
         setPhase("denied");
         setMessage(
-          "Camera or microphone access was blocked. Allow both for this site in your browser settings, then try again.",
+          "Camera access was blocked for this site. Tap the lock icon in the address bar, allow the camera, then tap Start video again.",
         );
-      } else if (name === "NotFoundError") {
+      } else if (name === "NotFoundError" || name === "OverconstrainedError") {
         setPhase("error");
-        setMessage("No camera or microphone was found on this device.");
+        setMessage("No camera was found on this device.");
+      } else if (name === "NotReadableError" || name === "AbortError") {
+        setPhase("error");
+        setMessage(
+          "The camera is busy in another app. Close the other app, then tap Start video again.",
+        );
       } else {
         setPhase("error");
         setMessage(
@@ -233,8 +235,8 @@ export function CameraVideo({
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 p-4 text-center text-white">
             <p className="text-sm font-bold">{title}</p>
             <p className="max-w-sm text-xs opacity-80">
-              Tap start and allow camera and microphone. The video pauses when
-              you move away.
+              Tap start and allow the camera. The video pauses when you move
+              away.
             </p>
             <button
               type="button"
@@ -270,7 +272,7 @@ export function CameraVideo({
             </span>
             <span className="flex items-center gap-1">
               <Mic className="h-3 w-3" />
-              mic {micOn ? "allowed, not used" : "off"}
+              mic not used
             </span>
           </p>
         </div>
@@ -287,8 +289,8 @@ export function CameraVideo({
       <p className="flex items-start gap-2 text-[11px] font-semibold text-muted-foreground">
         <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         Face check runs on your device only. Nothing is recorded or uploaded.
-        The microphone is requested but not used: no audio is listened to,
-        analysed or saved. This only checks that a face is in view, not
+        The microphone is never requested: no audio is listened to, analysed or
+        saved. analysed or saved. This only checks that a face is in view, not
         attention. Pauses after 2s away, resumes if you return within 30s,
         restarts the video after longer.
       </p>
