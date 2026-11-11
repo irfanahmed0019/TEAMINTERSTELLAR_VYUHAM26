@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { aiAuthed } from "./ai-auth";
 import type { ActivityItem, CodeFile, Mission, Plan, Profile, TechItem } from "./loop-types";
 import {
   advanceCBeginner,
@@ -85,6 +86,7 @@ type AiTeachMicroLessonResponse = {
 };
 
 export const aiAnalyzeResume = createServerFn({ method: "POST" })
+  .middleware([aiAuthed])
   .validator((input: { text: string }) => ({ text: String(input.text).slice(0, 12000) }))
   .handler(async ({ data }) => {
     return await import("./sarvam.server").then(({ sarvamJson }) =>
@@ -102,6 +104,7 @@ ${data.text}`,
   });
 
 export const aiFollowUpQuestions = createServerFn({ method: "POST" })
+  .middleware([aiAuthed])
   .validator((input: { profile: Profile }) => input)
   .handler(async ({ data }) => {
     try {
@@ -124,6 +127,7 @@ ${profileBrief(data.profile)}`,
   });
 
 export const aiSuggestProjects = createServerFn({ method: "POST" })
+  .middleware([aiAuthed])
   .validator((input: { profile: Profile }) => input)
   .handler(async ({ data }) => {
     const stack = preferredStack(data.profile);
@@ -179,6 +183,7 @@ const PLAN_SHAPE = `{
 }`;
 
 export const aiGeneratePlan = createServerFn({ method: "POST" })
+  .middleware([aiAuthed])
   .validator((input: { profile: Profile }) => input)
   .handler(async ({ data }) => {
     const stack = preferredStack(data.profile);
@@ -229,6 +234,7 @@ ${profileBrief(data.profile)}`,
   });
 
 export const aiRetunePlan = createServerFn({ method: "POST" })
+  .middleware([aiAuthed])
   .validator((input: { profile: Profile; plan: Plan; activity: ActivityItem[] }) => input)
   .handler(async ({ data }) => {
     const recent = data.activity
@@ -257,6 +263,7 @@ ${recent || "no activity yet"}`,
   });
 
 export const aiGenerateCode = createServerFn({ method: "POST" })
+  .middleware([aiAuthed])
   .validator((input: { mission: Mission; projectTitle: string }) => input)
   .handler(async ({ data }) => {
     return await import("./sarvam.server").then(({ sarvamJson }) =>
@@ -274,6 +281,7 @@ MISSION: ${JSON.stringify(data.mission).slice(0, 3000)}`,
   });
 
 export const aiTeachMicroLesson = createServerFn({ method: "POST" })
+  .middleware([aiAuthed])
   .validator((input: {
     topic: string;
     missionTitle: string;
@@ -526,6 +534,7 @@ Provide the next single intervention conforming to the output contract.`;
   });
 
 export const aiMentorChat = createServerFn({ method: "POST" })
+  .middleware([aiAuthed])
   .validator((input: {
     mentorName: string;
     mentorSpecialty: string;
@@ -582,6 +591,7 @@ export const aiMentorConfig = createServerFn({ method: "POST" })
   });
 
 export const aiReviewSession = createServerFn({ method: "POST" })
+  .middleware([aiAuthed])
   .validator((input: { missionTitle: string; note: string; minutes: number }) => input)
   .handler(async ({ data }) => {
     return await import("./sarvam.server").then(({ sarvamJson }) =>
@@ -596,9 +606,10 @@ Return JSON: {"feedback": string (2 sentences, honest), "nextStep": string (one 
   });
 
 export const aiReviewProjectZip = createServerFn({ method: "POST" })
+  .middleware([aiAuthed])
   .validator((input: { fileName: string; dataBase64: string; missionTitle?: string }) => ({
     fileName: String(input.fileName).slice(0, 180),
-    dataBase64: String(input.dataBase64).slice(0, 12_000_000),
+    dataBase64: (() => { const v = String(input.dataBase64); if (v.length > 6_000_000) throw new Error("That project zip is too large. Keep it under about 4 MB."); return v; })(),
     missionTitle: String(input.missionTitle ?? "").slice(0, 240),
   }))
   .handler(async ({ data }) => {

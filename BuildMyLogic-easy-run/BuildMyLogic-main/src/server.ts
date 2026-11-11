@@ -21,21 +21,41 @@ async function getServerEntry(): Promise<ServerEntry> {
 }
 
 
-function corsHeaders(): Record<string, string> {
+// The website calls these endpoints same-origin and the VS Code extension calls
+// them from Node (no Origin header), so no cross-site browser origin needs access.
+function corsHeaders(request?: Request): Record<string, string> {
+  const origin = request?.headers.get("origin");
+  if (!request || !origin || origin !== new URL(request.url).origin) return {};
   return {
-    "access-control-allow-origin": "*",
+    "access-control-allow-origin": origin,
+    vary: "Origin",
     "access-control-allow-methods": "GET, POST, OPTIONS",
     "access-control-allow-headers": "content-type, authorization",
   };
 }
 
-function jsonResponse(body: unknown, status = 200): Response {
+// Best-effort per-instance limiter (serverless instances do not share memory).
+const apiHits = new Map<string, number[]>();
+function rateLimited(key: string, max: number, windowMs = 60_000): boolean {
+  const now = Date.now();
+  const recent = (apiHits.get(key) ?? []).filter((t) => now - t < windowMs);
+  if (recent.length >= max) { apiHits.set(key, recent); return true; }
+  recent.push(now);
+  apiHits.set(key, recent);
+  if (apiHits.size > 5000) for (const k of apiHits.keys()) { apiHits.delete(k); break; }
+  return false;
+}
+function clientIp(request: Request): string {
+  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+}
+
+function jsonResponse(body: unknown, status = 200, request?: Request): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       "content-type": "application/json; charset=utf-8",
       "cache-control": "no-store",
-      ...corsHeaders(),
+      ...corsHeaders(request),
     },
   });
 }
@@ -60,9 +80,9 @@ async function authenticatedUserId(request: Request): Promise<string | undefined
   if (!accessToken) return undefined;
   const supabaseUrl = process.env["VITE_SUPABASE_URL"]?.trim();
   const supabaseAnonKey = process.env["VITE_SUPABASE_ANON_KEY"]?.trim();
-  if (!supabaseUrl || !supabaseAnonKey || supabaseUrl.includes("your-project-id") || supabaseAnonKey.includes("your-supabase")) return accessToken === "local-builder" ? "local-builder" : undefined;
+  if (!supabaseUrl || !supabaseAnonKey || supabaseUrl.includes("your-project-id") || supabaseAnonKey.includes("your-supabase")) return accessToken === "local-builder" && process.env["NODE_ENV"] !== "production" ? "local-builder" : undefined;
   try {
-    const response = await fetch(`${supabaseUrl}/auth/v1/user`, { headers: { apikey: supabaseAnonKey, authorization: `Bearer ${accessToken}` } });
+    const response = await fetch(`${supabaseUrl}/auth/v1/user`, { headers: { apikey: supabaseAnonKey, authorization: `Bearer ${accessToken}` }, signal: AbortSignal.timeout(8000) });
     if (!response.ok) return undefined;
     const user = await response.json() as { id?: unknown };
     return typeof user.id === "string" && user.id ? user.id : undefined;
@@ -74,7 +94,7 @@ async function handleBuildMyLogicApi(request: Request): Promise<Response | null>
   const pathname = url.pathname;
   if (!pathname.startsWith("/api/")) return null;
 
-  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders() });
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(request) });
 
   // Deployment version probe for the client-side auto-updater. Unique per
   // deployment so open tabs can detect a new build and reload onto it.
@@ -89,7 +109,11 @@ async function handleBuildMyLogicApi(request: Request): Promise<Response | null>
   // Learning sessions are the shared source of truth for the web dashboard and VS Code.
   // The website authenticates session creation. The extension joins the same session with
   // the short Session ID copied from the website.
+  const ip = clientIp(request);
+  if (pathname.startsWith("/api/sessions") && rateLimited(`sessions:${ip}`, 240)) return jsonResponse({ ok: false, error: "Too many requests. Wait a minute and try again." }, 429, request);
+
   if (request.method === "POST" && pathname === "/api/sessions/start") {
+    if (rateLimited(`start:${ip}`, 20)) return jsonResponse({ ok: false, error: "Too many new sessions. Wait a minute and try again." }, 429, request);
     const body = await readJson(request);
     const configuredSupabase = Boolean(process.env["VITE_SUPABASE_URL"]?.trim() && process.env["VITE_SUPABASE_ANON_KEY"]?.trim() && !process.env["VITE_SUPABASE_URL"]!.includes("your-project-id"));
     const authenticatedId = await authenticatedUserId(request);
@@ -105,6 +129,7 @@ async function handleBuildMyLogicApi(request: Request): Promise<Response | null>
   }
 
   if (request.method === "POST" && pathname === "/api/sessions/connect") {
+    if (rateLimited(`connect:${ip}`, 20)) return jsonResponse({ ok: false, error: "Too many connection attempts. Wait a minute and try again." }, 429, request);
     const body = await readJson(request); const state = await connectLearningSession(body);
     return state ? jsonResponse({ ok: true, session: state }) : jsonResponse({ ok: false, error: "Session ID was not found or has expired. Start a new session on the BuildMyLogic website." }, 404);
   }
@@ -116,6 +141,8 @@ async function handleBuildMyLogicApi(request: Request): Promise<Response | null>
     const action = learningMatch[2] ?? "state";
     if (request.method === "GET" && action === "state") return jsonResponse({ ok: true, state: stateOf(session) });
     if (request.method !== "POST") return jsonResponse({ ok: false, error: "Method not allowed." }, 405);
+    // hint/stuck call the paid AI model: cap per session and per address.
+    if ((action === "hint" || action === "stuck") && (rateLimited(`hint:${session.sessionId}`, 12) || rateLimited(`hint-ip:${ip}`, 30))) return jsonResponse({ ok: false, error: "Too many hint requests. Wait a minute and try again." }, 429, request);
     const body = await readJson(request);
     try {
       if (action === "events") return jsonResponse({ ok: true, state: recordEvent(session, clean(body["event_type"], 80), body["payload"] && typeof body["payload"] === "object" ? body["payload"] as Record<string, unknown> : {}) });
