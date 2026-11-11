@@ -18,6 +18,7 @@ import { Route as ProgressRouteImport } from './routes/progress'
 import { Route as SessionsRouteImport } from './routes/sessions'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SkillsRouteImport } from './routes/skills'
+import { Route as VideosRouteImport } from './routes/videos'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as AuthDashboardRouteImport } from './routes/auth/dashboard'
 
@@ -66,6 +67,11 @@ const SkillsRoute = SkillsRouteImport.update({
   path: '/skills',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VideosRoute = VideosRouteImport.update({
+  id: '/videos',
+  path: '/videos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth/callback',
   path: '/auth/callback',
@@ -87,6 +93,7 @@ export interface FileRoutesByFullPath {
   '/sessions': typeof SessionsRoute
   '/settings': typeof SettingsRoute
   '/skills': typeof SkillsRoute
+  '/videos': typeof VideosRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/dashboard': typeof AuthDashboardRoute
 }
@@ -100,6 +107,7 @@ export interface FileRoutesByTo {
   '/sessions': typeof SessionsRoute
   '/settings': typeof SettingsRoute
   '/skills': typeof SkillsRoute
+  '/videos': typeof VideosRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/dashboard': typeof AuthDashboardRoute
 }
@@ -114,6 +122,7 @@ export interface FileRoutesById {
   '/sessions': typeof SessionsRoute
   '/settings': typeof SettingsRoute
   '/skills': typeof SkillsRoute
+  '/videos': typeof VideosRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/dashboard': typeof AuthDashboardRoute
 }
@@ -129,6 +138,7 @@ export interface FileRouteTypes {
     | '/sessions'
     | '/settings'
     | '/skills'
+    | '/videos'
     | '/auth/callback'
     | '/auth/dashboard'
   fileRoutesByTo: FileRoutesByTo
@@ -142,6 +152,7 @@ export interface FileRouteTypes {
     | '/sessions'
     | '/settings'
     | '/skills'
+    | '/videos'
     | '/auth/callback'
     | '/auth/dashboard'
   id:
@@ -155,6 +166,7 @@ export interface FileRouteTypes {
     | '/sessions'
     | '/settings'
     | '/skills'
+    | '/videos'
     | '/auth/callback'
     | '/auth/dashboard'
   fileRoutesById: FileRoutesById
@@ -169,6 +181,7 @@ export interface RootRouteChildren {
   SessionsRoute: typeof SessionsRoute
   SettingsRoute: typeof SettingsRoute
   SkillsRoute: typeof SkillsRoute
+  VideosRoute: typeof VideosRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthDashboardRoute: typeof AuthDashboardRoute
 }
@@ -238,6 +251,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SkillsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/videos': {
+      id: '/videos'
+      path: '/videos'
+      fullPath: '/videos'
+      preLoaderRoute: typeof VideosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/callback': {
       id: '/auth/callback'
       path: '/auth/callback'
@@ -265,6 +285,7 @@ const rootRouteChildren: RootRouteChildren = {
   SessionsRoute: SessionsRoute,
   SettingsRoute: SettingsRoute,
   SkillsRoute: SkillsRoute,
+  VideosRoute: VideosRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   AuthDashboardRoute: AuthDashboardRoute,
 }

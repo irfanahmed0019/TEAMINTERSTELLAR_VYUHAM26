@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
-import { LayoutGrid, BookOpen, Sparkles, Timer, Settings as SettingsIcon, LogOut, Bell, ChevronDown, MessageCircle, BarChart3 } from "lucide-react";
+import { LayoutGrid, BookOpen, Sparkles, Timer, Settings as SettingsIcon, LogOut, Bell, ChevronDown, MessageCircle, BarChart3, Camera } from "lucide-react";
 import { getLoopState, resetLoop, setLoopState, useLoop } from "@/lib/loop-store";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
 import { signOut, useAuth } from "@/lib/auth";
@@ -9,6 +9,7 @@ import { useCloudHydrated } from "@/lib/cloud-sync";
 const NAV = [
   { to: "/auth/dashboard", label: "Home", icon: LayoutGrid },
   { to: "/learn", label: "Learn", icon: BookOpen },
+  { to: "/videos", label: "Videos", icon: Camera },
   { to: "/mentor", label: "AI Mentor", icon: MessageCircle },
   { to: "/progress", label: "My Progress", icon: BarChart3 },
   { to: "/sessions", label: "Sessions", icon: Timer },
