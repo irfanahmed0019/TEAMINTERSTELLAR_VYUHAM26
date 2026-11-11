@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm run lint && npm run build"
+    "check": "npm run typecheck && npm run lint && npm run build",
+    "test": "node --experimental-strip-types --test src/lib/rate-limit.test.mjs src/lib/request-auth.test.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1",
@@ -95,6 +96,6 @@
     "prettier": "^3.7.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
-    "vite": "8.1.5"
+    "vite": "8.3.7"
   }
 }

@@ -1,4 +1,5 @@
 import "./lib/error-capture";
+import { createRateLimiter } from "./lib/rate-limit";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
@@ -34,17 +35,8 @@ function corsHeaders(request?: Request): Record<string, string> {
   };
 }
 
-// Best-effort per-instance limiter (serverless instances do not share memory).
-const apiHits = new Map<string, number[]>();
-function rateLimited(key: string, max: number, windowMs = 60_000): boolean {
-  const now = Date.now();
-  const recent = (apiHits.get(key) ?? []).filter((t) => now - t < windowMs);
-  if (recent.length >= max) { apiHits.set(key, recent); return true; }
-  recent.push(now);
-  apiHits.set(key, recent);
-  if (apiHits.size > 5000) for (const k of apiHits.keys()) { apiHits.delete(k); break; }
-  return false;
-}
+const limiter = createRateLimiter();
+const rateLimited = (key: string, max: number, windowMs = 60_000) => limiter(key, max, windowMs);
 function clientIp(request: Request): string {
   return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
 }
