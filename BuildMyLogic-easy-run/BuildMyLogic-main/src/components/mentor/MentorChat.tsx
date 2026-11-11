@@ -11,7 +11,7 @@ type ChatMessage = { role: "mentor" | "student"; text: string; at: number };
 type Booking = { id: string; mentorId: string; date: string; time: string; duration: number; topic: string; zoomLink: string; createdAt: number };
 
 const MENTORS: Mentor[] = [
-  { id: "vibe", name: "Vibe", role: "AI build coach", focus: "Coding help, debugging, and simple explanations", description: "Always here. Speaks simple English and understands Manglish.", initials: "V", color: "bg-black text-white" },
+  { id: "BuildMyLogic Mentor", name: "BuildMyLogic Mentor", role: "AI build coach", focus: "Coding help, debugging, and simple explanations", description: "Always here. Speaks simple English and understands Manglish.", initials: "V", color: "bg-black text-white" },
   { id: "maya", name: "Maya", role: "Frontend mentor", focus: "React, UI, CSS, and user experience", description: "Helps you make pages clear, useful, and beautiful.", initials: "M", color: "bg-primary text-white" },
   { id: "arun", name: "Arun", role: "Backend mentor", focus: "APIs, databases, and server logic", description: "Breaks big backend problems into small steps.", initials: "A", color: "bg-emerald-700 text-white" },
   { id: "nila", name: "Nila", role: "Career mentor", focus: "Projects, confidence, and your next step", description: "Helps you turn your learning into real progress.", initials: "N", color: "bg-amber-500 text-white" },
@@ -121,7 +121,7 @@ export function MentorChat() {
       saveMessages([...next, { role: "mentor", text: result.message, at: Date.now() }]);
     } catch {
       saveMessages([...next, { role: "mentor", text: fallbackReply(mentor, outgoing), at: Date.now() }]);
-      setChatError("Vibe is offline right now, so I gave you a simple starting reply.");
+      setChatError("BuildMyLogic Mentor is offline right now, so I gave you a simple starting reply.");
     } finally {
       setBusy(false);
     }

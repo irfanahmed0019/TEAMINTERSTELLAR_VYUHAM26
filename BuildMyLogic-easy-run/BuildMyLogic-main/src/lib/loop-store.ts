@@ -189,8 +189,8 @@ export function applyBuildSessionEvidence(remote: BuildSessionState) {
         title: failed ? `Recovery: ${mission.title}` : `Targeted practice: ${mission.title}`,
         difficulty: Math.max(0, mission.difficulty - 1),
         description: failed
-          ? `Vibe found a missing foundation in ${mission.title}. Complete this smaller task before retrying the full challenge.`
-          : `Vibe detected repeated difficulty in ${mission.title}. Practice the weak point with one smaller, focused build.`,
+          ? `BuildMyLogic Mentor found a missing foundation in ${mission.title}. Complete this smaller task before retrying the full challenge.`
+          : `BuildMyLogic Mentor detected repeated difficulty in ${mission.title}. Practice the weak point with one smaller, focused build.`,
         steps: [
           { title: "Name the failing case", detail: remote.latest_mentor_feedback || "Explain what should happen in the edge case." },
           { title: "Build the smallest check", detail: remote.recovery || "Write one condition or test that handles the failing case." },
@@ -204,8 +204,8 @@ export function applyBuildSessionEvidence(remote: BuildSessionState) {
     }
 
     const insight = completed
-      ? `Challenge proven in VS Code. Vibe is moving you to the next level after ${remote.attempts} attempt${remote.attempts === 1 ? "" : "s"}.`
-      : `${failed ? "Recovery mode" : "Needs attention"}: Vibe created a smaller follow-up for ${mission.title}.`;
+      ? `Challenge proven in VS Code. BuildMyLogic Mentor is moving you to the next level after ${remote.attempts} attempt${remote.attempts === 1 ? "" : "s"}.`
+      : `${failed ? "Recovery mode" : "Needs attention"}: BuildMyLogic Mentor created a smaller follow-up for ${mission.title}.`;
     const activityText = `${signature} ${insight}`;
     return {
       ...prev,
@@ -216,7 +216,7 @@ export function applyBuildSessionEvidence(remote: BuildSessionState) {
   });
 }
 
-/** Merges Sarvam's retuning without losing local mission IDs or recovery tasks. */
+/** Merges AI provider's retuning without losing local mission IDs or recovery tasks. */
 export function applySarvamDashboardPlan(suggested: Plan) {
   setLoopState((prev) => {
     if (!prev.plan) return prev;
@@ -261,7 +261,7 @@ export function useLoop(): LoopState {
 }
 
 /**
- * Selects an active learning mission in the Vibe chat coach
+ * Selects an active learning mission in the BuildMyLogic Mentor chat coach
  */
 export function selectLearningMission(missionId: string) {
   setLoopState((prev) => ({ ...prev, selectedLearningMissionId: missionId }));

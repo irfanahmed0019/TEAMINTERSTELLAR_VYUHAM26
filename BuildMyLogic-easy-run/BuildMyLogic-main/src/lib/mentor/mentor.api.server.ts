@@ -330,7 +330,7 @@ export async function handleMentorApi(request: Request): Promise<Response | null
       return json(request, { ok: true });
     }
 
-    // Task-aware mentor chat for the VS Code extension: the same Sarvam logic
+    // Task-aware mentor chat for the VS Code extension: the same AI provider logic
     // the website's mentorAsk uses, callable with a scoped extension token.
     if (request.method === "POST" && p === "/api/mentor/ask") {
       if (limited(userId, "ask", 20)) return json(request, { ok: false, error: "Too many messages. Try again shortly." }, 429);

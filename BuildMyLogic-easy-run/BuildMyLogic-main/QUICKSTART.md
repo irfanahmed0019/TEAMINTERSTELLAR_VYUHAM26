@@ -39,7 +39,7 @@ The project contains a newer packaged extension at `public/downloads/buildmylogi
 code --install-extension public/downloads/buildmylogic-vscode-0.0.5.vsix
 ```
 
-Restart VS Code, open the BuildMyLogic activity-bar view, and connect using an active session ID from the web app. The extension talks to the web app API; it does not need the Sarvam API key.
+Restart VS Code, open the BuildMyLogic activity-bar view, and connect using an active session ID from the web app. The extension talks to the web app API; it does not need the AI provider API key.
 
 ## Diagnostics
 ```bash

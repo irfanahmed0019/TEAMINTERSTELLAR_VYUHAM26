@@ -93,7 +93,7 @@ RECENT CONVERSATION:
 ${recentChatStr}
 
 INSTRUCTIONS FOR THIS RESPONSE:
-1. Act as Vibe, strictly obeying the authoritative learner state.
+1. Act as BuildMyLogic Mentor, strictly obeying the authoritative learner state.
 2. If the learner answered correctly, acknowledge briefly, mark concept complete, advance to the NEXT concept in the progression, and ask the next question.
 3. If the learner said "I don't know" or is struggling, DO NOT repeat the question or reset to Hello World. Provide a SCAFFOLD (1-2 sentences explanation + tiny example + simpler question).
 4. Return JSON only with:

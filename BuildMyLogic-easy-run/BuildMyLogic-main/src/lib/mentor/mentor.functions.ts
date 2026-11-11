@@ -1,7 +1,7 @@
 import { createServerFn, createMiddleware } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 
-/* ---------- AI (Sarvam): authenticated, server-side key, honest fallback ---------- */
+/* ---------- AI (AI provider): authenticated, server-side key, honest fallback ---------- */
 
 const authed = createMiddleware({ type: "function" })
   .client(async ({ next }) => {

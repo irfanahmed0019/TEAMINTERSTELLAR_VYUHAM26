@@ -24,7 +24,7 @@ fi
 
 if [[ ! -f .env ]]; then
   cp .env.example .env
-  echo 'Created .env from .env.example. Add your Supabase/Sarvam credentials if you need cloud features.'
+  echo 'Created .env from .env.example. Add your Supabase and AI provider credentials if you need cloud features.'
 fi
 
 echo 'Starting BuildMyLogic web app and local folder-picker bridge...'

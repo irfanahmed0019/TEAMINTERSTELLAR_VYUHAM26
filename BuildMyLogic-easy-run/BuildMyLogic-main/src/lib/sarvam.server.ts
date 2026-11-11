@@ -44,8 +44,8 @@ export async function sarvamChat(apiKey: string, messages: Msg[], maxTokens = 80
       if (!res.ok) {
         const safeMessage =
           res.status === 403
-            ? "Sarvam AI rejected the API key (403). Check that SARVAM_API_KEY is a current Sarvam key, then update the server secret and redeploy."
-            : `Sarvam AI error ${res.status}`;
+            ? "BuildMyLogic AI rejected the API key (403). Check that SARVAM_API_KEY is a current AI provider key, then update the server secret and redeploy."
+            : `BuildMyLogic AI error ${res.status}`;
         if (isRetryableStatus(res.status) && attempt < attempts - 1) {
           await sleep(500 * 2 ** attempt);
           continue;
@@ -57,7 +57,7 @@ export async function sarvamChat(apiKey: string, messages: Msg[], maxTokens = 80
       try {
         json = JSON.parse(rawBody) as SarvamResponse;
       } catch {
-        throw new Error("Sarvam AI returned an invalid response. Please try again.");
+        throw new Error("BuildMyLogic AI returned an invalid response. Please try again.");
       }
 
       const choice = json.choices?.[0];
@@ -70,8 +70,8 @@ export async function sarvamChat(apiKey: string, messages: Msg[], maxTokens = 80
       }
       throw new Error(
         choice?.finish_reason === "length"
-          ? "Vibe's response was cut off. Please try again."
-          : "Vibe returned an empty answer. Please try again.",
+          ? "BuildMyLogic Mentor's response was cut off. Please try again."
+          : "BuildMyLogic Mentor returned an empty answer. Please try again.",
       );
     } catch (error) {
       lastError = error;
@@ -80,9 +80,9 @@ export async function sarvamChat(apiKey: string, messages: Msg[], maxTokens = 80
           await sleep(400 * 2 ** attempt);
           continue;
         }
-        throw new Error("Vibe took too long to respond. Please try again.");
+        throw new Error("BuildMyLogic Mentor took too long to respond. Please try again.");
       }
-      if (error instanceof Error && error.message.startsWith("Sarvam AI error")) throw error;
+      if (error instanceof Error && error.message.startsWith("BuildMyLogic AI error")) throw error;
       if (attempt < attempts - 1) {
         await sleep(400 * 2 ** attempt);
         continue;
@@ -93,9 +93,9 @@ export async function sarvamChat(apiKey: string, messages: Msg[], maxTokens = 80
   }
 
   if (lastError instanceof Error && lastError.message) {
-    throw new Error(`Vibe could not reach Sarvam right now. ${lastError.message}`);
+    throw new Error(`BuildMyLogic Mentor could not reach AI provider right now. ${lastError.message}`);
   }
-  throw new Error("Vibe could not respond right now. Please try again.");
+  throw new Error("BuildMyLogic Mentor could not respond right now. Please try again.");
 }
 
 function stripFence(text: string): string {
@@ -117,7 +117,7 @@ export function parseJsonBlock<T>(text: string): T {
       }
     }
   }
-  throw new Error("Vibe returned an unreadable answer. Please try again.");
+  throw new Error("BuildMyLogic Mentor returned an unreadable answer. Please try again.");
 }
 
 export async function sarvamJson<T>(apiKey: string, system: string, user: string, maxTokens = 1200): Promise<T> {

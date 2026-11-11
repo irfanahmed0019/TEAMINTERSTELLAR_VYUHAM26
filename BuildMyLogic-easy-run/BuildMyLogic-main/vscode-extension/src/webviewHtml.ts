@@ -250,7 +250,7 @@ export function sidebarHtml(cspSource: string): string {
     <div class="tabs">
       <button class="tab active" data-tab="challenge">Build</button>
       <button class="tab" data-tab="tests">Tests</button>
-      <button class="tab" data-tab="feedback">Vibe</button>
+      <button class="tab" data-tab="feedback">BuildMyLogic Mentor</button>
       <button class="tab" data-tab="progress">Stats</button>
     </div>
 
@@ -272,7 +272,7 @@ export function sidebarHtml(cspSource: string): string {
     </div>
 
     <div class="panel" data-panel="feedback" hidden>
-      <div class="tip"><span>💡</span><div><b>Vibe</b><p class="muted" id="feedback" style="margin-top:4px">Ask for a hint whenever you want one — it never runs your tests for you.</p></div></div>
+      <div class="tip"><span>💡</span><div><b>BuildMyLogic Mentor</b><p class="muted" id="feedback" style="margin-top:4px">Ask for a hint whenever you want one — it never runs your tests for you.</p></div></div>
       <section id="recovery" class="tip" hidden><span>🧭</span><div><b>Recovery plan</b><p class="muted" id="recoveryText" style="margin-top:4px"></p></div></section>
     </div>
 
@@ -481,7 +481,7 @@ export function sidebarHtml(cspSource: string): string {
       if (message.text) $("feedback").textContent = message.text;
       render(message.session);
       setTab("feedback");
-      setStatus("Vibe replied.", false);
+      setStatus("BuildMyLogic Mentor replied.", false);
     } else if (message.type === "failed") {
       $("recovery").hidden = false;
       $("recoveryText").textContent = message.text || "";

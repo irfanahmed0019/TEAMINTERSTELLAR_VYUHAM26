@@ -263,7 +263,7 @@ export const defaultStarterPlan: Plan = {
   session: {
     focus: "Implement CLI Calculator in C",
     tasks: [
-      { title: "Learn arithmetic operators in Vibe Coach", minutes: 10 },
+      { title: "Learn arithmetic operators in BuildMyLogic Mentor Coach", minutes: 10 },
       { title: "Open VS Code and write main.c scaffold", minutes: 20 },
       { title: "Compile and run unit tests", minutes: 10 },
       { title: "Review score and log evidence", minutes: 5 },

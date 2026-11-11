@@ -80,9 +80,9 @@ function Dashboard() {
         if (!currentState.profile || !currentState.plan) return;
         void aiRetunePlan({ data: { profile: currentState.profile, plan: currentState.plan, activity: currentState.activity } }).then((suggested) => {
           applySarvamDashboardPlan(suggested);
-          logActivity({ kind: "ai", text: remote.status === "completed" ? "Vibe updated the dashboard after you proved the challenge." : "Vibe updated the dashboard with a focused recovery path." });
+          logActivity({ kind: "ai", text: remote.status === "completed" ? "BuildMyLogic Mentor updated the dashboard after you proved the challenge." : "BuildMyLogic Mentor updated the dashboard with a focused recovery path." });
         }).catch(() => {
-          // The deterministic dashboard adjustment remains available without Sarvam.
+          // The deterministic dashboard adjustment remains available without AI provider.
         });
       } catch {
         // The Sessions page displays the actionable expired-session message.

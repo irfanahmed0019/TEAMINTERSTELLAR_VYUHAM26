@@ -1,16 +1,15 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
-import { LayoutGrid, BookOpen, Rocket, Sparkles, Timer, Settings as SettingsIcon, LogOut, Bell, ChevronDown, MessageCircle } from "lucide-react";
+import { LayoutGrid, BookOpen, Sparkles, Timer, Settings as SettingsIcon, LogOut, Bell, ChevronDown, MessageCircle, BarChart3 } from "lucide-react";
 import { getLoopState, resetLoop, setLoopState, useLoop } from "@/lib/loop-store";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
 import { signOut, useAuth } from "@/lib/auth";
 
 const NAV = [
-  { to: "/auth/dashboard", label: "Dashboard", icon: LayoutGrid },
+  { to: "/auth/dashboard", label: "Home", icon: LayoutGrid },
   { to: "/learn", label: "Learn", icon: BookOpen },
   { to: "/mentor", label: "AI Mentor", icon: MessageCircle },
-  { to: "/missions", label: "Projects", icon: Rocket },
-  { to: "/skills", label: "Skill Analysis", icon: Sparkles },
+  { to: "/progress", label: "My Progress", icon: BarChart3 },
   { to: "/sessions", label: "Sessions", icon: Timer },
 ] as const;
 

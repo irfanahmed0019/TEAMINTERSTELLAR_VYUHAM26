@@ -18,10 +18,10 @@ function key(): string {
   // entry (src/server.ts) bridges env.SARVAM_API_KEY into process.env.
   const value = process.env["SARVAM_API_KEY"]?.trim();
   if (!value) {
-    throw new Error("Sarvam AI is not configured. Add a valid SARVAM_API_KEY to the server environment and redeploy.");
+    throw new Error("BuildMyLogic AI is not configured. Add a valid SARVAM_API_KEY to the server environment and redeploy.");
   }
   if (/^(your_|sk_your|sk_placeholder|replace_with_)/i.test(value)) {
-    throw new Error("Sarvam AI is using a placeholder API key. Replace SARVAM_API_KEY with a valid key from the Sarvam dashboard and redeploy.");
+    throw new Error("BuildMyLogic AI is using a placeholder API key. Replace SARVAM_API_KEY with a valid key from the AI provider dashboard and redeploy.");
   }
   return value;
 }
@@ -324,8 +324,8 @@ export const aiTeachMicroLesson = createServerFn({ method: "POST" })
 
     const forceBeginnerReset = learnerAskedToReset;
 
-    // 2. Authoritative Vibe System Prompt — Simple English + Manglish
-    const system = `You are Vibe, the friendly coding mentor inside BuildMyLogic.
+    // 2. Authoritative BuildMyLogic Mentor System Prompt — Simple English + Manglish
+    const system = `You are BuildMyLogic Mentor, the friendly coding mentor inside BuildMyLogic.
 
 Your job: Teach ONE small thing at a time. Keep it simple. Go at the learner's pace.
 

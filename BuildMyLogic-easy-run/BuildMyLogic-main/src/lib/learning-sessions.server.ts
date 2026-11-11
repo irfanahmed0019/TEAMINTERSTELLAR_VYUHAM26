@@ -301,7 +301,7 @@ export async function getRunPlan(session: LearningSession, platform: string) {
   if (apiKey) {
     try {
       const answer = await sarvamJson<{ guidance?: string }>(apiKey,
-        "You are Vibe, a smart but very friendly developer mentor. Use very simple English, short sentences, and common words that a young child can understand. Understand Manglish (Malayalam written in English) and reply with gentle Manglish plus clear English when the learner uses it. Return JSON only: {\"guidance\":\"...\"}. Explain briefly how to run this project. Never invent files or claim a command is safe if it is not obvious.",
+        "You are BuildMyLogic Mentor, a smart but very friendly developer mentor. Use very simple English, short sentences, and common words that a young child can understand. Understand Manglish (Malayalam written in English) and reply with gentle Manglish plus clear English when the learner uses it. Return JSON only: {\"guidance\":\"...\"}. Explain briefly how to run this project. Never invent files or claim a command is safe if it is not obvious.",
         JSON.stringify({ language: session.language, platform, challenge: session.title, instructions: session.instructions, safe_command: fallback.command }), 300);
       session.runGuidance = text(answer.guidance, 1000) || fallback.guidance;
     } catch { session.runGuidance = fallback.guidance; }
@@ -323,7 +323,7 @@ export async function submitProject(session: LearningSession, files: unknown) {
   if (apiKey) {
     try {
       const answer = await sarvamJson<typeof fallback>(apiKey,
-        "You are Vibe, a fair and kind programming mentor. Use very simple English, short sentences, and common words. Understand Manglish (Malayalam written in English) and reply with gentle Manglish plus clear English when useful. Return JSON only with score (0-100), verdict, strengths, issues, missing and nextSteps arrays. Review evidence, do not invent test results, and give concrete beginner-friendly next steps.",
+        "You are BuildMyLogic Mentor, a fair and kind programming mentor. Use very simple English, short sentences, and common words. Understand Manglish (Malayalam written in English) and reply with gentle Manglish plus clear English when useful. Return JSON only with score (0-100), verdict, strengths, issues, missing and nextSteps arrays. Review evidence, do not invent test results, and give concrete beginner-friendly next steps.",
         JSON.stringify({ challenge: session.title, language: session.language, checkpoints: session.checkpoints, files: names, code_samples: accepted.slice(0, 12).map((file) => ({ path: file.path, content: file.content.slice(0, 1200) })) }), 700);
       session.projectReview = { ...fallback, ...answer, score: Math.max(0, Math.min(100, Number(answer.score ?? fallback.score))) };
     } catch { session.projectReview = fallback; }
@@ -345,7 +345,7 @@ async function mentor(session: LearningSession, level: "hint" | "stuck" | "recov
   const apiKey = process.env["SARVAM_API_KEY"]?.trim(); if (!apiKey) return fallback;
   try {
     const answer = await sarvamJson<{ guidance?: string }>(apiKey,
-      "You are Vibe, a patient beginner programming mentor. Use very simple English and short sentences. Understand Manglish (Malayalam written in English) and reply with gentle Manglish plus clear English when useful. Return JSON only: {\"guidance\":\"...\"}. Do not give a complete solution. Ask one thinking question and give a progressively stronger, concise hint.",
+      "You are BuildMyLogic Mentor, a patient beginner programming mentor. Use very simple English and short sentences. Understand Manglish (Malayalam written in English) and reply with gentle Manglish plus clear English when useful. Return JSON only: {\"guidance\":\"...\"}. Do not give a complete solution. Ask one thinking question and give a progressively stronger, concise hint.",
       JSON.stringify({ level, language: session.language, challenge: session.title, current_concept: session.concept, error: recentError(session), attempts: session.attempts, test_score: session.testScore ? `${session.testScore.passed}/${session.testScore.total}` : "not run", previous_hints: session.hintsUsed, known_concepts: session.expectedSkills }), 400);
     return text(answer.guidance, 1200) || fallback;
   } catch { return fallback; }

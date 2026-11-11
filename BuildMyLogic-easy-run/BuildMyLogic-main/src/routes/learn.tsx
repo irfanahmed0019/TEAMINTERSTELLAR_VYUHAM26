@@ -238,7 +238,7 @@ function Learn() {
       }
       requestAnimationFrame(() => textareaRef.current?.focus());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Vibe could not answer right now. Try again in a moment.");
+      setError(err instanceof Error ? err.message : "BuildMyLogic Mentor could not answer right now. Try again in a moment.");
     } finally {
       setBusy(false);
     }
@@ -254,7 +254,7 @@ function Learn() {
   };
 
   if (started) {
-    return <AppShell crumb={`Learn › ${topic}`} title={current.title} subtitle="Ask Vibe anything about the part you're building. Your chat is saved automatically." quote={state.plan.quote} wide>
+    return <AppShell crumb={`Learn › ${topic}`} title={current.title} subtitle="Ask BuildMyLogic Mentor anything about the part you're building. Your chat is saved automatically." quote={state.plan.quote} wide>
       <div className="mx-auto flex max-w-[980px] flex-col">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -265,7 +265,7 @@ function Learn() {
         </div>
 
         <section className="learn-chat-shell">
-          <div className="learn-chat-header"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-black text-white"><Sparkles className="h-4 w-4" /></span><div><p className="text-sm font-black">Vibe</p><p className="text-[11px] font-medium text-muted-foreground">Learning with you · {current.title}</p></div><div className="ml-auto flex items-center gap-2"><span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">BUILDMYLOGIC MEMORY ACTIVE</span><button type="button" onClick={() => { clearLearningChatMessages(chatKey); setMessages([]); setMemory(""); setLessonState("hello_world"); setError(null); setUnderstood(false); setReadyForProject(false); setStarted(false); }} className="learn-clear-chat">Clear & reset chat</button></div></div>
+          <div className="learn-chat-header"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-black text-white"><Sparkles className="h-4 w-4" /></span><div><p className="text-sm font-black">BuildMyLogic Mentor</p><p className="text-[11px] font-medium text-muted-foreground">Learning with you · {current.title}</p></div><div className="ml-auto flex items-center gap-2"><span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">BUILDMYLOGIC MEMORY ACTIVE</span><button type="button" onClick={() => { clearLearningChatMessages(chatKey); setMessages([]); setMemory(""); setLessonState("hello_world"); setError(null); setUnderstood(false); setReadyForProject(false); setStarted(false); }} className="learn-clear-chat">Clear & reset chat</button></div></div>
           {(() => {
             const { conceptId, drillIndex } = parseDrillState(lessonState);
             const step = C_CURRICULUM_MAP[conceptId];
@@ -336,11 +336,11 @@ function Learn() {
                   void sendCurrentMessage();
                 }}
                 onFocus={resizeComposer}
-                placeholder="Ask Vibe anything…"
+                placeholder="Ask BuildMyLogic Mentor anything…"
                 rows={1}
                 className="learn-composer-input"
                 disabled={busy}
-                aria-label="Message Vibe"
+                aria-label="Message BuildMyLogic Mentor"
               />
               <button
                 type="submit"
@@ -389,23 +389,23 @@ function Learn() {
     </AppShell>;
   }
 
-  return <AppShell crumb="Learn" title="Before we teach, choose what you're building. 👋" subtitle="Pick the real project part you want to work on. Then Vibe will meet you at your level." quote="Don't collect lessons. Build evidence." wide>
+  return <AppShell crumb="Learn" title="Before we teach, choose what you're building. 👋" subtitle="Pick the real project part you want to work on. Then BuildMyLogic Mentor will meet you at your level." quote="Don't collect lessons. Build evidence." wide>
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
       <section className="card-surface p-7">
         <div className="rounded-2xl bg-black p-5 text-white"><div className="flex items-start gap-4"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-black"><Terminal className="h-5 w-5" /></span><div className="min-w-0 flex-1"><p className="text-[10px] font-black uppercase tracking-widest text-white/55">Current project</p><h2 className="mt-1 text-xl font-black">{state.plan.projectTitle}</h2><p className="mt-2 text-xs font-semibold leading-5 text-white/70">{state.plan.projectPitch}</p></div><span className="rounded-full border border-white/25 px-3 py-1 text-[10px] font-black">✓ Selected</span></div></div>
         <div className="mt-7"><p className="text-xs font-black uppercase tracking-widest text-muted-foreground">1 · Project part</p><h2 className="display mt-2 text-3xl font-black">What are you working on right now?</h2><p className="mt-2 text-sm font-semibold">BuildMyLogic remembers each conversation separately. Switching missions won't erase your previous learning.</p></div>
         <div className="mt-5 grid gap-2.5">{missions.map((mission, index) => { const isSelected = mission.id === current.id; const status = state.missionProgress[mission.id]?.status ?? (index === 0 ? "active" : "locked"); return <button key={mission.id} type="button" onClick={() => { selectLearningMission(mission.id); setTopic(mission.skills?.[0] ?? fallbackTopics[0][0]); setMessages([]); setStarted(false); setUnderstood(false); setReadyForProject(false); }} className={`flex items-center gap-4 rounded-2xl border-2 p-4 text-left transition ${isSelected ? "border-black bg-primary-soft" : "border-black/10 hover:border-black"}`}><span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isSelected ? "bg-black text-white" : "bg-muted"}`}>{status === "done" ? "✓" : index + 1}</span><span className="min-w-0 flex-1"><b className="block text-sm">{mission.title}</b><span className="mt-1 block text-xs font-semibold text-muted-foreground">{mission.stack} · {mission.description}</span></span>{isSelected && <Check className="h-5 w-5" />}</button>; })}</div>
-        <div className="mt-8"><p className="text-xs font-black uppercase tracking-widest text-muted-foreground">2 · Learning style</p><h2 className="display mt-2 text-3xl font-black">How should Vibe teach you?</h2></div>
+        <div className="mt-8"><p className="text-xs font-black uppercase tracking-widest text-muted-foreground">2 · Learning style</p><h2 className="display mt-2 text-3xl font-black">How should BuildMyLogic Mentor teach you?</h2></div>
         <div className="mt-5 grid gap-2.5">{modeOptions.map((option) => <button key={option.id} type="button" onClick={() => setMode(option.id)} className={`flex items-center gap-4 rounded-2xl border-2 p-4 text-left ${mode === option.id ? "border-black bg-primary-soft" : "border-black/10 hover:border-black"}`}><span className="text-xl">{option.emoji}</span><span className="flex-1"><b className="block text-sm">{option.title}</b><span className="mt-1 block text-xs font-semibold text-muted-foreground">{option.detail}</span></span>{mode === option.id && <Check className="h-5 w-5" />}</button>)}</div>
         <div className="mt-8"><p className="text-xs font-black uppercase tracking-widest text-muted-foreground">3 · Starting point</p><h2 className="display mt-2 text-3xl font-black">Do you know this already?</h2></div>
         <div className="mt-5 grid gap-2.5">{levelOptions.map((option) => <button key={option.id} type="button" onClick={() => setLevel(option.id)} className={`flex items-center gap-4 rounded-2xl border-2 p-4 text-left ${level === option.id ? "border-black bg-primary-soft" : "border-black/10 hover:border-black"}`}><span className="text-xl">{option.emoji}</span><span className="flex-1"><b className="block text-sm">{option.title}</b><span className="mt-1 block text-xs font-semibold text-muted-foreground">{option.detail}</span></span>{level === option.id && <Check className="h-5 w-5" />}</button>)}</div>
-        <button type="button" disabled={!level || busy} onClick={() => void startChat()} className="btn-base btn-primary-solid mt-6 disabled:opacity-50">{state.learningChats[chatKey]?.messages?.length ? "Continue where I left off" : "Start with Vibe"}<ArrowRight className="h-4 w-4" /></button>
+        <button type="button" disabled={!level || busy} onClick={() => void startChat()} className="btn-base btn-primary-solid mt-6 disabled:opacity-50">{state.learningChats[chatKey]?.messages?.length ? "Continue where I left off" : "Start with BuildMyLogic Mentor"}<ArrowRight className="h-4 w-4" /></button>
       </section>
       <aside className="space-y-4">
         <section className="card-surface p-5">
-          <p className="text-xs font-black uppercase tracking-widest">Vibe's rule</p>
+          <p className="text-xs font-black uppercase tracking-widest">BuildMyLogic Mentor's rule</p>
           <h2 className="mt-2 text-xl font-black">Simple first. Build next.</h2>
-          <p className="mt-3 text-sm font-semibold leading-6">Vibe starts with a basic question, listens to your answer, then teaches only the next thing you need.</p>
+          <p className="mt-3 text-sm font-semibold leading-6">BuildMyLogic Mentor starts with a basic question, listens to your answer, then teaches only the next thing you need.</p>
         </section>
 
         {/* VS Code Extension Connect Panel */}

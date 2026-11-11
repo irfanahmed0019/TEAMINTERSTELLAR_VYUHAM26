@@ -9,7 +9,7 @@
 5. The extension receives the server-owned challenge context and stores only the Session ID in VS Code workspace state.
 6. During the active session, the extension sends bounded test results, diagnostics, file-save evidence and heartbeats to `/api/sessions/{sessionId}/events`.
 7. The backend validates the Session ID and session status before accepting events, detects repeated failures deterministically, and exposes the same state to the website.
-8. `Ask Vibe for a Hint` and `I'm Stuck` are explicit actions that can call Sarvam server-side and return a short intervention to VS Code.
+8. `Ask BuildMyLogic Mentor for a Hint` and `I'm Stuck` are explicit actions that can call AI provider server-side and return a short intervention to VS Code.
 
 ## Local development
 

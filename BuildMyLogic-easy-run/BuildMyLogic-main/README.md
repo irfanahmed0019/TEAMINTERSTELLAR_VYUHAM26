@@ -27,7 +27,7 @@ A learner does not receive a large project immediately. BuildMyLogic starts at t
 2. **Start small** — beginners can learn fundamentals before attempting a project.
 3. **Build a real task** — missions are practical and progressively harder.
 4. **Detect struggle** — tests, errors, attempts, and progress provide objective evidence.
-5. **Vibe helps at the right time** — Sarvam AI gives short, beginner-friendly hints instead of immediately giving the answer.
+5. **BuildMyLogic Mentor helps at the right time** — BuildMyLogic AI gives short, beginner-friendly hints instead of immediately giving the answer.
 6. **Retry and prove** — the learner fixes the problem and runs the tests again.
 7. **Update the learner model** — evidence updates skills and determines the next mission.
 
@@ -53,7 +53,7 @@ AI is used where reasoning and explanation are useful; deterministic code handle
 
 This prevents the AI from inventing scores or deciding whether code actually passed.
 
-### Vibe Memory
+### BuildMyLogic Mentor Memory
 
 The conversation is maintained as structured session state rather than blindly sending unrelated messages.
 
@@ -66,7 +66,7 @@ Recent conversation
      ↓
 Current error / test result
      ↓
-Sarvam AI
+BuildMyLogic AI
      ↓
 Short hint / explanation
      ↓
@@ -108,7 +108,7 @@ Send result
       ↓
 Struggle detection
       ↓
-Vibe intervention
+BuildMyLogic Mentor intervention
       ↓
 Retry
       ↓
@@ -127,7 +127,7 @@ Next.js + TypeScript
         │
    ┌────┴─────┐
    ▼          ▼
-Database    Sarvam AI
+Database    BuildMyLogic AI
    │
    ▼
 Learner State
@@ -140,7 +140,7 @@ VS Code Extension ──► FastAPI
 - **Frontend:** Next.js, TypeScript, Tailwind CSS
 - **Backend:** FastAPI, Python
 - **Database/Auth:** Supabase
-- **AI:** Sarvam AI
+- **AI:** BuildMyLogic AI
 - **Editor:** VS Code Extension API
 - **Testing:** pytest
 - **Deployment:** Vercel + backend hosting

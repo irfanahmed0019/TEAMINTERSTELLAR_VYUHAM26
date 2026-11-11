@@ -17,7 +17,7 @@ The long-term vision is a programming teacher living inside VS Code: learners op
 
 ## Current Status
 
-The extension now uses Sarvam AI for fresh Python challenges, teacher-style code feedback, one-step hints, and requirement-based code reviews. It sends code to Sarvam only when the learner asks for feedback, a hint with open code, or a review. Reviews are AI assessments, not executable test runs.
+The extension now uses BuildMyLogic AI for fresh Python challenges, teacher-style code feedback, one-step hints, and requirement-based code reviews. It sends code to AI provider only when the learner asks for feedback, a hint with open code, or a review. Reviews are AI assessments, not executable test runs.
 
 Optional Supabase event persistence uses the public anon key and the `learning_events` table migration in `supabase/migrations/`. It is best-effort so an offline connection, missing table, or RLS rejection never blocks the extension.
 
@@ -40,7 +40,7 @@ The project is currently a local UI/prototype. It has:
 - Local selected-Python code analysis and Output channel reports.
 - Local status messages, a progress bar, and a placeholder weekly chart.
 
-The website connection uses the server-issued BuildMyLogic Session ID only. It does not put Sarvam credentials in the extension, monitor unrelated workspaces, or upload whole files.
+The website connection uses the server-issued BuildMyLogic Session ID only. It does not put AI provider credentials in the extension, monitor unrelated workspaces, or upload whole files.
 
 ## Product Vision
 
