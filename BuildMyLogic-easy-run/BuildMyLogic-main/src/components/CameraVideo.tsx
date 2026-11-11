@@ -290,9 +290,9 @@ export function CameraVideo({
         <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         Face check runs on your device only. Nothing is recorded or uploaded.
         The microphone is never requested: no audio is listened to, analysed or
-        saved. analysed or saved. This only checks that a face is in view, not
-        attention. Pauses after 2s away, resumes if you return within 30s,
-        restarts the video after longer.
+        saved. This only checks that a face is in view, not attention. Pauses
+        after 2s away, resumes if you return within 30s, restarts the video
+        after longer.
       </p>
     </div>
   );
