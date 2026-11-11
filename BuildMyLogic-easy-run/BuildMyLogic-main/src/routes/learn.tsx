@@ -178,7 +178,7 @@ function Learn() {
                     key={l}
                     type="button"
                     onClick={() => {
-                      setLanguage(l);
+                      chooseLanguage(l);
                       setVideoIndex(0);
                     }}
                     className={`rounded-lg px-3 py-1.5 text-[12px] font-bold transition ${lang === l ? "bg-primary-soft text-accent-foreground" : "text-muted-foreground"}`}

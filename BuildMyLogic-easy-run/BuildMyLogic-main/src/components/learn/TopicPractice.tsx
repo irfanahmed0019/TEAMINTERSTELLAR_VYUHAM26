@@ -11,8 +11,9 @@ const errMsg = (e: unknown) =>
  * Basic practice workshop for one study topic: the mentor's task on the left,
  * a real code editor with Run / Reset / Submit on the right. Code executes on
  * the Judge0 sandbox through /api/mentor/run and Submit compares the real
- * output with the expected result - nothing is faked and nothing is stored as
- * verified evidence (that stays in the signed-in AI Mentor journey).
+ * output with the expected result - nothing is faked. The code draft is kept
+ * in this browser (localStorage) so a reload doesn't lose it; results are not
+ * stored as verified progress.
  */
 export function TopicPractice({
   topicTitle,
@@ -23,7 +24,15 @@ export function TopicPractice({
   language: TopicLanguage;
   exercise: TopicExercise;
 }) {
-  const [code, setCode] = useState(exercise.starterCode);
+  const draftKey = `bml.practice.${topicTitle}.${language}`;
+  const [code, setCode] = useState(() => {
+    try {
+      const saved = window.localStorage.getItem(draftKey);
+      return saved !== null && saved !== "" ? saved : exercise.starterCode;
+    } catch {
+      return exercise.starterCode;
+    }
+  });
   const [results, setResults] = useState<TestResult[] | null>(null);
   const [passed, setPassed] = useState(false);
   const [output, setOutput] = useState("");
@@ -31,6 +40,15 @@ export function TopicPractice({
   const [sandboxNote, setSandboxNote] = useState("");
   const [busy, setBusy] = useState<"run" | "submit" | null>(null);
   const [error, setError] = useState("");
+
+  function updateCode(next: string) {
+    setCode(next);
+    try {
+      window.localStorage.setItem(draftKey, next);
+    } catch {
+      // Storage full or blocked - the draft just won't survive a reload.
+    }
+  }
 
   async function execute(stdins: string[]): Promise<RunItem[]> {
     const res = await fetch("/api/mentor/run", {
@@ -198,7 +216,7 @@ export function TopicPractice({
         <div className="mt-3">
           <CodeEditor
             value={code}
-            onChange={setCode}
+            onChange={updateCode}
             language={language}
             label={`Code editor for ${exercise.title}`}
           />
@@ -221,7 +239,7 @@ export function TopicPractice({
             type="button"
             disabled={busy !== null}
             onClick={() => {
-              setCode(exercise.starterCode);
+              updateCode(exercise.starterCode);
               setResults(null);
               setOutput("");
               setPassed(false);
@@ -264,9 +282,8 @@ export function TopicPractice({
         )}
         <p className="mt-3 text-[11px] font-semibold text-muted-foreground">
           Runs for real{sandboxNote ? ` on the ${sandboxNote}` : ""}; Submit
-          compares your actual output with the expected result. Practice here is
-          not saved as verified evidence - the AI Mentor workspace saves
-          verified progress when you're signed in.
+          compares your actual output with the expected result. Your code draft
+          stays in this browser; results are not saved as progress.
         </p>
       </div>
     </div>
