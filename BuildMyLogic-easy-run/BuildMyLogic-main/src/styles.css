@@ -333,3 +333,114 @@
 .learn-composer-input::placeholder { color: #8a8a8f; }
 .learn-send { transition: transform .15s ease, opacity .15s ease, background .15s ease; }
 .learn-send:not(:disabled):hover { transform: translateY(-1px) scale(1.03); }
+
+/* ------------------------------------------------------------------------ */
+/* Lesson chat: purple design refresh (matches the Learn/Mentor redesign).  */
+/* Appended last so these rules win over the earlier black-theme blocks.    */
+/* ------------------------------------------------------------------------ */
+.learn-chat-shell {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+.learn-chat-header {
+  flex-wrap: wrap;
+  row-gap: .45rem;
+  column-gap: .65rem;
+  padding: .8rem 1rem;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+.learn-memory-pill {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  border-radius: 999px;
+  background: var(--color-primary-soft);
+  color: var(--color-accent-foreground);
+  padding: .3rem .65rem;
+  font-size: .62rem;
+  font-weight: 900;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.learn-clear-chat {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  white-space: nowrap;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-muted-foreground);
+  font-size: .68rem;
+  font-weight: 800;
+  cursor: pointer;
+  padding: .35rem .7rem;
+  border-radius: 999px;
+  transition: border-color .15s ease, color .15s ease;
+}
+.learn-clear-chat:hover {
+  border-color: var(--color-destructive);
+  color: var(--color-destructive);
+  background: var(--color-surface);
+}
+.learn-avatar.mentor {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+.learn-message.mentor {
+  background: color-mix(in oklab, var(--color-primary-soft) 70%, transparent);
+  border-radius: 1.2rem 1.2rem 1.2rem .35rem;
+  padding: .85rem 1.1rem;
+}
+.learn-message.student {
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  border: 0;
+  border-radius: 1.2rem 1.2rem .35rem 1.2rem;
+  box-shadow: 0 4px 16px color-mix(in oklab, var(--color-primary) 22%, transparent);
+}
+.learn-rich-text.is-mentor {
+  color: var(--color-foreground);
+}
+.learn-inline-code {
+  background: var(--color-primary-soft);
+  color: var(--color-accent-foreground);
+}
+.learn-inline-code.is-student {
+  background: rgba(255, 255, 255, .16);
+  color: var(--color-primary-foreground);
+}
+.learn-composer {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  transition: border-color .15s ease;
+}
+.learn-composer:focus-within {
+  border-color: var(--color-primary);
+}
+.learn-composer-icon:hover {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+.learn-send {
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+.learn-dots i {
+  background: var(--color-primary);
+}
+.learn-attachment {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+}
+@media (max-width: 640px) {
+  .learn-chat-header {
+    padding: .7rem .8rem;
+  }
+  .learn-chat-header > .ml-auto {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-end;
+  }
+}

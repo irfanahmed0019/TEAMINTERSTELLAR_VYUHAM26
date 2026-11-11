@@ -76,6 +76,16 @@ async function handleBuildMyLogicApi(request: Request): Promise<Response | null>
 
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders() });
 
+  // Deployment version probe for the client-side auto-updater. Unique per
+  // deployment so open tabs can detect a new build and reload onto it.
+  if (request.method === "GET" && pathname === "/api/app-version") {
+    const version =
+      process.env["VERCEL_GIT_COMMIT_SHA"]?.trim() ||
+      process.env["VERCEL_DEPLOYMENT_ID"]?.trim() ||
+      "dev";
+    return jsonResponse({ ok: true, version });
+  }
+
   // Learning sessions are the shared source of truth for the web dashboard and VS Code.
   // The website authenticates session creation. The extension joins the same session with
   // the short Session ID copied from the website.

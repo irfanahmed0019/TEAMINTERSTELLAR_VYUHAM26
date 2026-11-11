@@ -1,10 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, ArrowRight, ArrowUpRight, BarChart3, BookOpen, Camera, Check, ChevronRight, Code2, File, FolderOpen, Layers, Lock, Paperclip, Play, Send, Sparkles, Target, Terminal, UserRound, X, Lightbulb } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, BarChart3, BookOpen, Camera, Check, ChevronRight, Code2, File, FolderOpen, Layers, Lock, Paperclip, Play, RotateCcw, Send, Sparkles, Target, Terminal, UserRound, X, Lightbulb } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AppShell } from "@/components/AppShell";
 import { clearLearningChatMessages, logActivity, recordMissionEvidence, recordSkillEvidence, resetLoop, saveLearningChat, selectLearningMission, setMissionProgress, useLoop } from "@/lib/loop-store";
 import type { LearningMode, Mission } from "@/lib/loop-types";
 import { aiTeachMicroLesson } from "@/lib/sarvam.functions";
+import { dedupeMentorReplies, dedupeMentorText, normalizeSentence } from "@/lib/chat-dedupe";
 import { getAuthSessionForApi } from "@/lib/auth";
 import { C_CURRICULUM_MAP, parseDrillState } from "@/lib/curriculum-engine";
 
@@ -140,6 +141,11 @@ function Learn() {
     resizeComposer();
   }, [answer]);
 
+  // Display-only cleanup: the mentor used to re-greet and repeat its question
+  // inside one reply. This folds those repeats away at render time; the saved
+  // chat history itself is never rewritten.
+  const visibleMessages = useMemo(() => dedupeMentorReplies(messages), [messages]);
+
   if (!state.plan || !current) {
     return <AppShell crumb="Learn" title="Your Learning Path" subtitle="Build skills step by step, with practical tasks and real projects." quote="Learn by doing, not just by watching."><section className="card-surface p-10 text-center"><BookOpen className="mx-auto h-9 w-9 text-primary" /><h2 className="display mt-4 text-2xl font-black">Your learning path is waiting.</h2><p className="mx-auto mt-2 max-w-xl text-sm font-semibold">Finish onboarding and BuildMyLogic will connect learning directly to your first mission.</p><Link to="/" className="btn-base btn-primary-solid mt-5">Start onboarding</Link></section></AppShell>;
   }
@@ -252,10 +258,20 @@ function Learn() {
           lessonState,
         },
       });
+      // The model often puts its question inside the message already; only
+      // append it when it is genuinely separate, then drop any sentence the
+      // reply repeats within itself.
+      const questionKey = normalizeSentence(result.question ?? "");
+      const messageKey = normalizeSentence(result.message ?? "");
+      const mentorText = dedupeMentorText(
+        questionKey.length >= 3 && messageKey.includes(questionKey)
+          ? result.message
+          : `${result.message}${result.question ? `\n\n${result.question}` : ""}`,
+      );
       const next: ChatMessage[] = [
         ...history,
         ...(studentAnswer ? [{ role: "student" as const, text: studentAnswer, attachments: attachments.map(({ name, size }) => ({ name, size })) }] : []),
-        { role: "mentor" as const, text: `${result.message}${result.question ? `\n\n${result.question}` : ""}` },
+        { role: "mentor" as const, text: mentorText },
       ];
       setMessages(next);
       const nextMemory = String(result.memory ?? currentMemory).slice(0, 900);
@@ -299,7 +315,7 @@ function Learn() {
         </div>
 
         <section className="learn-chat-shell">
-          <div className="learn-chat-header"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-black text-white"><Sparkles className="h-4 w-4" /></span><div><p className="text-sm font-black">BuildMyLogic Mentor</p><p className="text-[11px] font-medium text-muted-foreground">Learning with you · {current.title}</p></div><div className="ml-auto flex items-center gap-2"><span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">BUILDMYLOGIC MEMORY ACTIVE</span><button type="button" onClick={() => { clearLearningChatMessages(chatKey); setMessages([]); setMemory(""); setLessonState("hello_world"); setError(null); setUnderstood(false); setReadyForProject(false); setStarted(false); }} className="learn-clear-chat">Clear & reset chat</button></div></div>
+          <div className="learn-chat-header"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary"><Sparkles className="h-4 w-4" /></span><div className="min-w-0"><p className="text-sm font-black">BuildMyLogic Mentor</p><p className="truncate text-[11px] font-medium text-muted-foreground">Learning with you · {current.title}</p></div><div className="ml-auto flex items-center gap-2"><span className="learn-memory-pill">Memory active</span><button type="button" onClick={() => { clearLearningChatMessages(chatKey); setMessages([]); setMemory(""); setLessonState("hello_world"); setError(null); setUnderstood(false); setReadyForProject(false); setStarted(false); }} className="learn-clear-chat"><RotateCcw className="h-3 w-3" />Reset chat</button></div></div>
           {(() => {
             const { conceptId, drillIndex } = parseDrillState(lessonState);
             const step = C_CURRICULUM_MAP[conceptId];
@@ -333,7 +349,7 @@ function Learn() {
           })()}
 
           <div className="learn-chat-messages">
-            {messages.map((message, i) => <div key={`${message.role}-${i}`} className={`learn-message-row ${message.role === "student" ? "is-student" : "is-mentor"}`}>
+            {visibleMessages.map((message, i) => <div key={`${message.role}-${i}`} className={`learn-message-row ${message.role === "student" ? "is-student" : "is-mentor"}`}>
               {message.role === "mentor" ? <span className="learn-avatar mentor"><Sparkles className="h-4 w-4" /></span> : null}
               <div className={`learn-message ${message.role === "student" ? "student" : "mentor"}`}>
                 <div className={`learn-rich-text ${message.role === "student" ? "is-student" : "is-mentor"}`}>{renderRichText(message.text, message.role)}</div>

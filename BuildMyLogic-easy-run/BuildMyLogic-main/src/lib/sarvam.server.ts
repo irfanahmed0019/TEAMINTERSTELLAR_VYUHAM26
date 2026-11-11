@@ -50,6 +50,13 @@ export async function sarvamChat(apiKey: string, messages: Msg[], maxTokens = 80
           await sleep(500 * 2 ** attempt);
           continue;
         }
+        // Terminal provider rejection: log the status plus the provider's own
+        // short reason (sanitized, key-free) so runtime logs carry the real
+        // failure cause. User-facing messages stay generic.
+        console.error(
+          "[sarvamChat] provider rejected request:",
+          `${safeMessage}${providerErrorDetail(rawBody) ? ` | provider said: ${providerErrorDetail(rawBody)}` : ""}`,
+        );
         throw new Error(res.status === 403 ? safeMessage : `${safeMessage}. Please try again.`);
       }
 
@@ -83,9 +90,7 @@ export async function sarvamChat(apiKey: string, messages: Msg[], maxTokens = 80
         throw new Error("BuildMyLogic Mentor took too long to respond. Please try again.");
       }
       if (error instanceof Error && error.message.startsWith("BuildMyLogic AI error")) {
-        // Terminal provider rejection: log the status so runtime logs carry the
-        // real failure cause. The message contains an HTTP status only, never the key.
-        console.error("[sarvamChat] provider rejected request:", error.message);
+        // Already logged at the rejection site with the provider's reason.
         throw error;
       }
       if (attempt < attempts - 1) {
@@ -107,6 +112,30 @@ export async function sarvamChat(apiKey: string, messages: Msg[], maxTokens = 80
 function stripFence(text: string): string {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
   return (fenced?.[1] ?? text).trim();
+}
+
+// Extract the provider's own short error reason for server logs. Long
+// token-like runs are redacted so no credential material can reach a log line.
+function providerErrorDetail(rawBody: string): string {
+  if (!rawBody) return "";
+  let text = rawBody;
+  try {
+    const parsed = JSON.parse(rawBody) as { error?: { message?: unknown } | string; message?: unknown };
+    const nested = typeof parsed?.error === "object" && parsed.error !== null ? (parsed.error as { message?: unknown }).message : undefined;
+    const candidate =
+      (typeof nested === "string" && nested) ||
+      (typeof parsed?.message === "string" && parsed.message) ||
+      (typeof parsed?.error === "string" && parsed.error) ||
+      "";
+    if (candidate) text = candidate;
+  } catch {
+    // Not JSON - use the raw body, sanitized below.
+  }
+  return text
+    .replace(/[A-Za-z0-9_\-]{24,}/g, "[redacted]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 160);
 }
 
 export function parseJsonBlock<T>(text: string): T {
