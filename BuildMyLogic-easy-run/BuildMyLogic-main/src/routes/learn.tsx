@@ -307,7 +307,7 @@ function Learn() {
             </Link>
             <Link
               to="/mentor"
-              search={{ view: "workspace" }}
+              search={{ view: "practice", topic: activeTopic.id, lang }}
               className="btn-base btn-primary-solid text-xs font-bold"
             >
               <Code2 className="h-4 w-4" />

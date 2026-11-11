@@ -4,14 +4,25 @@ import { Code2, MessageCircle, Sparkles } from "lucide-react";
 import { MentorApp } from "@/components/mentor/MentorApp";
 import { MentorChat } from "@/components/mentor/MentorChat";
 import { MentorHome } from "@/components/mentor/MentorHome";
+import { MentorTopicWorkspace } from "@/components/mentor/MentorTopicWorkspace";
 
-type MentorView = "chat" | "workspace" | "classic";
+type MentorView = "chat" | "workspace" | "classic" | "practice";
 
-function validateSearch(search: Record<string, unknown>): {
+type MentorSearch = {
   view?: MentorView;
-} {
+  topic?: string;
+  lang?: "c" | "python";
+};
+
+function validateSearch(search: Record<string, unknown>): MentorSearch {
+  const out: MentorSearch = {};
   const v = search["view"];
-  return v === "workspace" || v === "classic" ? { view: v } : {};
+  if (v === "workspace" || v === "classic" || v === "practice") out.view = v;
+  const t = search["topic"];
+  if (typeof t === "string" && t) out.topic = t;
+  const l = search["lang"];
+  if (l === "c" || l === "python") out.lang = l;
+  return out;
 }
 
 export const Route = createFileRoute("/mentor")({
@@ -31,13 +42,24 @@ const NEXT: Record<
     icon: MessageCircle,
   },
   classic: { view: "chat", label: "Back to AI Mentor", icon: Sparkles },
+  practice: { view: "chat", label: "Back to AI Mentor", icon: Sparkles },
 };
 
 function MentorRoute() {
-  const search = useSearch({ strict: false }) as { view?: MentorView };
+  const search = useSearch({ strict: false }) as MentorSearch;
   const [view, setView] = useState<MentorView>(search.view ?? "chat");
   const next = NEXT[view];
   const NextIcon = next.icon;
+
+  if (view === "practice") {
+    return (
+      <MentorTopicWorkspace
+        topicId={search.topic ?? ""}
+        language={search.lang ?? "c"}
+      />
+    );
+  }
+
   return (
     <>
       {view === "chat" ? (
