@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { aiMentorChat } from "@/lib/sarvam.functions";
-import { useLoop } from "@/lib/loop-store";
+import { getLoopState, useLoop } from "@/lib/loop-store";
 
 type ChatMessage = { role: "mentor" | "student"; text: string; at: number };
 
@@ -88,11 +88,14 @@ export function MentorHome() {
   const attachmentTextRef = useRef("");
 
   useEffect(() => {
+    // Read the store directly here: during hydration the render-scoped `name`
+    // still holds the empty server snapshot, which would greet "Builder".
+    const liveName = getLoopState().profile?.name?.trim() || "Builder";
     try {
       const saved = JSON.parse(window.localStorage.getItem(CHAT_STORAGE) || "[]") as ChatMessage[];
-      setMessages(saved.length ? saved : [{ role: "mentor", text: welcomeMessage(name), at: Date.now() }]);
+      setMessages(saved.length ? saved : [{ role: "mentor", text: welcomeMessage(liveName), at: Date.now() }]);
     } catch {
-      setMessages([{ role: "mentor", text: welcomeMessage(name), at: Date.now() }]);
+      setMessages([{ role: "mentor", text: welcomeMessage(liveName), at: Date.now() }]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
