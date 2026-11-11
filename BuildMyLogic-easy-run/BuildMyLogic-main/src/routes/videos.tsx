@@ -135,11 +135,11 @@ function Videos() {
           <video ref={videoRef} muted playsInline aria-label="Your camera" className={`h-16 w-20 shrink-0 rounded-lg bg-black object-cover -scale-x-100 ${active ? "" : "hidden"}`} />
           <div className="min-w-0 flex-1">
             <p data-testid="presence-status" className="text-sm font-black">{status}</p>
-            <p className="flex items-center gap-3 text-[11px] font-semibold text-muted-foreground"><span className="flex items-center gap-1"><Camera className="h-3 w-3" />{phase === "watching" ? "on" : "off"}</span><span className="flex items-center gap-1"><Mic className="h-3 w-3" />{micOn ? "on" : "off"}</span></p>
+            <p className="flex items-center gap-3 text-[11px] font-semibold text-muted-foreground"><span className="flex items-center gap-1"><Camera className="h-3 w-3" />{phase === "watching" ? "on" : "off"}</span><span className="flex items-center gap-1"><Mic className="h-3 w-3" />mic {micOn ? "allowed, not used" : "off"}</span></p>
           </div>
           {phase === "watching" && <button type="button" onClick={end} className="btn-base btn-outline text-xs">Stop</button>}
         </div>
-        <p className="flex items-start gap-2 text-[11px] font-semibold text-muted-foreground"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />Face check runs on your device only. Nothing is recorded or uploaded. Pauses after 2s away, resumes if you return within 30s, restarts the video after longer.</p>
+        <p className="flex items-start gap-2 text-[11px] font-semibold text-muted-foreground"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />Face check runs on your device only. Nothing is recorded or uploaded. The microphone is requested but not used: no audio is listened to, analysed or saved. This only checks that a face is in view, not attention. Pauses after 2s away, resumes if you return within 30s, restarts the video after longer.</p>
       </div>
     </AppShell>
   );
