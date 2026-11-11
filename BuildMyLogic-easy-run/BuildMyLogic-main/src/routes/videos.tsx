@@ -40,7 +40,7 @@ function Videos() {
   const playerRef = useRef<YTPlayer | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<number | null>(null);
-  const detectorRef = useRef<{ detectForVideo(v: HTMLVideoElement, t: number): { detections: unknown[] }; close(): void } | null>(null);
+  const detectorRef = useRef<{ detectForVideo(v: HTMLVideoElement): Promise<unknown>; close(): void } | null>(null);
 
   const stop = useCallback(() => {
     if (timerRef.current) window.clearInterval(timerRef.current);
@@ -67,13 +67,10 @@ function Videos() {
       setStatus("Loading video player...");
       const yt = await withTimeout(loadYouTube(), "youtube");
       setStatus("Loading face check on this device...");
-      const { FaceDetector, FilesetResolver } = await withTimeout(import("@mediapipe/tasks-vision"), "mediapipe-import");
-      const fileset = await FilesetResolver.forVisionTasks("/mediapipe");
-      const detector = await withTimeout(FaceDetector.createFromOptions(fileset, {
-        baseOptions: { modelAssetPath: "/mediapipe/face.tflite" },
-        runningMode: "VIDEO",
-      }), "face-model");
-      detectorRef.current = detector;
+      const faceapi = await withTimeout(import("@vladmandic/face-api"), "face-lib-import");
+      await withTimeout(faceapi.nets.tinyFaceDetector.loadFromUri("/face-model"), "face-model");
+      const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.4 });
+      const detector = { detectForVideo: (v: HTMLVideoElement) => faceapi.detectSingleFace(v, opts), close: () => undefined };
       const host = playerHost.current as HTMLDivElement;
       host.innerHTML = "<div></div>";
       let ready = false;
@@ -88,11 +85,15 @@ function Videos() {
       let absentSince: number | null = null;
       let paused = false;
       let started = false;
-      timerRef.current = window.setInterval(() => {
+      let busy = false;
+      timerRef.current = window.setInterval(async () => {
         const v = videoRef.current;
         if (!v || v.readyState < 2 || !ready) return;
         const now = Date.now();
-        const present = detector.detectForVideo(v, performance.now()).detections.length > 0;
+        if (busy) return;
+        busy = true;
+        let present = false;
+        try { present = Boolean(await detector.detectForVideo(v)); } catch { present = false; } finally { busy = false; }
         if (present) {
           lastSeen = now;
           if (!started) { started = true; playerRef.current?.playVideo(); setStatus("Watching. Video is playing."); }
