@@ -1,30 +1,52 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useState } from "react";
 import { Code2, MessageCircle, Sparkles } from "lucide-react";
 import { MentorApp } from "@/components/mentor/MentorApp";
 import { MentorChat } from "@/components/mentor/MentorChat";
 import { MentorHome } from "@/components/mentor/MentorHome";
 
+type MentorView = "chat" | "workspace" | "classic";
+
+function validateSearch(search: Record<string, unknown>): {
+  view?: MentorView;
+} {
+  const v = search["view"];
+  return v === "workspace" || v === "classic" ? { view: v } : {};
+}
+
 export const Route = createFileRoute("/mentor")({
   head: () => ({ meta: [{ title: "AI Mentor — BuildMyLogic" }] }),
+  validateSearch,
   component: MentorRoute,
 });
 
-type MentorView = "chat" | "workspace" | "classic";
-
-const NEXT: Record<MentorView, { view: MentorView; label: string; icon: typeof Sparkles }> = {
+const NEXT: Record<
+  MentorView,
+  { view: MentorView; label: string; icon: typeof Sparkles }
+> = {
   chat: { view: "workspace", label: "Practice workspace (C)", icon: Code2 },
-  workspace: { view: "classic", label: "Classic mentor chat & Zoom", icon: MessageCircle },
+  workspace: {
+    view: "classic",
+    label: "Classic mentor chat & Zoom",
+    icon: MessageCircle,
+  },
   classic: { view: "chat", label: "Back to AI Mentor", icon: Sparkles },
 };
 
 function MentorRoute() {
-  const [view, setView] = useState<MentorView>("chat");
+  const search = useSearch({ strict: false }) as { view?: MentorView };
+  const [view, setView] = useState<MentorView>(search.view ?? "chat");
   const next = NEXT[view];
   const NextIcon = next.icon;
   return (
     <>
-      {view === "chat" ? <MentorHome /> : view === "workspace" ? <MentorApp /> : <MentorChat />}
+      {view === "chat" ? (
+        <MentorHome />
+      ) : view === "workspace" ? (
+        <MentorApp />
+      ) : (
+        <MentorChat />
+      )}
       <button
         type="button"
         onClick={() => setView(next.view)}
