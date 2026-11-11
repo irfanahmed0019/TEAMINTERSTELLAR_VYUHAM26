@@ -53,7 +53,14 @@ function Learn() {
     missions[0];
   const [tab, setTab] = useState<"syllabus" | "topics" | "resources">("topics");
   const [activeTopicId, setActiveTopicId] = useState<string | null>(null);
-  const [language, setLanguage] = useState<TopicLanguage | null>(null);
+  const [language, setLanguage] = useState<TopicLanguage | null>(() => {
+    try {
+      const saved = window.localStorage.getItem("bml.learn.lang");
+      return saved === "c" || saved === "python" ? saved : null;
+    } catch {
+      return null;
+    }
+  });
   const [videoIndex, setVideoIndex] = useState(0);
   const [vscodeSession, setVscodeSession] = useState<{
     sessionId: string;
@@ -67,6 +74,14 @@ function Learn() {
     `${state.plan?.projectTitle ?? ""} ${activeMission?.stack ?? ""} ${missions.map((m) => m.stack).join(" ")}`,
   );
   const lang: TopicLanguage = language ?? (isPythonPlan ? "python" : "c");
+  function chooseLanguage(next: TopicLanguage) {
+    setLanguage(next);
+    try {
+      window.localStorage.setItem("bml.learn.lang", next);
+    } catch {
+      // Storage blocked - the choice just won't survive a reload.
+    }
+  }
   const activeTopic = activeTopicId
     ? STUDY_TOPICS.find((t) => t.id === activeTopicId)
     : undefined;
