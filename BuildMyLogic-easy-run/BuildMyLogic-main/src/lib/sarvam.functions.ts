@@ -540,14 +540,21 @@ Understand Manglish (Malayalam written in English), such as manasilayilla, enikk
 Do not shame the learner. Do not give a huge answer. Ask one helpful question when needed.
 Return JSON only: {"message":"your helpful reply"}.`;
     const history = data.history.map((item) => `${item.role === "mentor" ? "MENTOR" : "LEARNER"}: ${item.text}`).join("\n");
-    return await import("./sarvam.server").then(({ sarvamJson }) =>
-      sarvamJson<{ message: string }>(
-        key(),
-        system,
-        `RECENT CHAT:\n${history || "No previous messages."}\n\nLEARNER'S NEW MESSAGE:\n${data.learnerMessage}`,
-        650,
-      ),
-    );
+    try {
+      return await import("./sarvam.server").then(({ sarvamJson }) =>
+        sarvamJson<{ message: string }>(
+          key(),
+          system,
+          `RECENT CHAT:\n${history || "No previous messages."}\n\nLEARNER'S NEW MESSAGE:\n${data.learnerMessage}`,
+          650,
+        ),
+      );
+    } catch (error) {
+      // Surface the safe cause in runtime logs so AI failures are diagnosable
+      // after the fact. Messages are key-free by construction in key()/sarvam.server.
+      console.error("[aiMentorChat] failed:", error instanceof Error ? error.message : "unknown error");
+      throw error;
+    }
   });
 
 /**

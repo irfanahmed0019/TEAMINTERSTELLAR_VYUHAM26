@@ -82,7 +82,12 @@ export async function sarvamChat(apiKey: string, messages: Msg[], maxTokens = 80
         }
         throw new Error("BuildMyLogic Mentor took too long to respond. Please try again.");
       }
-      if (error instanceof Error && error.message.startsWith("BuildMyLogic AI error")) throw error;
+      if (error instanceof Error && error.message.startsWith("BuildMyLogic AI error")) {
+        // Terminal provider rejection: log the status so runtime logs carry the
+        // real failure cause. The message contains an HTTP status only, never the key.
+        console.error("[sarvamChat] provider rejected request:", error.message);
+        throw error;
+      }
       if (attempt < attempts - 1) {
         await sleep(400 * 2 ** attempt);
         continue;
@@ -93,6 +98,7 @@ export async function sarvamChat(apiKey: string, messages: Msg[], maxTokens = 80
   }
 
   if (lastError instanceof Error && lastError.message) {
+    console.error("[sarvamChat] request failed after retries:", lastError.message);
     throw new Error(`BuildMyLogic Mentor could not reach AI provider right now. ${lastError.message}`);
   }
   throw new Error("BuildMyLogic Mentor could not respond right now. Please try again.");
