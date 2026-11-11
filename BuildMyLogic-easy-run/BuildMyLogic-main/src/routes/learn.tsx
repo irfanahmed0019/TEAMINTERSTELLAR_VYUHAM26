@@ -411,7 +411,7 @@ function Learn() {
                   void sendCurrentMessage();
                 }}
                 onFocus={resizeComposer}
-                placeholder="Ask BuildMyLogic Mentor anything…"
+                placeholder="Ask the mentor anything…"
                 rows={1}
                 className="learn-composer-input"
                 disabled={busy}

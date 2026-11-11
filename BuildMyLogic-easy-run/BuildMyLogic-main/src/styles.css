@@ -476,3 +476,11 @@
   text-transform: uppercase;
   color: rgba(255,255,255,.45);
 }
+
+/* Composer: an empty input never wraps its placeholder into a clipped second
+   line (mobile). Typed text still wraps and grows via resizeComposer. */
+.learn-composer-input:placeholder-shown {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
