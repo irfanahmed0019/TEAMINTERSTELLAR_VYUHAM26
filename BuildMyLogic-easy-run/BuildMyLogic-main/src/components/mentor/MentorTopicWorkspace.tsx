@@ -9,8 +9,8 @@ import { STUDY_TOPICS, type TopicLanguage } from "@/lib/topic-library";
 type ChatMessage = { role: "mentor" | "student"; text: string; at: number };
 
 /**
- * Practice workspace for one study topic: the AI mentor chat on the left, the
- * mentor's basic checked task on the right. Topic and language arrive from the
+ * Practice workspace for one study topic: the AI mentor chat next to the
+ * mentor's basic checked task. Topic and language arrive from the
  * Learn page, so the exercise, starter code and Run/Submit checking always
  * match what the student just studied.
  */
@@ -33,7 +33,7 @@ export function MentorTopicWorkspace({
       setMessages([
         {
           role: "mentor",
-          text: `Let's practise ${topic.title} in ${language === "c" ? "C" : "Python"}. Start with the basic task on the right - Run your code, then Submit Task and I'll check your real output. Ask me here if you're stuck.`,
+          text: `Let's practise ${topic.title} in ${language === "c" ? "C" : "Python"}. Start with the basic task - Run your code, then Submit Task and I'll check your real output. Ask me here if you're stuck.`,
           at: Date.now(),
         },
       ]);
@@ -106,7 +106,7 @@ export function MentorTopicWorkspace({
     <AppShell
       crumb={`Learn › ${topic.title}`}
       title={`Practice workspace: ${topic.title}`}
-      subtitle="Ask the mentor on the left. Do the checked task on the right."
+      subtitle="Ask the mentor while you do the checked task."
       wide
     >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">

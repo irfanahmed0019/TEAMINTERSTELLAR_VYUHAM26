@@ -137,8 +137,7 @@ export function TopicPractice({
         {passed && (
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5">
             <p className="flex items-center gap-1.5 text-[13px] font-black text-emerald-700">
-              <Check className="h-4 w-4" /> All tests passed - you understand{" "}
-              {topicTitle}.
+              <Check className="h-4 w-4" /> Correct output - all checks passed.
             </p>
             <p className="mt-1.5 text-[12.5px] font-medium leading-5 text-emerald-900">
               {exercise.explain}
