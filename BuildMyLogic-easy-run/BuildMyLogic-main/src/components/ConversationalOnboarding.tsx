@@ -33,7 +33,7 @@ export function ConversationalOnboarding() {
   const [authError, setAuthError] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<Message[]>([
-    { role: "mentor", text: "Hi! I'm your BuildMyLogic Mentor. 👋 Tell me what you want to learn, build, or become. I'll understand your starting point and create a practical learning path with real projects." },
+    { role: "mentor", text: "Hi! I'm your BuildMyLogic Mentor. Tell me what you want to learn, build, or become. I'll understand your starting point and create a practical learning path with real projects." },
   ]);
   const [answers, setAnswers] = useState<string[]>([]);
   const [draft, setDraft] = useState("");

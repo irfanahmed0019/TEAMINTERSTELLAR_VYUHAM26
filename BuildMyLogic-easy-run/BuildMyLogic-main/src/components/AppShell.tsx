@@ -80,7 +80,7 @@ export function AppShell({ crumb, title, subtitle, quote, children, wide = false
             {state.activity.length > 0 && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary" />}
           </button>
           <div className="flex items-center gap-3">
-            {!auth && <GoogleSignIn compact />}
+            {!auth && <div className="hidden sm:block"><GoogleSignIn compact /></div>}
             <Link to="/settings" className="flex items-center gap-2.5">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-ink text-xs font-semibold text-ink-foreground">{name.slice(0, 1).toUpperCase()}</span>
               <span className="hidden text-sm font-semibold sm:inline">{name}</span><ChevronDown className="h-4 w-4 text-muted-foreground" />
