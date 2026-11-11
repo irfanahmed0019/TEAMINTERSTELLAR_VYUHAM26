@@ -550,6 +550,44 @@ Return JSON only: {"message":"your helpful reply"}.`;
     );
   });
 
+/**
+ * Real reachability check for the AI backend: true only when the provider
+ * accepts a minimal request with the configured key. Drives the mentor
+ * Online/Offline indicator so it is never a decorative claim.
+ */
+export const aiMentorStatus = createServerFn({ method: "POST" })
+  .validator((input: { ping?: boolean }) => ({ ping: Boolean(input?.ping) }))
+  .handler(async () => {
+    let apiKey: string;
+    try {
+      apiKey = key();
+    } catch {
+      return { online: false as const };
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    try {
+      const res = await fetch("https://api.sarvam.ai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "api-subscription-key": apiKey,
+        },
+        body: JSON.stringify({
+          model: process.env["SARVAM_MODEL"]?.trim() || "sarvam-105b",
+          messages: [{ role: "user", content: "Reply with OK" }],
+          max_tokens: 4,
+        }),
+        signal: controller.signal,
+      });
+      return { online: res.ok };
+    } catch {
+      return { online: false as const };
+    } finally {
+      clearTimeout(timeout);
+    }
+  });
+
 export const aiReviewSession = createServerFn({ method: "POST" })
   .validator((input: { missionTitle: string; note: string; minutes: number }) => input)
   .handler(async ({ data }) => {

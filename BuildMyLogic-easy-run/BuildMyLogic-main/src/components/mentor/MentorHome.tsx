@@ -14,7 +14,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
-import { aiMentorChat } from "@/lib/sarvam.functions";
+import { aiMentorChat, aiMentorStatus } from "@/lib/sarvam.functions";
 import { getLoopState, useLoop } from "@/lib/loop-store";
 
 type ChatMessage = { role: "mentor" | "student"; text: string; at: number };
@@ -78,6 +78,7 @@ export function MentorHome() {
     return "Finish onboarding and your mentor will personalize suggestions from your real progress.";
   }, [plan]);
 
+  const [aiOnline, setAiOnline] = useState<boolean | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -98,6 +99,20 @@ export function MentorHome() {
       setMessages([{ role: "mentor", text: welcomeMessage(liveName), at: Date.now() }]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    aiMentorStatus({ data: {} })
+      .then((result) => {
+        if (active) setAiOnline(result.online);
+      })
+      .catch(() => {
+        if (active) setAiOnline(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -180,8 +195,17 @@ export function MentorHome() {
               <p className="text-[16px] font-extrabold">BuildMyLogic Mentor</p>
               <span className="pill bg-primary-soft text-accent-foreground">AI Mentor</span>
             </div>
-            <span className="ml-auto flex items-center gap-1.5 text-[12px] font-semibold text-emerald-600">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" /> Online
+            <span
+              className={`ml-auto flex items-center gap-1.5 text-[12px] font-semibold ${
+                aiOnline === null ? "text-muted-foreground" : aiOnline ? "text-emerald-600" : "text-amber-600"
+              }`}
+            >
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  aiOnline === null ? "bg-muted-foreground/50" : aiOnline ? "bg-emerald-500" : "bg-amber-500"
+                }`}
+              />
+              {aiOnline === null ? "Checking…" : aiOnline ? "Online" : "Offline"}
             </span>
           </section>
 
