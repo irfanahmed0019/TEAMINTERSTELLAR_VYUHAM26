@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
-import { LayoutGrid, BookOpen, Sparkles, Timer, Settings as SettingsIcon, LogOut, Bell, ChevronDown, MessageCircle, BarChart3, Camera } from "lucide-react";
+import { LayoutGrid, BookOpen, Timer, Settings as SettingsIcon, LogOut, Bell, ChevronDown, MessageCircle, BarChart3, Camera } from "lucide-react";
 import { getLoopState, resetLoop, setLoopState, useLoop } from "@/lib/loop-store";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
 import { signOut, useAuth } from "@/lib/auth";
@@ -46,46 +46,28 @@ export function AppShell({ crumb, title, subtitle, quote, children, wide = false
 
   return (
     <div className="min-h-screen bg-background">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[236px] lg:flex flex-col justify-between border-r border-border bg-surface px-5 py-6">
-        <div>
-          <Link to="/auth/dashboard" className="block px-2">
-            <span className="display flex items-center text-[22px] font-black tracking-[-0.05em]">BuildMyLogic<span className="mb-3 ml-0.5 h-1.5 w-1.5 rounded-full bg-primary" /></span>
-          </Link>
-          <nav className="mt-10 space-y-1.5">
-            {NAV.map(({ to, label, icon: Icon }) => (
-              <Link key={to} to={to} className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[14px] font-medium text-foreground/80 transition-colors hover:bg-muted" activeProps={{ className: "flex items-center gap-3 rounded-xl bg-primary-soft px-3.5 py-2.5 text-[14px] font-semibold text-accent-foreground" }}>
-                <Icon className="h-[19px] w-[19px]" strokeWidth={1.9} />
-                {label}
-              </Link>
-            ))}
-          </nav>
-        </div>
-        <div>
-          <div className="mb-7 space-y-1 border-t border-border pt-5">
-            <Link to="/settings" className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[14px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"><SettingsIcon className="h-[19px] w-[19px]" strokeWidth={1.9} />Settings</Link>
-            <button type="button" onClick={() => { signOut(); resetLoop(); void navigate({ to: "/" }); }} className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-[14px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"><LogOut className="h-[19px] w-[19px]" strokeWidth={1.9} />Logout</button>
-          </div>
-          <Link to="/settings" className="flex items-center gap-2.5 rounded-xl px-2 py-2 hover:bg-muted">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-ink text-xs font-semibold text-ink-foreground">{name.slice(0, 1).toUpperCase()}</span>
-            <span className="text-sm font-semibold">{name}</span>
-            <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground" />
-          </Link>
-        </div>
-      </aside>
-
-      <div className="min-w-0 pb-20 lg:ml-[236px] lg:pb-0">
-        <header className="flex h-16 items-center justify-between gap-3 border-b border-border/60 px-4 sm:px-6 lg:h-[76px] lg:justify-end lg:gap-5 lg:px-8">
-          <Link to="/auth/dashboard" className="display text-lg font-black tracking-[-0.05em] lg:hidden">BuildMyLogic<span className="text-primary">•</span></Link>
-          <button type="button" onClick={() => setNotice(`${state.activity.length} updates in your build log.`)} aria-label="Notifications" className="relative rounded-full p-2 text-foreground hover:bg-muted">
-            <Bell className="h-[21px] w-[21px]" strokeWidth={1.8} />
-            {state.activity.length > 0 && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary" />}
-          </button>
-          <div className="flex items-center gap-3">
+      <div className="min-w-0 pb-20">
+        <header className="flex h-16 items-center justify-between gap-3 border-b border-border/60 px-4 sm:px-6 lg:h-[76px] lg:gap-5 lg:px-8">
+          <Link to="/auth/dashboard" className="display flex items-center text-lg font-black tracking-[-0.05em]">BuildMyLogic<span className="mb-2 ml-0.5 h-1.5 w-1.5 rounded-full bg-primary" /></Link>
+          <div className="flex items-center gap-2 sm:gap-3 lg:gap-4">
+            <button type="button" onClick={() => setNotice(`${state.activity.length} updates in your build log.`)} aria-label="Notifications" className="relative rounded-full p-2 text-foreground hover:bg-muted">
+              <Bell className="h-[21px] w-[21px]" strokeWidth={1.8} />
+              {state.activity.length > 0 && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary" />}
+            </button>
             {!auth && <div className="hidden sm:block"><GoogleSignIn compact /></div>}
             <Link to="/settings" className="flex items-center gap-2.5">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-ink text-xs font-semibold text-ink-foreground">{name.slice(0, 1).toUpperCase()}</span>
               <span className="hidden text-sm font-semibold sm:inline">{name}</span><ChevronDown className="h-4 w-4 text-muted-foreground" />
             </Link>
+            <button
+              type="button"
+              onClick={() => { signOut(); resetLoop(); void navigate({ to: "/" }); }}
+              aria-label="Log out"
+              title="Log out"
+              className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <LogOut className="h-[19px] w-[19px]" strokeWidth={1.8} />
+            </button>
           </div>
         </header>
 
@@ -102,13 +84,15 @@ export function AppShell({ crumb, title, subtitle, quote, children, wide = false
           {children}
         </main>
       </div>
-      <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden" aria-label="Main">
-        {[...NAV, { to: "/settings", label: "Settings", icon: SettingsIcon }].map(({ to, label, icon: Icon }) => (
-          <Link key={to} to={to} className="flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-2 text-[10px] font-medium text-muted-foreground" activeProps={{ className: "flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-2 text-[10px] font-bold text-primary" }}>
-            <Icon className="h-5 w-5" strokeWidth={1.9} />
-            <span className="max-w-full truncate">{label === "AI Mentor" ? "Mentor" : label === "My Progress" ? "Progress" : label}</span>
-          </Link>
-        ))}
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur" aria-label="Main">
+        <div className="mx-auto flex w-full max-w-3xl">
+          {[...NAV, { to: "/settings", label: "Settings", icon: SettingsIcon }].map(({ to, label, icon: Icon }) => (
+            <Link key={to} to={to} className="flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-2 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground sm:py-2.5 sm:text-[11px]" activeProps={{ className: "flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-2 text-[10px] font-bold text-primary sm:py-2.5 sm:text-[11px]" }}>
+              <Icon className="h-5 w-5" strokeWidth={1.9} />
+              <span className="max-w-full truncate">{label === "AI Mentor" ? "Mentor" : label === "My Progress" ? "Progress" : label}</span>
+            </Link>
+          ))}
+        </div>
       </nav>
     </div>
   );
