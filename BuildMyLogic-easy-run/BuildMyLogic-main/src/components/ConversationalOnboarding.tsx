@@ -41,7 +41,7 @@ export function ConversationalOnboarding() {
     setMessages((old) => [...old, { role: "student", text: answer }]);
     setDraft("");
     if (nextAnswers.length < prompts.length) {
-      setMessages((old) => [...old, { role: "mentor", text: prompts[nextAnswers.length] }]);
+      setMessages((old) => [...old, { role: "mentor", text: prompts[nextAnswers.length] ?? "" }]);
       return;
     }
     const goal = nextAnswers[0] ?? "";
@@ -60,8 +60,8 @@ export function ConversationalOnboarding() {
       technologies: [{ name: tech, level: isBeginner ? "beginner" : "intermediate" }],
       projectIdea: goal,
       followUps: [
-        { question: prompts[1], answer: experienceText },
-        { question: prompts[2], answer: scheduleText },
+        { question: prompts[1] ?? "", answer: experienceText },
+        { question: prompts[2] ?? "", answer: scheduleText },
       ],
       challenge: isBeginner ? "Guide me" : "Balance me",
     };
