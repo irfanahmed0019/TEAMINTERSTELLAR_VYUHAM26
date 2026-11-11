@@ -2,6 +2,7 @@ import { ArrowLeft, CalendarClock, CheckCircle2, Clock3, ExternalLink, MessageCi
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { aiMentorChat } from "@/lib/sarvam.functions";
+import { setMentorAvailability } from "@/lib/mentor-availability";
 import { logActivity } from "@/lib/loop-store";
 
 
@@ -119,7 +120,9 @@ export function MentorChat() {
     try {
       const result = await aiMentorChat({ data: { mentorName: mentor.name, mentorSpecialty: mentor.focus, learnerMessage: outgoing, history: next.slice(-10).map((item) => ({ role: item.role === "student" ? "student" as const : "mentor" as const, text: item.text })) } });
       saveMessages([...next, { role: "mentor", text: result.message, at: Date.now() }]);
+      setMentorAvailability("online");
     } catch {
+      setMentorAvailability("offline", "The last mentor request failed");
       saveMessages([...next, { role: "mentor", text: fallbackReply(mentor, outgoing), at: Date.now() }]);
       setChatError("BuildMyLogic Mentor is offline right now, so I gave you a simple starting reply.");
     } finally {

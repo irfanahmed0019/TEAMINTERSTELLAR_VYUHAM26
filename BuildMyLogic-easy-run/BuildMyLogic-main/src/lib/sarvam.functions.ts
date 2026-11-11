@@ -551,40 +551,22 @@ Return JSON only: {"message":"your helpful reply"}.`;
   });
 
 /**
- * Real reachability check for the AI backend: true only when the provider
- * accepts a minimal request with the configured key. Drives the mentor
- * Online/Offline indicator so it is never a decorative claim.
+ * Non-billable readiness check: inspects server configuration only and never
+ * calls the AI provider. Live availability is learned from real user
+ * requests (success/failure), not from per-visit probe generations.
  */
-export const aiMentorStatus = createServerFn({ method: "POST" })
+export const aiMentorConfig = createServerFn({ method: "POST" })
   .validator((input: { ping?: boolean }) => ({ ping: Boolean(input?.ping) }))
   .handler(async () => {
-    let apiKey: string;
     try {
-      apiKey = key();
-    } catch {
-      return { online: false as const };
-    }
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    try {
-      const res = await fetch("https://api.sarvam.ai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "api-subscription-key": apiKey,
-        },
-        body: JSON.stringify({
-          model: process.env["SARVAM_MODEL"]?.trim() || "sarvam-105b",
-          messages: [{ role: "user", content: "Reply with OK" }],
-          max_tokens: 4,
-        }),
-        signal: controller.signal,
-      });
-      return { online: res.ok };
-    } catch {
-      return { online: false as const };
-    } finally {
-      clearTimeout(timeout);
+      key();
+      return { configured: true as const, reason: null as string | null };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      return {
+        configured: false as const,
+        reason: /placeholder/i.test(message) ? "AI key is a placeholder" : "AI key is not configured",
+      };
     }
   });
 

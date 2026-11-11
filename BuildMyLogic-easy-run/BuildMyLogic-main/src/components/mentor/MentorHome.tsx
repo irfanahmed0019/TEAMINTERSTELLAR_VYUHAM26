@@ -14,7 +14,8 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
-import { aiMentorChat, aiMentorStatus } from "@/lib/sarvam.functions";
+import { aiMentorChat, aiMentorConfig } from "@/lib/sarvam.functions";
+import { setMentorAvailability, useMentorAvailability } from "@/lib/mentor-availability";
 import { getLoopState, useLoop } from "@/lib/loop-store";
 
 type ChatMessage = { role: "mentor" | "student"; text: string; at: number };
@@ -78,7 +79,7 @@ export function MentorHome() {
     return "Finish onboarding and your mentor will personalize suggestions from your real progress.";
   }, [plan]);
 
-  const [aiOnline, setAiOnline] = useState<boolean | null>(null);
+  const { state: availability, reason: availabilityReason } = useMentorAvailability();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -102,17 +103,14 @@ export function MentorHome() {
   }, []);
 
   useEffect(() => {
-    let active = true;
-    aiMentorStatus({ data: {} })
+    // Non-billable: only asks the server whether an AI key is configured.
+    aiMentorConfig({ data: {} })
       .then((result) => {
-        if (active) setAiOnline(result.online);
+        setMentorAvailability(result.configured ? "ready" : "offline", result.reason);
       })
       .catch(() => {
-        if (active) setAiOnline(false);
+        setMentorAvailability("offline", "Could not check AI configuration");
       });
-    return () => {
-      active = false;
-    };
   }, []);
 
   useEffect(() => {
@@ -168,7 +166,9 @@ export function MentorHome() {
         },
       });
       save([...next, { role: "mentor", text: result.message, at: Date.now() }]);
+      setMentorAvailability("online");
     } catch {
+      setMentorAvailability("offline", "The last mentor request failed");
       save([...next, { role: "mentor", text: "I'm offline right now, so I can't give a full answer. Tell me your goal, what you tried, and what happened - and try again in a moment.", at: Date.now() }]);
       setChatError("BuildMyLogic Mentor is offline right now, so I gave you a simple starting reply.");
     } finally {
@@ -196,16 +196,29 @@ export function MentorHome() {
               <span className="pill bg-primary-soft text-accent-foreground">AI Mentor</span>
             </div>
             <span
+              title={availabilityReason ?? undefined}
               className={`ml-auto flex items-center gap-1.5 text-[12px] font-semibold ${
-                aiOnline === null ? "text-muted-foreground" : aiOnline ? "text-emerald-600" : "text-amber-600"
+                availability === "online"
+                  ? "text-emerald-600"
+                  : availability === "ready"
+                    ? "text-sky-600"
+                    : availability === "offline"
+                      ? "text-amber-600"
+                      : "text-muted-foreground"
               }`}
             >
               <span
                 className={`h-2 w-2 rounded-full ${
-                  aiOnline === null ? "bg-muted-foreground/50" : aiOnline ? "bg-emerald-500" : "bg-amber-500"
+                  availability === "online"
+                    ? "bg-emerald-500"
+                    : availability === "ready"
+                      ? "bg-sky-500"
+                      : availability === "offline"
+                        ? "bg-amber-500"
+                        : "bg-muted-foreground/50"
                 }`}
               />
-              {aiOnline === null ? "Checking…" : aiOnline ? "Online" : "Offline"}
+              {availability === "checking" ? "Checking…" : availability === "ready" ? "Ready" : availability === "online" ? "Online" : "Offline"}
             </span>
           </section>
 
@@ -245,7 +258,7 @@ export function MentorHome() {
           {attachmentNote && <p className="mt-3 rounded-xl bg-muted px-4 py-2.5 text-[12px] font-semibold">{attachmentNote}</p>}
 
           <p className="mt-5 text-[14px] font-semibold">Try asking:</p>
-          <div className="mt-2.5 flex flex-wrap gap-2.5">
+          <div className="mt-2.5 flex flex-wrap gap-2.5 pr-14 sm:pr-0">
             {TRY_ASKING.map((chip) => (
               <button
                 key={chip}
