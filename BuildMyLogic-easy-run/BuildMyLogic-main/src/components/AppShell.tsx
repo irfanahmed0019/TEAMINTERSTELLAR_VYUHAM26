@@ -4,6 +4,7 @@ import { LayoutGrid, BookOpen, Sparkles, Timer, Settings as SettingsIcon, LogOut
 import { getLoopState, resetLoop, setLoopState, useLoop } from "@/lib/loop-store";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
 import { signOut, useAuth } from "@/lib/auth";
+import { useCloudHydrated } from "@/lib/cloud-sync";
 
 const NAV = [
   { to: "/auth/dashboard", label: "Home", icon: LayoutGrid },
@@ -17,18 +18,21 @@ export function AppShell({ crumb, title, subtitle, quote, children, wide = false
   const state = useLoop();
   const auth = useAuth();
   const navigate = useNavigate();
+  const hydrated = useCloudHydrated(auth?.uid);
   const [notice, setNotice] = useState<string | null>(null);
   const name = state.profile?.name?.trim() || "Builder";
   useEffect(() => {
     if (state.onboarded) return;
+    // Signed-in learners: wait until their saved plan has actually loaded.
+    if (auth && !hydrated) return;
     // During SSR hydration the first client render still carries the empty
     // server snapshot, so check the real store after hydration settles
     // instead of bouncing signed-in learners off deep links like /mentor.
     const timer = window.setTimeout(() => {
       if (!getLoopState().onboarded) void navigate({ to: "/" });
-    }, auth ? 2500 : 150);
+    }, 150);
     return () => window.clearTimeout(timer);
-  }, [state.onboarded, navigate, auth]);
+  }, [state.onboarded, navigate, auth, hydrated]);
 
   useEffect(() => {
     if (auth?.displayName && state.profile && (state.profile.name === "Builder" || !state.profile.name)) {

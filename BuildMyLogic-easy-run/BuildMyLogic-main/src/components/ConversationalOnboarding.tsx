@@ -4,6 +4,7 @@ import { ArrowRight, Check, Loader2, Send, Sparkles, WandSparkles } from "lucide
 import { aiGeneratePlan } from "@/lib/sarvam.functions";
 import type { Plan, Profile } from "@/lib/loop-types";
 import { logActivity, setLoopState, useLoop } from "@/lib/loop-store";
+import { useCloudHydrated } from "@/lib/cloud-sync";
 import { hasCloudConfig, signInWithGoogle, useAuth } from "@/lib/auth";
 
 type Message = { role: "mentor" | "student"; text: string };
@@ -25,8 +26,9 @@ export function ConversationalOnboarding() {
   const auth = useAuth();
   const loop = useLoop();
   const cloudReady = hasCloudConfig();
-  // Signed-in learners get a moment for their saved plan to load from the cloud.
-  const [checkedAccount, setCheckedAccount] = useState(false);
+  const hydrated = useCloudHydrated(auth?.uid);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [signingIn, setSigningIn] = useState(false);
   const [authError, setAuthError] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -45,14 +47,8 @@ export function ConversationalOnboarding() {
   const firstName = auth?.displayName?.split(" ")[0] ?? "";
 
   useEffect(() => {
-    if (!auth) { setCheckedAccount(false); return; }
-    const timer = window.setTimeout(() => setCheckedAccount(true), 1600);
-    return () => window.clearTimeout(timer);
-  }, [auth]);
-
-  useEffect(() => {
-    if (auth && loop.onboarded && stage === "chat") void navigate({ to: "/auth/dashboard" });
-  }, [auth, loop.onboarded, stage, navigate]);
+    if (auth && hydrated && loop.onboarded && stage === "chat") void navigate({ to: "/auth/dashboard" });
+  }, [auth, hydrated, loop.onboarded, stage, navigate]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -146,10 +142,11 @@ export function ConversationalOnboarding() {
     await navigate({ to: "/auth/dashboard" });
   }
 
-  const needsGoogle = cloudReady && !auth;
-  const loadingAccount = !!auth && !checkedAccount && !loop.onboarded;
+  const loadingAccount = !mounted || (!!auth && !hydrated);
+  const needsGoogle = !auth;
 
   if (needsGoogle || loadingAccount) {
+    const unavailable = mounted && !auth && !cloudReady;
     return (
       <main className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-background px-5 pb-8 pt-5 sm:px-10">
         <div className="pointer-events-none absolute -left-32 -top-40 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
@@ -160,7 +157,9 @@ export function ConversationalOnboarding() {
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary-soft px-3.5 py-1.5 text-[11px] font-bold text-accent-foreground"><Sparkles className="h-3.5 w-3.5" /> PERSONALIZED LEARNING</div>
           <h1 className="display text-[2rem] font-black leading-[1.1] tracking-[-0.05em] sm:text-5xl">What do you want to <span className="text-primary">build?</span></h1>
           <p className="mt-3 text-[15px] leading-6 text-muted-foreground">Sign in once with Google. Your mentor asks everything else in a quick chat.</p>
-          {loadingAccount ? (
+          {unavailable ? (
+            <p className="mt-8 rounded-2xl bg-destructive/10 px-4 py-4 text-sm font-medium text-destructive">Google sign-in is not configured on this site right now. Please try again shortly.</p>
+          ) : loadingAccount ? (
             <div className="mt-8 flex items-center gap-2 text-sm font-medium text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin text-primary" /> Loading your account…</div>
           ) : (
             <>

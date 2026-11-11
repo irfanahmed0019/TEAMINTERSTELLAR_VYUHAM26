@@ -1,7 +1,24 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { LoopState } from "./loop-types";
 import { loadLoopStateFromCloud, saveLoopStateToCloud, useAuth } from "./auth";
 import { getLoopState, normalizeLoopState, setLoopState, useLoop } from "./loop-store";
+
+// Which signed-in uid has finished loading its saved state from the cloud.
+let hydratedUidStore: string | null = null;
+const hydrationListeners = new Set<() => void>();
+function setHydrated(uid: string | null) {
+  if (hydratedUidStore === uid) return;
+  hydratedUidStore = uid;
+  hydrationListeners.forEach((l) => l());
+}
+/** True once the signed-in learner's saved plan has been restored (or none exists). */
+export function useCloudHydrated(uid: string | null | undefined): boolean {
+  return useSyncExternalStore(
+    (l) => { hydrationListeners.add(l); return () => hydrationListeners.delete(l); },
+    () => !!uid && hydratedUidStore === uid,
+    () => false,
+  );
+}
 
 export function CloudSync() {
   const auth = useAuth();
@@ -32,8 +49,11 @@ export function CloudSync() {
           lastSaved.current = JSON.stringify(local);
         }
         setHydratedUid(uid);
+        setHydrated(uid);
       } catch (error) {
         console.error("BuildMyLogic cloud restore failed", error);
+        // Do not strand the learner: treat a failed restore as finished loading.
+        setHydrated(uid);
       } finally {
         syncing.current = false;
       }
@@ -55,6 +75,7 @@ export function CloudSync() {
   useEffect(() => {
     if (!auth) {
       setHydratedUid(null);
+      setHydrated(null);
       lastSaved.current = "";
     }
   }, [auth]);
