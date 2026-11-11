@@ -63,12 +63,16 @@ function Videos() {
       const video = videoRef.current;
       if (video) { video.srcObject = stream; await video.play().catch(() => undefined); }
       setStatus("Loading face check on this device...");
-      const [{ FaceDetector, FilesetResolver }, yt] = await Promise.all([import("@mediapipe/tasks-vision"), loadYouTube()]);
-      const fileset = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm");
-      const detector = await FaceDetector.createFromOptions(fileset, {
-        baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite" },
+      const withTimeout = <T,>(p: Promise<T>, label: string) => Promise.race([p, new Promise<T>((_, rej) => window.setTimeout(() => rej(new Error(label)), 25000))]);
+      setStatus("Loading video player...");
+      const yt = await withTimeout(loadYouTube(), "youtube");
+      setStatus("Loading face check on this device...");
+      const { FaceDetector, FilesetResolver } = await withTimeout(import("@mediapipe/tasks-vision"), "mediapipe-import");
+      const fileset = await FilesetResolver.forVisionTasks("/mediapipe");
+      const detector = await withTimeout(FaceDetector.createFromOptions(fileset, {
+        baseOptions: { modelAssetPath: "/mediapipe/face.tflite" },
         runningMode: "VIDEO",
-      });
+      }), "face-model");
       detectorRef.current = detector;
       const host = playerHost.current as HTMLDivElement;
       host.innerHTML = "<div></div>";
@@ -111,7 +115,7 @@ function Videos() {
       const name = (e as DOMException)?.name;
       if (name === "NotAllowedError" || name === "SecurityError") { setPhase("denied"); setMessage("Camera or microphone access was blocked. Allow both for this site in your browser settings, then try again."); }
       else if (name === "NotFoundError") { setPhase("error"); setMessage("No camera or microphone was found on this device."); }
-      else { setPhase("error"); setMessage("Could not start the camera check. Please try again."); }
+      else { setPhase("error"); setMessage(`Could not start the camera check (${(e as Error)?.message || name || "unknown"}). Please try again.`); }
     }
   }
 
