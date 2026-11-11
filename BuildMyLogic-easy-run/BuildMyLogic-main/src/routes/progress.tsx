@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { BarChart3, Check, Code2, Flame, Layers, Lock, Target, Trophy, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer } from "recharts";
 import { AppShell } from "@/components/AppShell";
 import { useLoop } from "@/lib/loop-store";
@@ -124,7 +124,16 @@ function Progress() {
             <StatCard icon={Layers} value={completedMissions.length} label="Projects Completed" />
             <StatCard icon={Code2} value={state.sessions.length} label="Practice Sessions" />
             <StatCard icon={BarChart3} value={`${averageSkill}%`} label="Overall Mastery" />
-            <StatCard icon={Flame} value={`${streakDays}-day streak`} label={streakDays > 0 ? "Keep it up!" : "Start today!"} />
+            <StatCard
+              icon={Flame}
+              value={
+                <>
+                  <span className="sm:hidden">{streakDays} days</span>
+                  <span className="hidden sm:inline">{streakDays}-day streak</span>
+                </>
+              }
+              label={streakDays > 0 ? "Keep it up!" : "Start today!"}
+            />
           </div>
 
           <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-12">
@@ -300,7 +309,7 @@ function Progress() {
   );
 }
 
-function StatCard({ icon: Icon, value, label }: { icon: typeof Layers; value: string | number; label: string }) {
+function StatCard({ icon: Icon, value, label }: { icon: typeof Layers; value: ReactNode; label: string }) {
   return (
     <section className="card-surface flex items-center gap-3.5 p-5">
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
