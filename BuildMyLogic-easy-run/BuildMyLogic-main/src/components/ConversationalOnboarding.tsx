@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { ArrowRight, Check, Loader2, Send, Sparkles, WandSparkles } from "lucide-react";
 import { aiGeneratePlan } from "@/lib/sarvam.functions";
 import type { Plan, Profile } from "@/lib/loop-types";
+import { DashboardReveal } from "@/components/DashboardReveal";
 import { logActivity, setLoopState, useLoop } from "@/lib/loop-store";
 import { useCloudHydrated } from "@/lib/cloud-sync";
 import { hasCloudConfig, signInWithGoogle, useAuth } from "@/lib/auth";
@@ -37,7 +38,7 @@ export function ConversationalOnboarding() {
   ]);
   const [answers, setAnswers] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
-  const [stage, setStage] = useState<"chat" | "plan" | "building">("chat");
+  const [stage, setStage] = useState<"chat" | "plan" | "reveal">("chat");
   const [plan, setPlan] = useState<Plan | null>(null);
   const [profile, setProfile] = useState<Profile>(initialProfile);
   const [busy, setBusy] = useState(false);
@@ -114,20 +115,12 @@ export function ConversationalOnboarding() {
   }
 
   async function startLearning() {
-    if (!plan || busy) return;
-    setStage("building");
+    if (!plan || busy || stage !== "plan") return;
     setBusy(true);
-    const steps = [
-      "Understanding your goals and current skill level…",
-      "Organizing your personalized learning path…",
-      "Preparing practical missions and project tasks…",
-      "Setting up your competency tracking…",
-      "Your workspace is almost ready…",
-    ];
-    for (const step of steps) {
-      setMessages((old) => [...old, { role: "mentor", text: step }]);
-      await new Promise((resolve) => setTimeout(resolve, 650));
-    }
+    // Persist the researched plan right away: saving the topics, missions and
+    // progress tracking to local state and the cloud happens underneath the
+    // staged dashboard reveal, so the "backend work" and the animation run
+    // together and the dashboard that opens is the one just assembled.
     setLoopState((prev) => ({
       ...prev,
       onboarded: true,
@@ -138,8 +131,11 @@ export function ConversationalOnboarding() {
       ])),
     }));
     logActivity({ kind: "ai", text: `Created a personalized practical learning path for ${plan.projectTitle}.` });
-    setBusy(false);
-    await navigate({ to: "/auth/dashboard" });
+    setStage("reveal");
+  }
+
+  if (stage === "reveal" && plan) {
+    return <DashboardReveal plan={plan} profile={profile} onFinish={() => void navigate({ to: "/auth/dashboard" })} />;
   }
 
   const loadingAccount = !mounted || (!!auth && !hydrated);
@@ -221,7 +217,6 @@ export function ConversationalOnboarding() {
                 <button onClick={() => void startLearning()} disabled={busy} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3.5 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 transition hover:opacity-90 disabled:opacity-60"><Check className="h-4 w-4" /> I'm Ready <ArrowRight className="h-4 w-4" /></button>
               </div>
             )}
-            {stage === "building" && <div className="rounded-2xl border border-primary/20 bg-primary-soft/50 p-5"><div className="flex items-center gap-3"><Loader2 className="h-5 w-5 animate-spin text-primary"/><p className="font-bold">Building your dashboard</p></div><p className="mt-2 text-sm text-muted-foreground">Preparing your missions, progress view and learning workspace.</p><div className="mt-4 h-1.5 overflow-hidden rounded-full bg-primary/10"><div className="h-full w-2/3 animate-pulse rounded-full bg-primary"/></div><div className="mt-3 flex gap-2 text-xs text-primary"><span className="animate-pulse">▍</span><span className="animate-pulse delay-150">▍</span><span className="animate-pulse delay-300">▍</span><span>Configuring your learning environment…</span></div></div>}
             {error && <p className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</p>}
             <div ref={bottomRef} />
           </div>
