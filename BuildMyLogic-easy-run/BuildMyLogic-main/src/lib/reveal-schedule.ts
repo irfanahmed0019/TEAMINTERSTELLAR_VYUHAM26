@@ -16,10 +16,10 @@ export type RevealStage = {
 };
 
 export const REVEAL_STAGES: RevealStage[] = [
-  { at: 0, caption: "Reading your answers…" },
-  { at: 1000, caption: "Understanding your goal and current level…" },
-  { at: 3300, caption: "Researching the topics you need…" },
-  { at: 5500, caption: "Choosing your first task…" },
+  { at: 0, caption: "Saving your personalized learning plan…" },
+  { at: 1000, caption: "Setting up your dashboard…" },
+  { at: 3300, caption: "Preparing your daily learning rhythm…" },
+  { at: 5500, caption: "Placing your first task…" },
   { at: 7500, caption: "Setting up your progress tracking…" },
   { at: 9300, caption: "Building your learning path…" },
 ];

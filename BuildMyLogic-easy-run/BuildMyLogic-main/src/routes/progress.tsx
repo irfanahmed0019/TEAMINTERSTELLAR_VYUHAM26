@@ -85,24 +85,27 @@ function Progress() {
 
   const topSkill = skills.length ? [...skills].sort((a, b) => b.level - a.level)[0]! : null;
 
-  // Stronger vs weaker areas. Only skills with real BuildMyLogic evidence count
-  // as assessed; everything else is listed as not yet assessed, never as weak.
+  // Stronger vs weaker areas. Only skills backed by real BuildMyLogic evidence
+  // (test/checkpoint results in skill memory) count as assessed. Plan skill
+  // levels can come from self-report or AI estimates, so they never decide
+  // these labels on their own; unevidenced topics stay "not assessed yet".
   const standing = useMemo(() => {
-    const merged = new Map<string, { level: number; assessed: boolean }>();
-    for (const skill of skills) merged.set(skill.name, { level: skill.level, assessed: skill.level > 0 });
-    for (const [name, item] of Object.entries(state.skillMemory ?? {})) {
-      const existing = merged.get(name);
-      const assessed = (item.evidence?.length ?? 0) > 0 || item.level > 0;
-      merged.set(name, { level: Math.max(existing?.level ?? 0, item.level), assessed: assessed || (existing?.assessed ?? false) });
+    const names = new Set<string>([...skills.map((s) => s.name), ...Object.keys(state.skillMemory ?? {})]);
+    const assessed: { name: string; level: number }[] = [];
+    const unassessed: string[] = [];
+    for (const name of names) {
+      const memory = state.skillMemory?.[name];
+      if (memory && (memory.evidence?.length ?? 0) > 0) {
+        assessed.push({ name, level: Math.max(0, Math.min(100, memory.level)) });
+      } else {
+        unassessed.push(name);
+      }
     }
-    const assessed = [...merged.entries()]
-      .filter(([, v]) => v.assessed)
-      .map(([name, v]) => ({ name, level: v.level }))
-      .sort((a, b) => b.level - a.level);
+    assessed.sort((a, b) => b.level - a.level);
     return {
       strong: assessed.filter((s) => s.level >= 40),
       weak: assessed.filter((s) => s.level < 40).sort((a, b) => a.level - b.level),
-      unassessed: [...merged.entries()].filter(([, v]) => !v.assessed).map(([name]) => name),
+      unassessed,
     };
   }, [skills, state.skillMemory]);
   const goals: [string, boolean][] = [
@@ -261,6 +264,7 @@ function Progress() {
                 <TrendingUp className="h-[18px] w-[18px] text-emerald-600" />
                 <h2 className="text-[16px] font-extrabold">Stronger areas</h2>
               </div>
+              <p className="mt-1 text-[12px] font-medium text-muted-foreground">Based on your actual test and checkpoint results.</p>
               <div className="mt-4 space-y-3">
                 {standing.strong.length === 0 ? (
                   <p className="text-[13px] font-semibold text-muted-foreground">
