@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { BarChart3, Check, Code2, Flame, Layers, Lock, Target, Trophy, X } from "lucide-react";
+import { BarChart3, Check, Code2, Flame, Layers, Lock, Target, TrendingDown, TrendingUp, Trophy, X } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer } from "recharts";
 import { AppShell } from "@/components/AppShell";
@@ -84,6 +84,27 @@ function Progress() {
   }, [state.sessions]);
 
   const topSkill = skills.length ? [...skills].sort((a, b) => b.level - a.level)[0]! : null;
+
+  // Stronger vs weaker areas. Only skills with real BuildMyLogic evidence count
+  // as assessed; everything else is listed as not yet assessed, never as weak.
+  const standing = useMemo(() => {
+    const merged = new Map<string, { level: number; assessed: boolean }>();
+    for (const skill of skills) merged.set(skill.name, { level: skill.level, assessed: skill.level > 0 });
+    for (const [name, item] of Object.entries(state.skillMemory ?? {})) {
+      const existing = merged.get(name);
+      const assessed = (item.evidence?.length ?? 0) > 0 || item.level > 0;
+      merged.set(name, { level: Math.max(existing?.level ?? 0, item.level), assessed: assessed || (existing?.assessed ?? false) });
+    }
+    const assessed = [...merged.entries()]
+      .filter(([, v]) => v.assessed)
+      .map(([name, v]) => ({ name, level: v.level }))
+      .sort((a, b) => b.level - a.level);
+    return {
+      strong: assessed.filter((s) => s.level >= 40),
+      weak: assessed.filter((s) => s.level < 40).sort((a, b) => a.level - b.level),
+      unassessed: [...merged.entries()].filter(([, v]) => !v.assessed).map(([name]) => name),
+    };
+  }, [skills, state.skillMemory]);
   const goals: [string, boolean][] = [
     ...(activeMission ? [[`Complete ${activeMission.title}`, state.missionProgress[activeMission.id]?.status === "done"] as [string, boolean]] : []),
     ...(nextMission ? [[`Build and submit the ${nextMission.title} project`, (state.missionProgress[nextMission.id]?.completedSteps?.length ?? 0) >= nextMission.steps.length && nextMission.steps.length > 0] as [string, boolean]] : []),
@@ -147,7 +168,7 @@ function Progress() {
                 {skills.length === 0 ? (
                   <p className="text-[13px] font-semibold text-muted-foreground">Complete a mission to start measuring your skills.</p>
                 ) : (
-                  skills.slice(0, 6).map((skill) => (
+                  [...skills].sort((a, b) => b.level - a.level).slice(0, 6).map((skill) => (
                     <div key={skill.name} className="flex items-center gap-3">
                       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
                         <Code2 className="h-4 w-4" />
@@ -231,6 +252,74 @@ function Progress() {
                 </div>
               </section>
             </div>
+          </div>
+
+          {/* Stronger vs weaker areas */}
+          <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <section className="card-surface p-5 sm:p-6">
+              <div className="flex items-center gap-2.5">
+                <TrendingUp className="h-[18px] w-[18px] text-emerald-600" />
+                <h2 className="text-[16px] font-extrabold">Stronger areas</h2>
+              </div>
+              <div className="mt-4 space-y-3">
+                {standing.strong.length === 0 ? (
+                  <p className="text-[13px] font-semibold text-muted-foreground">
+                    Nothing proven here yet. Finish checkpoints and build sessions and your strongest areas will show up.
+                  </p>
+                ) : (
+                  standing.strong.map((skill) => (
+                    <div key={skill.name} className="flex items-center gap-3.5">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                        <Check className="h-5 w-5" strokeWidth={3} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[14px] font-bold">{skill.name}</p>
+                        <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
+                          <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(100, skill.level)}%` }} />
+                        </div>
+                      </div>
+                      <span className="pill shrink-0 bg-emerald-100 font-bold text-emerald-700">{skill.level}%</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+
+            <section className="card-surface p-5 sm:p-6">
+              <div className="flex items-center gap-2.5">
+                <TrendingDown className="h-[18px] w-[18px] text-amber-500" />
+                <h2 className="text-[16px] font-extrabold">Needs practice</h2>
+              </div>
+              <div className="mt-4 space-y-3">
+                {standing.weak.length === 0 ? (
+                  <p className="text-[13px] font-semibold text-muted-foreground">
+                    {standing.strong.length === 0
+                      ? "Finish a checkpoint or build session and we'll show which parts need more work."
+                      : "No weak spots in what you've demonstrated so far. Keep going."}
+                  </p>
+                ) : (
+                  standing.weak.map((skill) => (
+                    <div key={skill.name} className="flex items-center gap-3.5">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
+                        <Target className="h-5 w-5" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[14px] font-bold">{skill.name}</p>
+                        <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
+                          <div className="h-full rounded-full bg-amber-400" style={{ width: `${Math.min(100, skill.level)}%` }} />
+                        </div>
+                      </div>
+                      <span className="pill shrink-0 bg-amber-100 font-bold text-amber-700">{skill.level}%</span>
+                    </div>
+                  ))
+                )}
+                {standing.unassessed.length > 0 && (
+                  <p className="rounded-xl bg-muted px-3.5 py-3 text-[12px] font-medium leading-5 text-muted-foreground">
+                    Not assessed yet: {standing.unassessed.slice(0, 6).join(", ")}{standing.unassessed.length > 6 ? ` and ${standing.unassessed.length - 6} more` : ""}. Complete their tasks and we'll measure these too.
+                  </p>
+                )}
+              </div>
+            </section>
           </div>
 
           <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-12">
