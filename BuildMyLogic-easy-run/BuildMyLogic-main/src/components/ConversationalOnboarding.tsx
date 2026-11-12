@@ -41,8 +41,8 @@ export function ConversationalOnboarding() {
   const [stage, setStage] = useState<"chat" | "plan" | "reveal">("chat");
   const [plan, setPlan] = useState<Plan | null>(null);
   const [profile, setProfile] = useState<Profile>(initialProfile);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [genStatus, setGenStatus] = useState<"working" | "ready" | "error">("working");
+  const [genError, setGenError] = useState("");
 
   const currentPrompt = prompts[answers.length];
   const firstName = auth?.displayName?.split(" ")[0] ?? "";
@@ -53,7 +53,7 @@ export function ConversationalOnboarding() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages.length, busy, stage, plan]);
+  }, [messages.length, stage, plan]);
 
   async function continueWithGoogle() {
     setSigningIn(true);
@@ -66,9 +66,9 @@ export function ConversationalOnboarding() {
     }
   }
 
-  async function sendAnswer(value = draft) {
+  function sendAnswer(value = draft) {
     const answer = value.trim();
-    if (!answer || busy || stage !== "chat") return;
+    if (!answer || stage !== "chat") return;
     const nextAnswers = [...answers, answer];
     setAnswers(nextAnswers);
     setMessages((old) => [...old, { role: "student", text: answer }]);
@@ -99,43 +99,60 @@ export function ConversationalOnboarding() {
       challenge: isBeginner ? "Guide me" : "Balance me",
     };
     setProfile(nextProfile);
-    setBusy(true);
-    setMessages((old) => [...old, { role: "mentor", text: "I've got what I need. I'm shaping your learning path around your goal, current level and available time. One moment…" }]);
+    // No backend call here anymore: the topic research starts only when the
+    // learner presses "I'm Ready" and runs underneath the staged reveal.
+    setMessages((old) => [...old, { role: "mentor", text: "I've got what I need. When you're ready, I'll research which topics you need and build your personalized path around them." }]);
+    setStage("plan");
+  }
+
+  function startLearning() {
+    if (stage !== "plan") return;
+    setStage("reveal");
+    void runResearch();
+  }
+
+  // The topic research starts the moment the learner presses "I'm Ready" and
+  // runs underneath the staged dashboard reveal. The reveal shows only real
+  // states: sections that need the researched topics appear when the plan
+  // actually arrives, a slower backend shows an honest "finishing" wait, and
+  // a failure shows an honest error with retry - never a cosmetic success.
+  async function runResearch() {
+    setGenStatus("working");
+    setGenError("");
     try {
-      const generated = await aiGeneratePlan({ data: { profile: nextProfile } });
-      const cleanPlan = generated as Plan;
-      setPlan(cleanPlan);
-      setStage("plan");
-      setMessages((old) => [...old, { role: "mentor", text: "Your personalized plan is ready. Review it below. You can start when it feels right." }]);
+      const generated = (await aiGeneratePlan({ data: { profile } })) as Plan;
+      setPlan(generated);
+      // Persist the researched plan right away: topics, missions and progress
+      // tracking are saved to local state and the cloud while the reveal is
+      // playing, so the dashboard that opens is the one just assembled.
+      setLoopState((prev) => ({
+        ...prev,
+        onboarded: true,
+        profile,
+        plan: { ...generated, skills: (generated.skills ?? []).map((skill) => ({ ...skill, level: 0, note: "No BuildMyLogic evidence yet. Complete practical tasks to demonstrate this skill." })) },
+        missionProgress: Object.fromEntries((generated.missions ?? []).map((mission, index) => [
+          mission.id, { status: index === 0 ? "active" : "locked", completedSteps: [] } as const,
+        ])),
+      }));
+      logActivity({ kind: "ai", text: `Created a personalized practical learning path for ${generated.projectTitle}.` });
+      setGenStatus("ready");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "I couldn't create the plan. Please try again.");
-    } finally {
-      setBusy(false);
+      setGenError(e instanceof Error ? e.message : "I couldn't research your topics just now. Please try again.");
+      setGenStatus("error");
     }
   }
 
-  async function startLearning() {
-    if (!plan || busy || stage !== "plan") return;
-    setBusy(true);
-    // Persist the researched plan right away: saving the topics, missions and
-    // progress tracking to local state and the cloud happens underneath the
-    // staged dashboard reveal, so the "backend work" and the animation run
-    // together and the dashboard that opens is the one just assembled.
-    setLoopState((prev) => ({
-      ...prev,
-      onboarded: true,
-      profile,
-      plan: { ...plan, skills: (plan.skills ?? []).map((skill) => ({ ...skill, level: 0, note: "No BuildMyLogic evidence yet. Complete practical tasks to demonstrate this skill." })) },
-      missionProgress: Object.fromEntries((plan.missions ?? []).map((mission, index) => [
-        mission.id, { status: index === 0 ? "active" : "locked", completedSteps: [] } as const,
-      ])),
-    }));
-    logActivity({ kind: "ai", text: `Created a personalized practical learning path for ${plan.projectTitle}.` });
-    setStage("reveal");
-  }
-
-  if (stage === "reveal" && plan) {
-    return <DashboardReveal plan={plan} profile={profile} onFinish={() => void navigate({ to: "/auth/dashboard" })} />;
+  if (stage === "reveal") {
+    return (
+      <DashboardReveal
+        plan={plan}
+        profile={profile}
+        status={genStatus}
+        errorMessage={genError}
+        onRetry={() => void runResearch()}
+        onFinish={() => void navigate({ to: "/auth/dashboard" })}
+      />
+    );
   }
 
   const loadingAccount = !mounted || (!!auth && !hydrated);
@@ -203,21 +220,13 @@ export function ConversationalOnboarding() {
                 </div>
               </div>
             ))}
-            {busy && <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin text-primary" /> Working on your learning experience…</div>}
-            {stage === "plan" && plan && (
+            {stage === "plan" && (
               <div className="rounded-2xl border border-primary/20 bg-background p-5">
-                <div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-soft text-primary"><WandSparkles className="h-5 w-5" /></div><div><h2 className="text-lg font-black">Your Learning Plan</h2><p className="text-xs text-muted-foreground">A practical path designed around your goal</p></div></div>
-                <h3 className="mt-5 text-xl font-extrabold">{plan.projectTitle}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{plan.projectPitch}</p>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-xl bg-primary-soft/60 p-3"><p className="text-xs font-bold text-primary">YOUR STARTING POINT</p><p className="mt-1 text-sm font-semibold">{profile.experience}</p></div>
-                  <div className="rounded-xl bg-primary-soft/60 p-3"><p className="text-xs font-bold text-primary">YOUR FOCUS</p><p className="mt-1 text-sm font-semibold">{profile.goalDetail}</p></div>
-                </div>
-                <div className="mt-4"><p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">Your first milestones</p><ol className="space-y-2">{plan.missions.slice(0, 5).map((mission, index) => <li key={mission.id} className="flex items-start gap-2 text-sm"><span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-soft text-[11px] font-bold text-primary">{index + 1}</span><span><b>{mission.title}</b><span className="block text-xs text-muted-foreground">{mission.description}</span></span></li>)}</ol></div>
-                <button onClick={() => void startLearning()} disabled={busy} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3.5 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 transition hover:opacity-90 disabled:opacity-60"><Check className="h-4 w-4" /> I'm Ready <ArrowRight className="h-4 w-4" /></button>
+                <div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-soft text-primary"><WandSparkles className="h-5 w-5" /></div><div><h2 className="text-lg font-black">Everything's noted</h2><p className="text-xs text-muted-foreground">Your goal, level and time are saved</p></div></div>
+                <p className="mt-4 text-sm leading-6 text-muted-foreground">When you press <b>I'm Ready</b>, your mentor researches which topics you need and builds your personalized learning path while your new dashboard assembles.</p>
+                <button onClick={startLearning} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3.5 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 transition hover:opacity-90"><Check className="h-4 w-4" /> I'm Ready <ArrowRight className="h-4 w-4" /></button>
               </div>
             )}
-            {error && <p className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</p>}
             <div ref={bottomRef} />
           </div>
           {stage === "chat" && (
@@ -225,7 +234,7 @@ export function ConversationalOnboarding() {
               {answers.length === 0 && <div className="-mx-1 mb-3 flex flex-wrap gap-2">{["Learn Python and build a project", "Build a web application", "Become job-ready", "Improve my coding skills"].map((choice) => <button key={choice} onClick={() => void sendAnswer(choice)} className="rounded-full border border-primary/15 bg-primary-soft/40 px-3 py-2 text-xs font-semibold text-foreground transition hover:border-primary/40">{choice}</button>)}</div>}
               <div className="flex items-center gap-2 rounded-2xl border border-primary/30 bg-background p-2 shadow-sm focus-within:ring-2 focus-within:ring-primary/15">
                 <input value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void sendAnswer(); }} placeholder={currentPrompt ?? "Tell your mentor what you want to build…"} className="min-w-0 flex-1 bg-transparent px-3 py-3 text-base outline-none placeholder:text-muted-foreground"/>
-                <button onClick={() => void sendAnswer()} disabled={!draft.trim() || busy} aria-label="Send message" className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground disabled:opacity-40"><Send className="h-5 w-5"/></button>
+                <button onClick={() => sendAnswer()} disabled={!draft.trim()} aria-label="Send message" className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground disabled:opacity-40"><Send className="h-5 w-5"/></button>
               </div>
               <p className="mt-2 hidden text-center text-[11px] text-muted-foreground sm:block">Your plan adapts to your goals, current level and available time.</p>
             </div>
