@@ -175,6 +175,25 @@ export function applyBuildSessionEvidence(remote: BuildSessionState) {
       return { ...skill, level: Math.max(0, Math.min(100, skill.level + delta)), note: completed ? "Proven through a passing VS Code challenge." : "Needs a smaller follow-up before returning to the full challenge." };
     });
 
+    // Objective test outcomes are the app's demonstrated-performance signal:
+    // record them in skillMemory so Progress can label stronger vs weaker
+    // areas from real evidence (never from AI-estimated or self-reported levels).
+    const skillMemory = { ...(prev.skillMemory ?? {}) };
+    for (const name of mission.skills) {
+      const key = name.toLowerCase().trim();
+      if (!key) continue;
+      const existing = skillMemory[key] ?? { level: 0, evidence: [] };
+      const weight = completed ? 12 : 2;
+      const description = completed
+        ? `Passed ${score?.passed ?? 0}/${score?.total ?? 0} tests in ${mission.title}.`
+        : `${failed ? "Failed" : "Struggled on"} ${mission.title} (${score?.passed ?? 0}/${score?.total ?? 0} tests passing).`;
+      skillMemory[key] = {
+        level: Math.min(100, existing.level + weight),
+        evidence: [{ description, at: Date.now(), weight, source: "code_test" as const }, ...existing.evidence].slice(0, 50),
+        lastPracticedAt: Date.now(),
+      };
+    }
+
     let missions = [...prev.plan.missions];
     if (completed) {
       missionProgress[mission.id] = { ...(missionProgress[mission.id] ?? { status: "active", completedSteps: [] }), status: "done", completedSteps: Array.from({ length: mission.steps.length }, (_, index) => index) };
@@ -211,6 +230,7 @@ export function applyBuildSessionEvidence(remote: BuildSessionState) {
       ...prev,
       plan: { ...prev.plan, missions, skills, headline: completed ? "You proved the skill. Now build the next layer." : "Your path has been adjusted around the exact point that needs practice.", progress: { ...prev.plan.progress, insights: [insight, ...prev.plan.progress.insights].slice(0, 6) } },
       missionProgress,
+      skillMemory,
       activity: [{ at: Date.now(), kind: (completed ? "skill" : "ai") as "skill" | "ai", text: activityText }, ...prev.activity].slice(0, 40),
     };
   });

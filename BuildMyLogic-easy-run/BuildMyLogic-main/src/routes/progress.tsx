@@ -90,13 +90,20 @@ function Progress() {
   // levels can come from self-report or AI estimates, so they never decide
   // these labels on their own; unevidenced topics stay "not assessed yet".
   const standing = useMemo(() => {
-    const names = new Set<string>([...skills.map((s) => s.name), ...Object.keys(state.skillMemory ?? {})]);
+    // Evidence is keyed by lowercased skill name; plan skills keep their own
+    // casing, so match case-insensitively and show the plan's display name.
+    const memory = state.skillMemory ?? {};
+    const memoryFor = (name: string) => memory[name] ?? memory[name.toLowerCase().trim()];
+    const names = new Set<string>([
+      ...skills.map((s) => s.name),
+      ...Object.keys(memory).filter((key) => !skills.some((s) => s.name.toLowerCase().trim() === key)),
+    ]);
     const assessed: { name: string; level: number }[] = [];
     const unassessed: string[] = [];
     for (const name of names) {
-      const memory = state.skillMemory?.[name];
-      if (memory && (memory.evidence?.length ?? 0) > 0) {
-        assessed.push({ name, level: Math.max(0, Math.min(100, memory.level)) });
+      const item = memoryFor(name);
+      if (item && (item.evidence?.length ?? 0) > 0) {
+        assessed.push({ name, level: Math.max(0, Math.min(100, item.level)) });
       } else {
         unassessed.push(name);
       }
