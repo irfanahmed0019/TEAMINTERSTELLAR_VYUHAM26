@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { editorKeyEdit } from "../../lib/editor-keydown";
 
 const C_KEYWORDS =
   /\b(int|char|float|double|void|long|short|unsigned|signed|if|else|for|while|do|switch|case|break|continue|return|const|static|struct|typedef|sizeof|default)\b/;
@@ -85,15 +86,28 @@ export function CodeEditor({
           }
         }}
         onKeyDown={(e) => {
-          if (e.key === "Tab") {
-            e.preventDefault();
-            const t = e.currentTarget;
-            const { selectionStart: a, selectionEnd: b } = t;
-            onChange(value.slice(0, a) + "    " + value.slice(b));
-            requestAnimationFrame(() => {
-              t.selectionStart = t.selectionEnd = a + 4;
-            });
-          }
+          const handled =
+            e.key === "Tab" ||
+            e.key === "Enter" ||
+            e.key === "Backspace" ||
+            (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey);
+          if (!handled) return;
+          const t = e.currentTarget;
+          const edit = editorKeyEdit({
+            value,
+            selectionStart: t.selectionStart,
+            selectionEnd: t.selectionEnd,
+            key: e.key,
+            shiftKey: e.shiftKey,
+            language,
+          });
+          if (!edit) return;
+          e.preventDefault();
+          onChange(edit.value);
+          requestAnimationFrame(() => {
+            t.selectionStart = edit.selectionStart;
+            t.selectionEnd = edit.selectionEnd;
+          });
         }}
         className="absolute inset-0 h-full w-full resize-none overflow-auto bg-transparent text-transparent caret-gray-900 outline-none selection:bg-blue-200/60"
         style={shared}
