@@ -136,7 +136,7 @@ export function TopicPractice({
         <p className="mt-4 text-[12px] font-black uppercase tracking-widest text-muted-foreground">
           Expected output
         </p>
-        <pre className="mt-2 overflow-x-auto rounded-xl bg-black p-3 text-[12.5px] font-semibold text-emerald-300">
+        <pre className="mt-2 overflow-x-auto rounded-xl border border-border bg-muted p-3 text-[12.5px] font-semibold text-foreground">
           <code>{exercise.expectedOutput}</code>
         </pre>
         {hintShown ? (
@@ -275,7 +275,7 @@ export function TopicPractice({
             <p className="mt-3 text-[12px] font-black uppercase tracking-widest text-muted-foreground">
               Output
             </p>
-            <pre className="mt-2 overflow-x-auto rounded-xl bg-black p-3 text-[12.5px] font-semibold text-white">
+            <pre className="mt-2 overflow-x-auto rounded-xl border border-border bg-muted p-3 text-[12.5px] font-semibold text-foreground">
               <code>{output}</code>
             </pre>
           </>

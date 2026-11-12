@@ -33,7 +33,7 @@ export function highlightCode(
     );
   for (let m = re.exec(code); m; m = re.exec(code)) {
     out += plain(code.slice(last, m.index));
-    const color = m[1] ? "#94a3b8" : m[2] ? "#059669" : "#7c3aed";
+    const color = m[1] ? "#64748b" : m[2] ? "#047857" : "#6d28d9";
     out += `<span style="color:${color}">${esc(m[0])}</span>`;
     last = m.index + m[0].length;
   }
