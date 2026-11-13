@@ -106,6 +106,8 @@ export type Misconception = {
   /** Exact concept metadata from a connected VS Code session, not a guessed stack keyword. */
   transferTopicId?: string | undefined;
   sourceSessionId?: string | undefined;
+  recoveryOwnerId?: string | undefined;
+  sourceMissionId?: string | undefined;
   diagnosis?: DiagnosticEvidence | undefined;
 };
 
@@ -720,6 +722,7 @@ export function recordReassessmentAttempt(
   prev: StruggleState,
   input: {
     misconceptionId: string;
+    ownerId?: string | undefined;
     graded: GradedResult[];
     constructOk: boolean;
     at?: number;
@@ -732,7 +735,12 @@ export function recordReassessmentAttempt(
   if (!target || target.status !== "locked" || (target.lockedAt ?? 0) >= at)
     return { state: prev, outcome: null };
 
-  if (target.sourceSessionId && !target.transferTopicId)
+  if (
+    target.sourceSessionId &&
+    (!target.transferTopicId ||
+      !target.recoveryOwnerId ||
+      target.recoveryOwnerId !== input.ownerId)
+  )
     return { state: prev, outcome: null };
   const spec = target.reassessment;
   if (
@@ -850,6 +858,7 @@ export function recordBuildSessionOutcome(
     baseTopicId?: string | undefined;
     concept?: string | undefined;
     sessionId?: string | undefined;
+    verifiedOwnerId?: string | undefined;
     topicTitle: string;
     language: string;
     exerciseTitle: string;
@@ -867,6 +876,17 @@ export function recordBuildSessionOutcome(
   if (ingested.includes(input.sessionKey))
     return { state: prev, outcome: null };
   const at = input.at ?? Date.now();
+  // Verified events occupy a separate evidence scope. Old bearer-only imports
+  // remain unverified and can never be promoted by a later account sign-in.
+  const owner =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      input.verifiedOwnerId ?? "",
+    )
+      ? input.verifiedOwnerId
+      : undefined;
+  const evidenceTopicId = owner
+    ? `${input.topicId}:owner:${owner}`
+    : input.topicId;
 
   let graded: GradedResult[];
   if (
@@ -916,7 +936,7 @@ export function recordBuildSessionOutcome(
   const { state: recorded, outcome } = recordPracticeAttempt(
     { ...prev, ingestedSessions: [] },
     {
-      topicId: input.topicId,
+      topicId: evidenceTopicId,
       topicTitle: input.topicTitle,
       language: input.language,
       exerciseTitle: input.exerciseTitle,
@@ -938,13 +958,15 @@ export function recordBuildSessionOutcome(
     input.checkpoints?.some((c) => c.status === "failed");
   const language = supportedTransferLanguage(input.language);
   const misconceptions = recorded.misconceptions.map((m) =>
-    m.topicId === input.topicId &&
+    m.topicId === evidenceTopicId &&
     m.language === input.language &&
     m.signature === outcome.attempt.signature &&
     !outcome.attempt.fullPass
       ? {
           ...m,
           sourceSessionId: input.sessionId ?? m.sourceSessionId,
+          recoveryOwnerId: owner,
+          sourceMissionId: input.topicId,
           transferTopicId:
             concept && language && exactFailure ? concept : undefined,
         }
@@ -978,6 +1000,7 @@ export function pendingCelebration(prev: StruggleState): Misconception | null {
         m.status === "conquered" &&
         m.depth === "deep" &&
         m.reassessed === true &&
+        (!m.sourceSessionId || Boolean(m.recoveryOwnerId)) &&
         (m.failuresToConquer ?? 0) >= LOCK_THRESHOLD &&
         !prev.celebratedIds.includes(m.id),
     ) ?? null
@@ -1020,7 +1043,12 @@ export function struggleByTopic(prev: StruggleState): TopicStruggle[] {
   for (const m of prev.misconceptions) {
     const row = map.get(m.topicId);
     if (!row) continue;
-    if (m.status === "conquered" && m.reassessed === true) row.conquered += 1;
+    if (
+      m.status === "conquered" &&
+      m.reassessed === true &&
+      (!m.sourceSessionId || Boolean(m.recoveryOwnerId))
+    )
+      row.conquered += 1;
     else if (m.status !== "conquered") row.activeMisconceptions += 1;
   }
   for (const row of map.values()) {
@@ -1059,7 +1087,10 @@ export function struggleMetrics(prev: StruggleState): StruggleMetrics {
         m.reassessed === true),
   );
   const conquered = prev.misconceptions.filter(
-    (m) => m.status === "conquered" && m.reassessed === true,
+    (m) =>
+      m.status === "conquered" &&
+      m.reassessed === true &&
+      (!m.sourceSessionId || Boolean(m.recoveryOwnerId)),
   );
   const conqueredLocked = conquered.filter(
     (m) => (m.failuresToConquer ?? 0) >= LOCK_THRESHOLD,
@@ -1416,9 +1447,15 @@ export function recordDiagnosticPrediction(
 export function diagnosticMentorContext(
   state: StruggleState,
   topicId?: string,
+  ownerId?: string,
 ): string {
   const patterns = state.misconceptions
-    .filter((m) => !topicId || (m.transferTopicId ?? m.topicId) === topicId)
+    .filter(
+      (m) =>
+        (!topicId || (m.transferTopicId ?? m.topicId) === topicId) &&
+        (!m.sourceSessionId ||
+          Boolean(m.recoveryOwnerId && m.recoveryOwnerId === ownerId)),
+    )
     .slice(-5);
   return patterns
     .map((m) => {

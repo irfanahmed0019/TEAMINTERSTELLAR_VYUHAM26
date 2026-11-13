@@ -166,3 +166,20 @@ test("cloud serialization preserves linked diagnosis and first prediction withou
  const saved=hydrated.struggle.misconceptions.find(m=>m.id===pattern.id);
  assert.equal(saved.sourceSessionId,'history-qa');assert.equal(saved.transferTopicId,'loops');assert.equal(saved.diagnosis.choice,0);assert.equal(saved.diagnosis.confirmed,true);
 });
+
+test("normalization quarantines old unsigned conquest without deleting the original event history",()=>{
+ const state=getLoopState();const prior=state.struggle.misconceptions.find(m=>m.sourceSessionId==='history-qa');
+ const old={...state,struggle:{...state.struggle,misconceptions:[{...prior,status:'conquered',reassessed:true}]}};
+ const restored=normalizeLoopState(JSON.parse(JSON.stringify(old)));
+ assert.equal(restored.struggle.misconceptions[0].status,'locked');assert.equal(restored.struggle.misconceptions[0].reassessed,false);
+ assert.equal(restored.struggle.attempts.length,old.struggle.attempts.length);assert.equal(restored.struggle.misconceptions[0].recoveryOwnerId,undefined);
+});
+
+test("owner-verified event import creates separate evidence without doubling old skill points",()=>{
+ const state=getLoopState();const before=state.skillMemory['python basics'].level;
+ const owner='12345678-1234-4234-8234-123456789abc';
+ const remote=session({session_id:'history-qa',verified_owner_id:owner,concept:'loops',status:'active',potential_struggle:true,attempts:2,test_score:{passed:0,total:1},checkpoints:[{index:0,title:'Loops',detail:'Loop check',status:'failed',attempts:2}],attempt_history:[1,2].map(attempt=>({attempt,at:10000+attempt,passed:0,total:1,checkpoints:[{title:'Loops',status:'failed'}]}))});
+ applyBuildSessionEvidence(remote);const next=getLoopState();assert.equal(next.skillMemory['python basics'].level,before);
+ const old=next.struggle.misconceptions.find(m=>m.sourceSessionId==='history-qa'&&!m.recoveryOwnerId),verified=next.struggle.misconceptions.find(m=>m.sourceSessionId==='history-qa'&&m.recoveryOwnerId===owner);
+ assert.ok(old);assert.ok(verified);assert.notEqual(old.id,verified.id);assert.equal(verified.occurrences,2);
+});

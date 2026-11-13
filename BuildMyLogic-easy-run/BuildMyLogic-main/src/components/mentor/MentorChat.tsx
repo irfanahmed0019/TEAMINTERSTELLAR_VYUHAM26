@@ -1,3 +1,4 @@
+import { getAuthSession } from "@/lib/auth";
 import { ArrowLeft, CalendarClock, CheckCircle2, Clock3, ExternalLink, MessageCircle, Send, Sparkles, UserRound, Video } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
@@ -121,7 +122,7 @@ export function MentorChat() {
     setBusy(true);
     setChatError("");
     try {
-      const result = await aiMentorChat({ data: { mentorName: mentor.name, struggleContext: struggle ? diagnosticMentorContext(struggle) : "", mentorSpecialty: mentor.focus, learnerMessage: outgoing, history: next.slice(-10).map((item) => ({ role: item.role === "student" ? "student" as const : "mentor" as const, text: item.text })) } });
+      const result = await aiMentorChat({ data: { mentorName: mentor.name, struggleContext: struggle ? diagnosticMentorContext(struggle, undefined, getAuthSession()?.uid) : "", mentorSpecialty: mentor.focus, learnerMessage: outgoing, history: next.slice(-10).map((item) => ({ role: item.role === "student" ? "student" as const : "mentor" as const, text: item.text })) } });
       saveMessages([...next, { role: "mentor", text: result.message, at: Date.now() }]);
       setMentorAvailability("online");
     } catch {

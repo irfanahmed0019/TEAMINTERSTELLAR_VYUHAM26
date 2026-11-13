@@ -86,6 +86,7 @@ export type SessionLog = {
   review?: SessionReview;
 };
 export type BuildSessionState = {
+  verified_owner_id?: string | undefined;
   session_id: string;
   challenge_id: string;
   title: string;

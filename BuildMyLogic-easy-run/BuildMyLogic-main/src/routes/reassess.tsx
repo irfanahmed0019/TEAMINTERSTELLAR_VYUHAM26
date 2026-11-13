@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { getAuthSession, getAuthSessionForApi } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
 import { TopicPractice } from "@/components/learn/TopicPractice";
 import {
@@ -28,9 +29,15 @@ function Reassess() {
     if (!session) return;
     let cancelled = false;
     setStatus("Checking the linked VS Code session...");
-    void fetch(`/api/sessions/${encodeURIComponent(session)}/state`, {
-      cache: "no-store",
-    })
+    void (async () => {
+      const auth = await getAuthSessionForApi();
+      const headers: Record<string, string> = {};
+      if (auth?.idToken) headers["Authorization"] = `Bearer ${auth.idToken}`;
+      return fetch(
+        `/api/sessions/${encodeURIComponent(session)}/recovery-state`,
+        { cache: "no-store", headers },
+      );
+    })()
       .then(async (response) => {
         const result = (await response.json()) as {
           ok?: boolean;
@@ -108,6 +115,11 @@ function Reassess() {
             (m.transferTopicId ?? (m.sourceSessionId ? "" : m.topicId)),
         );
         const lang = supportedTransferLanguage(m.language);
+        const verified =
+          !m.sourceSessionId ||
+          Boolean(
+            m.recoveryOwnerId && m.recoveryOwnerId === getAuthSession()?.uid,
+          );
         return (
           <section key={m.id} className="mb-6">
             <div className="card-surface mb-4 p-5">
@@ -118,7 +130,15 @@ function Reassess() {
                   ? `VS Code session ${m.sourceSessionId}.`
                   : "Website practice."}
               </p>
-              {!topic || !lang ? (
+              {!verified ? (
+                <p className="mt-3 text-sm text-amber-800">
+                  This earlier session evidence is not verified for the
+                  currently signed-in owner. It cannot conquer a pattern or be
+                  promoted by signing in later. Open the owner-authenticated
+                  session handoff to import separately verified event evidence;
+                  old unsigned records remain unverified.
+                </p>
+              ) : !topic || !lang ? (
                 <p className="mt-3 text-sm text-amber-800">
                   This project or checkpoint has no verified concept-specific
                   transfer specification yet. Its lock stays active. A generic
@@ -137,7 +157,7 @@ function Reassess() {
                 </p>
               )}
             </div>
-            {topic && lang && (
+            {verified && topic && lang && (
               <TopicPractice
                 patternId={m.id}
                 topicId={topic.id}

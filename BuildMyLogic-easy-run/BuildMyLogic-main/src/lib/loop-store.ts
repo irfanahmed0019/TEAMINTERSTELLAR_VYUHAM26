@@ -71,7 +71,16 @@ export function normalizeLoopState(
       candidate.selectedLearningMissionId ??
       emptyState.selectedLearningMissionId,
     skillMemory: candidate.skillMemory ?? {},
-    struggle: candidate.struggle ?? emptyStruggleState,
+    struggle: candidate.struggle
+      ? {
+          ...candidate.struggle,
+          misconceptions: candidate.struggle.misconceptions.map((m) =>
+            m.sourceSessionId && !m.recoveryOwnerId && m.status === "conquered"
+              ? { ...m, status: "locked" as const, reassessed: false }
+              : m,
+          ),
+        }
+      : emptyStruggleState,
   };
 }
 
@@ -280,6 +289,7 @@ export function saveTargetedReassessment(
  */
 export function recordReassessmentOutcome(input: {
   misconceptionId: string;
+  ownerId?: string | undefined;
   graded: GradedResult[];
   constructOk: boolean;
 }): PracticeOutcomeEvents {
@@ -353,6 +363,9 @@ export function applyBuildSessionEvidence(remote: BuildSessionState) {
       (item) => item.id === remote.challenge_id,
     );
     if (!mission) return prev;
+    const ownerSuffix = remote.verified_owner_id
+      ? `:owner:${remote.verified_owner_id}`
+      : "";
     // Recover actual earlier attempts from the session event log. The first
     // website visit may happen only after several extension failures.
     let recovered = prev.struggle ?? emptyStruggleState;
@@ -360,7 +373,8 @@ export function applyBuildSessionEvidence(remote: BuildSessionState) {
       if (attempt.attempt >= remote.attempts || !Number.isFinite(attempt.at))
         continue;
       const result = recordBuildSessionOutcome(recovered, {
-        sessionKey: `build-session:${remote.session_id}:attempt:${attempt.attempt}`,
+        sessionKey: `build-session:${remote.session_id}:attempt:${attempt.attempt}${ownerSuffix}`,
+        verifiedOwnerId: remote.verified_owner_id,
         sessionId: remote.session_id,
         topicId: mission.id,
         topicTitle: mission.title,
@@ -384,7 +398,12 @@ export function applyBuildSessionEvidence(remote: BuildSessionState) {
     const struggling = !completed && Boolean(remote.potential_struggle);
     const failed = remote.status === "failed";
     if (!completed && !struggling && !failed) return prev;
-    const signature = `build-session:${remote.session_id}:attempt:${remote.attempts}`;
+    const baseSignature = `build-session:${remote.session_id}:attempt:${remote.attempts}`;
+    const signature = `${baseSignature}${ownerSuffix}`;
+    const performanceAlreadyApplied = Boolean(
+      ownerSuffix &&
+      prev.activity.some((item) => item.text.includes(baseSignature)),
+    );
     if (
       (prev.struggle?.ingestedSessions ?? []).includes(signature) ||
       prev.activity.some((item) => item.text.includes(signature))
@@ -520,6 +539,7 @@ export function applyBuildSessionEvidence(remote: BuildSessionState) {
       prev.struggle ?? emptyStruggleState,
       {
         sessionKey: signature,
+        verifiedOwnerId: remote.verified_owner_id,
         concept: remote.concept,
         sessionId: remote.session_id,
         at:
@@ -550,23 +570,31 @@ export function applyBuildSessionEvidence(remote: BuildSessionState) {
     const insight = completed
       ? `Challenge proven in VS Code. BuildMyLogic Mentor is moving you to the next level after ${remote.attempts} attempt${remote.attempts === 1 ? "" : "s"}.`
       : `${failed ? "Recovery mode" : "Needs attention"}: BuildMyLogic Mentor created a smaller follow-up for ${mission.title}.`;
-    const activityText = `${signature} ${insight}${struggleNote}`;
+    const activityText = performanceAlreadyApplied
+      ? `${signature} Owner-verified event evidence imported separately. Prior unsigned patterns remain unverified; skill points were not counted twice.`
+      : `${signature} ${insight}${struggleNote}`;
     return {
       ...prev,
-      plan: {
-        ...plan,
-        missions,
-        skills,
-        headline: completed
-          ? "You proved the skill. Now build the next layer."
-          : "Your path has been adjusted around the exact point that needs practice.",
-        progress: {
-          ...plan.progress,
-          insights: [insight, ...plan.progress.insights].slice(0, 6),
-        },
-      },
-      missionProgress,
-      skillMemory,
+      plan: performanceAlreadyApplied
+        ? plan
+        : {
+            ...plan,
+            missions,
+            skills,
+            headline: completed
+              ? "You proved the skill. Now build the next layer."
+              : "Your path has been adjusted around the exact point that needs practice.",
+            progress: {
+              ...plan.progress,
+              insights: [insight, ...plan.progress.insights].slice(0, 6),
+            },
+          },
+      missionProgress: performanceAlreadyApplied
+        ? prev.missionProgress
+        : missionProgress,
+      skillMemory: performanceAlreadyApplied
+        ? (prev.skillMemory ?? {})
+        : skillMemory,
       struggle: struggleFeed.state,
       activity: [
         {

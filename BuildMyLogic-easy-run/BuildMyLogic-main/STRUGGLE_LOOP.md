@@ -10,9 +10,11 @@ Confirmed hypotheses select targeted task variants where the ordinary topic tran
 
 ## VS Code handoff
 
-Extension 0.2.4 adds **Diagnose & reassess on website**. It opens `/reassess?session=<connected session ID>`. The website verifies the session against its loaded plan, imports actual recorded test attempts once and links the transfer result to the original pattern.
+Extension 0.2.4 adds **Diagnose & reassess on website**. It opens `/reassess?session=<connected session ID>`. The website uses an owner-authenticated recovery read (no automatic sign-in prompt), also checks the loaded plan, imports actual recorded test attempts once and links the transfer result to the original pattern.
 
 A supported recovery requires C/Python, an exact supported concept label and an actual failing checkpoint with that exact concept label. A project title, framework keyword, aggregate test score, hint count or command exiting successfully is insufficient. Framework/project locks without an executable concept-specific transfer specification remain active, with the missing capability shown on the page. The website executes supported transfer tasks in its existing sandbox. It does not run arbitrary project workspaces remotely or certify full-project correctness.
+
+Owner-verified imports use separate evidence scopes and require that owner at conquest time. Old unsigned imported conquests are quarantined as locked/unverified without deleting event history. A later sign-in does not promote them; verified re-import does not double skill points. The legacy bearer-only extension state endpoint remains unchanged and is not owner-authenticated.
 
 A new website load can recover earlier extension attempts from the session's retained event history. Missing or truncated historical checkpoints are not reconstructed. Existing installed extensions must be updated to 0.2.4 to show the new button.
 

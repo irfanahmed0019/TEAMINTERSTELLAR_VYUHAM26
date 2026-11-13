@@ -1,3 +1,4 @@
+import { canReadRecoverySession } from "./lib/request-auth";
 import "./lib/error-capture";
 import { createRateLimiter } from "./lib/rate-limit";
 
@@ -126,11 +127,16 @@ async function handleBuildMyLogicApi(request: Request): Promise<Response | null>
     return state ? jsonResponse({ ok: true, session: state }) : jsonResponse({ ok: false, error: "Session ID was not found or has expired. Start a new session on the BuildMyLogic website." }, 404);
   }
 
-  const learningMatch = pathname.match(/^\/api\/sessions\/([^/]+)(?:\/(events|test-result|hint|stuck|failed|complete|run-plan|submit|state))?$/);
+  const learningMatch = pathname.match(/^\/api\/sessions\/([^/]+)(?:\/(events|test-result|hint|stuck|failed|complete|run-plan|submit|state|recovery-state))?$/);
   if (learningMatch) {
-    const session = await verifySession(decodeURIComponent(learningMatch[1] ?? "").toUpperCase(), learningMatch[2] === "state");
+    const session = await verifySession(decodeURIComponent(learningMatch[1] ?? "").toUpperCase(), ["state", "recovery-state"].includes(learningMatch[2] ?? ""));
     if (!session) return jsonResponse({ ok: false, error: "Invalid, expired, or unauthorized session." }, 401);
     const action = learningMatch[2] ?? "state";
+    if (request.method === "GET" && action === "recovery-state") {
+      const authenticatedId = await authenticatedUserId(request);
+      if (!canReadRecoverySession(session.userId, authenticatedId, url.hostname, process.env["NODE_ENV"])) return jsonResponse({ ok: false, error: "Open this recovery link while already signed in as the owner of this session. No attempts were imported." }, 403);
+      return jsonResponse({ ok: true, state: { ...stateOf(session), ...(authenticatedId === session.userId ? { verified_owner_id: authenticatedId } : {}) } });
+    }
     if (request.method === "GET" && action === "state") return jsonResponse({ ok: true, state: stateOf(session) });
     if (request.method !== "POST") return jsonResponse({ ok: false, error: "Method not allowed." }, 405);
     // hint/stuck call the paid AI model: cap per session and per address.

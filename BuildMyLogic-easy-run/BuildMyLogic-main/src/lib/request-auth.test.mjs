@@ -31,3 +31,14 @@ test("network failure fails closed", async () => {
   setup(() => { throw new Error("down"); });
   assert.equal(await authenticatedUserId(req("Bearer x")), undefined);
 });
+
+test("recovery import requires the authenticated session owner, not only a short code or common mission ID",async()=>{
+ const {canReadRecoverySession}=await import('./request-auth.ts');
+ const owner='12345678-1234-4234-8234-123456789abc';
+ assert.equal(canReadRecoverySession(owner,owner,'buildmylogicxyz.vercel.app','production'),true);
+ for(const identity of [undefined,null,'another-owner','google-user']) assert.equal(canReadRecoverySession(owner,identity,'buildmylogicxyz.vercel.app','production'),false);
+ assert.equal(canReadRecoverySession(owner,undefined,'localhost','development'),false);
+ assert.equal(canReadRecoverySession('local-builder',undefined,'localhost','development'),true);
+ assert.equal(canReadRecoverySession('local-builder',undefined,'buildmylogicxyz.vercel.app','production'),false);
+ assert.equal(canReadRecoverySession('local-builder',undefined,'localhost','production'),false);
+});

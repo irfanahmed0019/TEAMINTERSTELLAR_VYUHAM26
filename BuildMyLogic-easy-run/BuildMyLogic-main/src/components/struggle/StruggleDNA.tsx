@@ -74,7 +74,10 @@ export function StruggleDNA() {
   const patterns = strugglePatterns(struggle!);
   const active = misconceptions.filter((m) => m.status !== "conquered");
   const conquered = misconceptions.filter(
-    (m) => m.status === "conquered" && m.reassessed === true,
+    (m) =>
+      m.status === "conquered" &&
+      m.reassessed === true &&
+      (!m.sourceSessionId || Boolean(m.recoveryOwnerId)),
   );
 
   return (

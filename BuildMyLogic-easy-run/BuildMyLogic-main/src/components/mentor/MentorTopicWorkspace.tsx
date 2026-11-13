@@ -1,3 +1,4 @@
+import { getAuthSession } from "@/lib/auth";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, Loader2, Paperclip, Send, Sparkles } from "lucide-react";
@@ -66,7 +67,7 @@ export function MentorTopicWorkspace({
         data: {
           mentorName: "BuildMyLogic Mentor",
           struggleContext: struggle
-            ? diagnosticMentorContext(struggle, topicId)
+            ? diagnosticMentorContext(struggle, topicId, getAuthSession()?.uid)
             : "",
           mentorSpecialty: `Coding help for a beginner practising ${topic.title} in ${language === "c" ? "C" : "Python"}. Explain simply, never just hand over the full answer.`,
           learnerMessage: `I am practising the topic "${topic.title}" in ${language === "c" ? "C" : "Python"}. ${outgoing}`,

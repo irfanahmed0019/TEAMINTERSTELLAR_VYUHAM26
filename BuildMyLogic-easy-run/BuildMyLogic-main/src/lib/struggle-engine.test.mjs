@@ -422,3 +422,26 @@ test("one concept checkpoint may not remap an unrelated project failure",()=>{
  const loops=state.misconceptions.find(m=>m.summary.includes('Loops'));
  assert.equal(server.transferTopicId,undefined);assert.equal(loops.transferTopicId,'loops');
 });
+
+test("old unsigned imports cannot conquer after a later account sign-in or inherit verified ownership",()=>{
+ const owner='12345678-1234-4234-8234-123456789abc';
+ const common={sessionId:'same-session',topicId:'project-loops',topicTitle:'Loops',language:'python',concept:'loops',exerciseTitle:'Loops',completed:false,failed:true,passed:0,total:1,checkpoints:[{title:'Loops',status:'failed'}]};
+ let state=emptyStruggleState;
+ for(const attempt of [1,2]) state=recordBuildSessionOutcome(state,{...common,sessionKey:'unsigned:'+attempt,at:1000*attempt}).state;
+ const old=state.misconceptions[0];state=attachReassessment(state,old.id,newReassessment('loops','python',3000));
+ const args={misconceptionId:old.id,ownerId:owner,graded:transferGraded(),constructOk:true,at:4000};
+ assert.equal(recordReassessmentAttempt(state,args).outcome,null);
+ for(const attempt of [1,2])state=recordBuildSessionOutcome(state,{...common,verifiedOwnerId:owner,sessionKey:'verified:'+attempt,at:1000*attempt}).state;
+ const original=state.misconceptions.find(m=>m.id===old.id),verified=state.misconceptions.find(m=>m.recoveryOwnerId===owner);
+ assert.equal(original.recoveryOwnerId,undefined);assert.equal(original.status,'locked');assert.equal(original.occurrences,2);
+ assert.equal(verified.occurrences,2);assert.equal(verified.sourceMissionId,'project-loops');assert.notEqual(verified.id,original.id);
+ state=attachReassessment(state,verified.id,newReassessment('loops','python',3000));
+ for(const identity of [undefined,'different-owner'])assert.equal(recordReassessmentAttempt(state,{...args,misconceptionId:verified.id,ownerId:identity}).outcome,null);
+ assert.equal(recordReassessmentAttempt(state,{...args,misconceptionId:verified.id}).outcome.conquered.status,'conquered');
+});
+
+test("a previously persisted unverified conquest cannot trigger a celebration or verified metric",()=>{
+ const prior={...lockState().misconceptions[0],status:'conquered',reassessed:true,sourceSessionId:'unsigned-old',conqueredAt:4000};
+ const state={...emptyStruggleState,misconceptions:[prior]};
+ assert.equal(pendingCelebration(state),null);assert.equal(struggleMetrics(state).conqueredCount,0);
+});

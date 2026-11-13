@@ -18,6 +18,7 @@ import {
   useLoop,
 } from "@/lib/loop-store";
 import { newReassessment, constructSatisfied } from "@/lib/struggle-engine";
+import { getAuthSession } from "@/lib/auth";
 import { DiagnosticProbePanel } from "@/components/struggle/DiagnosticProbe";
 import type { TopicExercise, TopicLanguage } from "@/lib/topic-library";
 
@@ -56,6 +57,10 @@ export function TopicPractice({
   const activeMisconception = (struggle?.misconceptions ?? []).find(
     (m) =>
       m.status === "locked" &&
+      (!m.sourceSessionId ||
+        Boolean(
+          m.recoveryOwnerId && m.recoveryOwnerId === getAuthSession()?.uid,
+        )) &&
       (patternId
         ? m.id === patternId
         : m.topicId === topicId && m.language === language),
@@ -248,11 +253,18 @@ export function TopicPractice({
       setPassed(graded.every((g) => g.passed) && constructOk);
       setConstructIssue(!constructOk);
       setOutput("");
-      recordReassessmentOutcome({
+      const recorded = recordReassessmentOutcome({
         misconceptionId: activeMisconception.id,
+        ownerId: getAuthSession()?.uid,
         graded,
         constructOk,
       });
+      if (graded.every((g) => g.passed) && constructOk && !recorded.conquered) {
+        setPassed(false);
+        setError(
+          "The output checks passed, but this recovery evidence was not accepted for the current owner. The pattern stays locked.",
+        );
+      }
     } catch (e) {
       setError(errMsg(e));
     } finally {
