@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { LayoutGrid, BookOpen, Timer, Settings as SettingsIcon, LogOut, Bell, ChevronDown, MessageCircle, BarChart3, Camera } from "lucide-react";
 import { getLoopState, resetLoop, setLoopState, useLoop } from "@/lib/loop-store";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
+import { StruggleCelebration } from "@/components/struggle/StruggleCelebration";
 import { signOut, useAuth } from "@/lib/auth";
 import { useCloudHydrated } from "@/lib/cloud-sync";
 
@@ -84,6 +85,7 @@ export function AppShell({ crumb, title, subtitle, quote, children, wide = false
           {children}
         </main>
       </div>
+      <StruggleCelebration />
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur" aria-label="Main">
         <div className="mx-auto flex w-full max-w-3xl">
           {[...NAV, { to: "/settings", label: "Settings", icon: SettingsIcon }].map(({ to, label, icon: Icon }) => (

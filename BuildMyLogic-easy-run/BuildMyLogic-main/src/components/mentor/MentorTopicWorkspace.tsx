@@ -201,6 +201,7 @@ export function MentorTopicWorkspace({
         <div className="lg:col-span-7">
           <TopicPractice
             key={`${topic.id}-${language}`}
+            topicId={topic.id}
             topicTitle={topic.title}
             language={language}
             exercise={topic.exercise[language]}

@@ -235,6 +235,7 @@ export class MentorPanel implements vscode.WebviewViewProvider {
 		const code = this.activeCCode();
 		if (!code.trim()) throw new Error('The editor is empty. Write some C code first.');
 		this.status('Submitting for real grading. This runs your code against every test and updates your learning record...', false);
+		const beforeMisconceptions = Object.fromEntries(Object.entries(this.state.misconceptions ?? {}).map(([id, m]) => [id, m.status]));
 		const r = await this.client.submit(token, this.state.id, current.lessonId, current.exercise.id, code, current.revisionId);
 		this.state = r.state;
 		this.lastFeedback = r.assessment.feedback;
@@ -243,7 +244,18 @@ export class MentorPanel implements vscode.WebviewViewProvider {
 		this.render();
 		this.post({ type: 'submit-result', results: r.results, assessment: r.assessment, decision: r.decision, taskId: current.revisionId ?? current.exercise.id, taskTitle: current.exercise.title });
 		if (r.assessment.status === 'passed') {
-			void vscode.window.showInformationMessage(`BuildMyLogic: ${current.exercise.title} passed.`);
+			// Misconception Conquered: a previously tracked pattern that this pass
+			// resolved earns the lightweight toast; the big celebration lives on
+			// the website (Failure Replay + Proof of Struggle).
+			const conquered = Object.entries(this.state.misconceptions ?? {}).filter(
+				([id, m]) => m.status === 'resolved' && beforeMisconceptions[id] && beforeMisconceptions[id] !== 'resolved'
+			);
+			if (conquered.length > 0) {
+				const names = conquered.map(([, m]) => m.concept.replace(/_/g, ' ')).slice(0, 2).join(', ');
+				void vscode.window.showInformationMessage(`Misconception Conquered: ${names}. Open the BuildMyLogic website for your full celebration and Failure Replay.`);
+			} else {
+				void vscode.window.showInformationMessage(`BuildMyLogic: ${current.exercise.title} passed.`);
+			}
 		} else if (r.assessment.feedback) {
 			void vscode.window.showInformationMessage(`BuildMyLogic Suggestion: ${r.assessment.feedback.slice(0, 200)}`);
 		}

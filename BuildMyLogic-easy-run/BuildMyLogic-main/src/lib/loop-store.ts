@@ -8,6 +8,7 @@
 
 import { useSyncExternalStore } from "react";
 import { emptyState, type ActivityItem, type BuildSessionState, type LearningChat, type LoopState, type MissionProgress, type Plan } from "./loop-types";
+import { emptyStruggleState, markCelebrated, recordPracticeAttempt, type GradedResult, type Misconception, type StruggleState } from "./struggle-engine";
 
 const KEY = "loop.state.v1";
 
@@ -43,6 +44,7 @@ export function normalizeLoopState(candidate: Partial<LoopState> | null | undefi
     learningChats: candidate.learningChats ?? {},
     selectedLearningMissionId: candidate.selectedLearningMissionId ?? emptyState.selectedLearningMissionId,
     skillMemory: candidate.skillMemory ?? {},
+    struggle: candidate.struggle ?? emptyStruggleState,
   };
 }
 
@@ -133,6 +135,79 @@ export function recordSkillEvidence(
     };
     return { ...prev, skillMemory: updatedSkillMemory };
   });
+}
+
+export type PracticeOutcomeEvents = {
+  locked: Misconception | null;
+  conquered: Misconception | null;
+};
+
+/**
+ * Records one real graded practice Submit (Learn page / practice workspace)
+ * into the Struggle Engine: failure signatures, misconception locks, targeted
+ * challenges and conquers. Also feeds skill memory from the same real test
+ * outcomes, so website practice and VS Code sessions count the same way.
+ */
+export function recordPracticeOutcome(input: {
+  topicId: string;
+  topicTitle: string;
+  language: string;
+  exerciseTitle: string;
+  exerciseHint: string;
+  graded: GradedResult[];
+}): PracticeOutcomeEvents {
+  const events: PracticeOutcomeEvents = { locked: null, conquered: null };
+  setLoopState((prev) => {
+    const { state, outcome } = recordPracticeAttempt(prev.struggle ?? emptyStruggleState, input);
+    events.locked = outcome.locked;
+    events.conquered = outcome.conquered;
+    const total = outcome.attempt.total;
+    const passed = outcome.attempt.passed;
+    const skillMemory = { ...(prev.skillMemory ?? {}) };
+    const key = input.topicTitle.toLowerCase().trim();
+    const existing = skillMemory[key] ?? { level: 0, evidence: [] };
+    if (outcome.attempt.fullPass) {
+      // Repeated real passes are what move a topic into Stronger on Progress.
+      skillMemory[key] = {
+        level: Math.min(100, existing.level + 12),
+        evidence: [{ description: `Passed ${passed}/${total} practice tests on ${input.topicTitle}.`, at: Date.now(), weight: 12, source: "code_test" as const }, ...existing.evidence].slice(0, 50),
+        lastPracticedAt: Date.now(),
+      };
+    } else {
+      // A failed or struggling attempt still counts: assessed but weak.
+      skillMemory[key] = {
+        level: Math.min(100, existing.level + 2),
+        evidence: [{ description: `Struggled on ${input.topicTitle} practice (${passed}/${total} tests passing).`, at: Date.now(), weight: 2, source: "code_test" as const }, ...existing.evidence].slice(0, 50),
+        lastPracticedAt: Date.now(),
+      };
+    }
+    const activityText = outcome.conquered
+      ? `Misconception Conquered: ${outcome.conquered.summary} - beaten after ${outcome.conquered.failuresToConquer} failing attempt${outcome.conquered.failuresToConquer === 1 ? "" : "s"}.`
+      : events.locked
+        ? `Pattern spotted: ${events.locked.summary}. A targeted fix was added to your practice.`
+        : outcome.attempt.fullPass
+          ? `Practice passed: ${input.topicTitle} (${passed}/${total} tests).`
+          : `Practice attempt on ${input.topicTitle}: ${passed}/${total} tests passing.`;
+    return {
+      ...prev,
+      struggle: state,
+      skillMemory,
+      activity: [{ at: Date.now(), kind: "skill" as const, text: activityText }, ...prev.activity].slice(0, 40),
+    };
+  });
+  return events;
+}
+
+/** Dismisses a conquered misconception's celebration so it shows once. */
+export function dismissStruggleCelebration(id: string) {
+  setLoopState((prev) => ({
+    ...prev,
+    struggle: markCelebrated(prev.struggle ?? emptyStruggleState, id),
+  }));
+}
+
+export function getStruggleState(): StruggleState {
+  return load().struggle ?? emptyStruggleState;
 }
 
 /**

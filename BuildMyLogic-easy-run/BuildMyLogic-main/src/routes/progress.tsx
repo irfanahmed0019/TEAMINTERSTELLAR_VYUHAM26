@@ -3,6 +3,7 @@ import { BarChart3, Check, Code2, Flame, Layers, Lock, Target, TrendingDown, Tre
 import { useMemo, useState, type ReactNode } from "react";
 import { PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer } from "recharts";
 import { AppShell } from "@/components/AppShell";
+import { StruggleDNA } from "@/components/struggle/StruggleDNA";
 import { useLoop } from "@/lib/loop-store";
 
 export const Route = createFileRoute("/progress")({
@@ -43,7 +44,7 @@ const COMPETENCY_AXES: { axis: string; keywords: string[] }[] = [
 
 function Progress() {
   const state = useLoop();
-  const [tab, setTab] = useState<"Overview" | "Skills" | "Missions" | "Activity">("Overview");
+  const [tab, setTab] = useState<"Overview" | "Skills" | "Missions" | "Struggle DNA" | "Activity">("Overview");
   const [selectedMission, setSelectedMission] = useState<string | null>(null);
   const plan = state.plan;
   const missions = plan?.missions ?? [];
@@ -136,7 +137,7 @@ function Progress() {
       wide
     >
       <div className="inline-flex flex-wrap gap-1 rounded-2xl border border-border bg-card p-1.5">
-        {(["Overview", "Skills", "Missions", "Activity"] as const).map((item) => (
+        {(["Overview", "Skills", "Missions", "Struggle DNA", "Activity"] as const).map((item) => (
           <button
             key={item}
             type="button"
@@ -403,6 +404,8 @@ function Progress() {
       {tab === "Skills" && <section className="card-surface mt-5 p-6"><h2 className="text-xl font-extrabold">Skills you’re building</h2><div className="mt-6 grid gap-4 md:grid-cols-2">{skills.map((skill) => <div key={skill.name} className="rounded-2xl border border-black/10 p-5"><div className="flex justify-between"><p className="font-extrabold">{skill.name}</p><span className="font-extrabold">{skill.level}%</span></div><div className="mt-4 h-2.5 rounded-full bg-black/10"><div className="h-full rounded-full bg-primary" style={{ width: `${skill.level}%` }} /></div><p className="mt-3 text-sm font-semibold">{skill.note || levelLabel(skill.level)}</p></div>)}</div>{skills.length === 0 && <p className="mt-4 text-sm font-bold">Complete a mission to start measuring your skills.</p>}</section>}
 
       {tab === "Missions" && <section className="card-surface mt-5 p-6"><h2 className="text-xl font-extrabold">Mission Evidence</h2><div className="mt-5 space-y-3">{missions.map((mission) => { const p = state.missionProgress[mission.id] ?? { status: "locked", completedSteps: [] }; const missionSessions = state.sessions.filter((s) => s.missionTitle === mission.title); return <button type="button" key={mission.id} onClick={() => setSelectedMission(mission.id)} className="flex w-full items-center gap-4 rounded-2xl border border-black/10 p-4 text-left hover:border-primary/40"><span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-soft text-primary">{p.status === "done" ? <Check className="h-5 w-5" /> : p.status === "active" ? <Flame className="h-5 w-5" /> : <Lock className="h-4 w-4" />}</span><span className="min-w-0 flex-1"><b className="block text-sm">{mission.title}</b><span className="mt-1 block text-xs font-semibold">{p.completedSteps?.length ?? 0}/{mission.steps.length} learning steps · {missionSessions.length} sessions logged</span></span><span className="text-xs font-extrabold">{mission.minutes}m</span></button>; })}</div>{selected && <MissionHistory mission={selected} sessions={selectedSessions} onClose={() => setSelectedMission(null)} />}</section>}
+
+      {tab === "Struggle DNA" && <StruggleDNA />}
 
       {tab === "Activity" && <section className="card-surface mt-5 p-6"><h2 className="text-xl font-extrabold">Build Activity</h2><div className="mt-5 divide-y divide-black/10">{state.activity.length === 0 ? <p className="py-5 text-sm font-bold">No activity yet.</p> : state.activity.map((item) => <div key={item.at} className="flex gap-4 py-4"><span className="mt-1 h-2.5 w-2.5 rounded-full bg-primary" /><div><p className="text-sm font-extrabold">{item.text}</p><p className="mt-1 text-xs font-semibold">{new Date(item.at).toLocaleString()}</p></div></div>)}</div></section>}
     </AppShell>

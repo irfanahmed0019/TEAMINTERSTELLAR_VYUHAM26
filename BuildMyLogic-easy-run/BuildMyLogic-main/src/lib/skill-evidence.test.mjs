@@ -17,7 +17,9 @@ globalThis.window = {
 // runs, byte for byte except the import specifier.
 import { readFileSync, writeFileSync, rmSync } from "node:fs";
 const source = readFileSync(new URL("./loop-store.ts", import.meta.url), "utf8");
-const patched = source.replace('from "./loop-types"', 'from "./loop-types.ts"');
+const patched = source
+  .replace('from "./loop-types"', 'from "./loop-types.ts"')
+  .replace('from "./struggle-engine"', 'from "./struggle-engine.ts"');
 if (patched === source) throw new Error("loop-store import shape changed; update the test harness");
 const tmpUrl = new URL("./loop-store.testable.tmp.ts", import.meta.url);
 writeFileSync(tmpUrl, patched);

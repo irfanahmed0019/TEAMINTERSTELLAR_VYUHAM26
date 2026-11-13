@@ -1,3 +1,5 @@
+import type { StruggleState } from "./struggle-engine";
+
 export type TechItem = { name: string; level: "beginner" | "intermediate" | "advanced" };
 export type FollowUpAnswer = { question: string; answer: string };
 export type Profile = {
@@ -177,6 +179,7 @@ export type LoopState = {
   learningChats: Record<string, LearningChat>;
   selectedLearningMissionId: string | null;
   skillMemory?: SkillMemoryMap;
+  struggle?: StruggleState;
 };
 
 export const defaultStarterProfile: Profile = {
@@ -290,4 +293,5 @@ export const emptyState: LoopState = {
   learningChats: {},
   selectedLearningMissionId: null,
   skillMemory: {},
+  struggle: { attempts: [], misconceptions: [], celebratedIds: [] },
 };

@@ -12,7 +12,7 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm run lint && npm run build",
-    "test": "node --experimental-strip-types --test src/lib/rate-limit.test.mjs src/lib/request-auth.test.mjs src/lib/editor-keydown.test.mjs src/lib/reveal-schedule.test.mjs src/lib/skill-evidence.test.mjs"
+    "test": "node --experimental-strip-types --test src/lib/rate-limit.test.mjs src/lib/request-auth.test.mjs src/lib/editor-keydown.test.mjs src/lib/reveal-schedule.test.mjs src/lib/skill-evidence.test.mjs src/lib/struggle-engine.test.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1",

@@ -309,6 +309,7 @@ function Learn() {
             <div className="mt-4">
               <TopicPractice
                 key={`${activeTopic.id}-${lang}`}
+                topicId={activeTopic.id}
                 topicTitle={activeTopic.title}
                 language={lang}
                 exercise={activeTopic.exercise[lang]}

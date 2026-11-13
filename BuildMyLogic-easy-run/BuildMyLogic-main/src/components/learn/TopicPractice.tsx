@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Check, Lightbulb, Loader2, Play, RotateCcw, Send } from "lucide-react";
+import { Check, Crosshair, Lightbulb, Loader2, Play, RotateCcw, Send } from "lucide-react";
 import { CodeEditor } from "@/components/mentor/CodeEditor";
 import { gradeRun, type RunItem, type TestResult } from "@/lib/mentor/engine";
+import { recordPracticeOutcome, useLoop } from "@/lib/loop-store";
 import type { TopicExercise, TopicLanguage } from "@/lib/topic-library";
 
 const errMsg = (e: unknown) =>
@@ -16,14 +17,20 @@ const errMsg = (e: unknown) =>
  * stored as verified progress.
  */
 export function TopicPractice({
+  topicId,
   topicTitle,
   language,
   exercise,
 }: {
+  topicId: string;
   topicTitle: string;
   language: TopicLanguage;
   exercise: TopicExercise;
 }) {
+  const struggle = useLoop().struggle;
+  const activeMisconception = (struggle?.misconceptions ?? []).find(
+    (m) => m.status === "locked" && m.topicId === topicId && m.language === language
+  );
   const draftKey = `bml.practice.${topicTitle}.${language}`;
   const [code, setCode] = useState(() => {
     try {
@@ -97,6 +104,17 @@ export function TopicPractice({
       setResults(graded);
       setPassed(graded.every((g) => g.passed));
       setOutput("");
+      // Struggle Engine: every real Submit outcome is evidence. Repeated
+      // failures lock a misconception + targeted fix; a full pass after a
+      // locked pattern conquers it (celebrated app-wide).
+      recordPracticeOutcome({
+        topicId,
+        topicTitle,
+        language,
+        exerciseTitle: exercise.title,
+        exerciseHint: exercise.hint,
+        graded,
+      });
     } catch (e) {
       setError(errMsg(e));
     } finally {
@@ -108,6 +126,22 @@ export function TopicPractice({
     <div className="grid gap-4 lg:grid-cols-2">
       {/* Task panel */}
       <div className="rounded-2xl border border-border bg-card p-5">
+        {activeMisconception && (
+          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3.5">
+            <p className="flex items-center gap-1.5 text-[12px] font-black uppercase tracking-widest text-amber-700">
+              <Crosshair className="h-3.5 w-3.5" /> Targeted fix for your pattern
+            </p>
+            <p className="mt-1.5 text-[13px] font-bold text-amber-900">
+              {activeMisconception.summary}
+            </p>
+            <p className="mt-1.5 text-[12.5px] font-medium leading-5 text-amber-900">
+              {activeMisconception.targetedChallenge?.task}
+            </p>
+            <p className="mt-2 text-[11.5px] font-semibold text-amber-700">
+              Beat this and the pattern counts as conquered on your Progress page.
+            </p>
+          </div>
+        )}
         <span className="pill bg-primary-soft font-bold text-accent-foreground">
           Mentor's basic task
         </span>
@@ -283,7 +317,8 @@ export function TopicPractice({
         <p className="mt-3 text-[11px] font-semibold text-muted-foreground">
           Runs for real{sandboxNote ? ` on the ${sandboxNote}` : ""}; Submit
           compares your actual output with the expected result. Your code draft
-          stays in this browser; results are not saved as progress.
+          stays in this browser; every Submit counts as real struggle evidence
+          on your Progress page.
         </p>
       </div>
     </div>
