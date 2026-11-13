@@ -25,7 +25,7 @@ const tmpUrl = new URL("./loop-store.testable.tmp.ts", import.meta.url);
 writeFileSync(tmpUrl, patched);
 process.on("exit", () => rmSync(tmpUrl, { force: true }));
 
-const { getLoopState, setLoopState, applyBuildSessionEvidence } = await import("./loop-store.testable.tmp.ts");
+const { getLoopState, setLoopState, applyBuildSessionEvidence, normalizeLoopState } = await import("./loop-store.testable.tmp.ts");
 
 const plan = {
   projectTitle: "Python Web Scraper",
@@ -116,4 +116,34 @@ test("plan skill levels moved by build evidence never create assessment labels o
   const state = getLoopState();
   const planSkill = state.plan.skills.find((s) => s.name === "Data Handling");
   assert.equal(classify(state, planSkill.name), "unassessed", "plan levels alone never count as assessed");
+});
+
+test("VS Code sessions also feed the Struggle Engine, deduped by session signature", () => {
+  const before = (getLoopState().struggle?.attempts ?? []).length;
+  applyBuildSessionEvidence(session({ session_id: "s7", status: "failed", attempts: 4, test_score: { passed: 1, total: 5 } }));
+  const mid = getLoopState().struggle;
+  assert.equal(mid.attempts.length, before + 1, "failed session records one engine attempt");
+  assert.equal(mid.attempts[0].source, "vscode");
+  applyBuildSessionEvidence(session({ session_id: "s7", status: "failed", attempts: 4, test_score: { passed: 1, total: 5 } }));
+  assert.equal(
+    getLoopState().struggle.attempts.length,
+    before + 1,
+    "identical session signature must not double-record struggle evidence",
+  );
+});
+
+test("struggle state survives the cloud save/load serialization round trip", () => {
+  // saveLearnerStateToSupabase persists state_json as one JSON blob and
+  // loadLearnerStateFromSupabase restores it through normalizeLoopState;
+  // simulate exactly that boundary.
+  const current = getLoopState();
+  assert.ok((current.struggle?.attempts ?? []).length > 0, "fixture has struggle data");
+  const wire = JSON.parse(JSON.stringify(current));
+  const restored = normalizeLoopState(wire);
+  assert.equal(
+    JSON.stringify(restored.struggle),
+    JSON.stringify(current.struggle),
+    "struggle state must survive cloud sync intact",
+  );
+  assert.ok(Array.isArray(restored.struggle.ingestedSessions), "ingestedSessions always present after restore");
 });

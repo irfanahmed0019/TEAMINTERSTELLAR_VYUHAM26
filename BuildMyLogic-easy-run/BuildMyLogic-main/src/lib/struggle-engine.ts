@@ -20,7 +20,8 @@
  * invents progress: no attempt recorded, no evidence.
  */
 
-export type FailureKind = "syntax" | "runtime" | "edge_case" | "logic";
+export type FailureKind =
+  "syntax" | "runtime" | "edge_case" | "logic" | "formatting";
 export type MisconceptionDepth = "slip" | "deep";
 
 export type PracticeAttempt = {
@@ -38,12 +39,39 @@ export type PracticeAttempt = {
   signature: string | null;
   /** Last visible failing example (never from hidden tests). */
   example?: { testName: string; expected: string; actual: string } | undefined;
+  /** Where this evidence came from: in-app practice, VS Code, or a reassessment. */
+  source?: "practice" | "vscode" | "reassessment" | undefined;
 };
 
 export type TargetedChallenge = {
   title: string;
   task: string;
   check: string;
+};
+
+export type ReassessmentTest = {
+  name: string;
+  stdin: string;
+  expected: string;
+  /** Set when this check is a fresh deterministic variant of a seen test. */
+  variantOf?: string | undefined;
+  /** True for checks the learner had never been shown before. */
+  unseen?: boolean | undefined;
+};
+
+/**
+ * The targeted reassessment behind Adapt → Reassess: a fresh, smaller program
+ * graded on checks the learner has not seen verbatim (deterministic input
+ * variants and/or previously hidden checks), plus an optional construct the
+ * code must genuinely use so pasting the expected output cannot pass.
+ */
+export type Reassessment = {
+  tests: ReassessmentTest[];
+  createdAt: number;
+  attempts: number;
+  constructLabel?: string | null | undefined;
+  constructRegex?: string | null | undefined;
+  constructSelfCall?: boolean | null | undefined;
 };
 
 export type Misconception = {
@@ -63,10 +91,15 @@ export type Misconception = {
   conqueredAt?: number | undefined;
   /** Failing submissions between first sight and the conquering pass. */
   failuresToConquer?: number | undefined;
-  /** Milliseconds from first failing attempt to the conquering pass. */
+  /** Elapsed wall-clock ms between the first recorded failure and the
+   *  conquering pass. Not a measure of active learning time. */
   timeToConquerMs?: number | undefined;
   targetedChallenge?: TargetedChallenge | undefined;
   example?: { testName: string; expected: string; actual: string } | undefined;
+  /** The fresh-check reassessment built for this pattern, once created. */
+  reassessment?: Reassessment | undefined;
+  /** True only when the conquer came from a passed reassessment after the lock. */
+  reassessed?: boolean | undefined;
 };
 
 export type StruggleState = {
@@ -74,12 +107,15 @@ export type StruggleState = {
   misconceptions: Misconception[];
   /** Conquered misconception ids whose celebration has already been shown. */
   celebratedIds: string[];
+  /** Dedupe keys of VS Code build sessions already fed into the engine. */
+  ingestedSessions: string[];
 };
 
 export const emptyStruggleState: StruggleState = {
   attempts: [],
   misconceptions: [],
   celebratedIds: [],
+  ingestedSessions: [],
 };
 
 const MAX_ATTEMPTS = 120;
@@ -90,6 +126,7 @@ export const KIND_LABEL: Record<FailureKind, string> = {
   runtime: "crashes while running",
   edge_case: "edge cases",
   logic: "output that doesn't match the goal",
+  formatting: "letter case or spacing differences",
 };
 
 export function kindLabel(kind: FailureKind): string {
@@ -120,6 +157,15 @@ export function classifyFailure(result: {
     status.includes("killed")
   )
     return "runtime";
+  // A mismatch that disappears under case/whitespace folding is a
+  // formatting slip, not a conceptual misunderstanding - say so honestly.
+  const squash = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+  if (
+    result.expected.trim() !== "" &&
+    squash(result.expected) === squash(result.actual) &&
+    result.expected !== result.actual
+  )
+    return "formatting";
   if (EDGE_NAME.test(result.name)) return "edge_case";
   const expectedLines = result.expected
     .trim()
@@ -180,6 +226,8 @@ export function summarizeMisconception(
       return `Main case works but "${test}" keeps failing in ${topicTitle}`;
     case "logic":
       return `Output for "${test}" keeps missing the goal in ${topicTitle}`;
+    case "formatting":
+      return `Output for "${test}" differs only in letter case or spacing in ${topicTitle}`;
   }
 }
 
@@ -214,6 +262,12 @@ export function buildTargetedChallenge(
       return {
         title: `Targeted fix: "${test}"`,
         task: `For "${test}", trace your code with pen and paper: write what each variable holds after every line, then compare with what the task needs. Fix the first line where the two disagree.`,
+        check: hint,
+      };
+    case "formatting":
+      return {
+        title: `Targeted fix: exact output format`,
+        task: `"${test}" failed even though your values look right - the only difference is letter case or spacing. Put your output and the expected text side by side and match every character exactly, including capitals and spaces.`,
         check: hint,
       };
   }
@@ -252,6 +306,7 @@ export function recordPracticeAttempt(
     exerciseHint: string;
     graded: GradedResult[];
     at?: number;
+    source?: "practice" | "vscode" | "reassessment";
   },
 ): { state: StruggleState; outcome: RecordOutcome } {
   const at = input.at ?? Date.now();
@@ -284,29 +339,30 @@ export function recordPracticeAttempt(
           actual: exampleFail.actual,
         }
       : undefined,
+    source: input.source ?? "practice",
   };
 
   let misconceptions = [...prev.misconceptions];
   let locked: Misconception | null = null;
-  let conquered: Misconception | null = null;
+  const conquered: Misconception | null = null;
 
   if (fullPass) {
-    // Reassess → Conquer: a real full pass on this topic+language resolves
-    // its open misconceptions. Only a locked one earns the celebration; a
-    // single earlier slip is quietly closed.
+    // A full pass on the regular exercise is real progress and stays on the
+    // record, but it does NOT conquer a locked pattern: the same submit can
+    // repeat a memorised fix, so Conquer is gated on the pattern's targeted
+    // reassessment (fresh checks after the lock - recordReassessmentAttempt).
+    // Only unconfirmed "watching" entries close quietly here.
     misconceptions = misconceptions.map((m) => {
-      if (m.status === "conquered") return m;
+      if (m.status !== "watching") return m;
       if (m.topicId !== input.topicId || m.language !== input.language)
         return m;
-      const done: Misconception = {
+      return {
         ...m,
-        status: "conquered",
+        status: "conquered" as const,
         conqueredAt: at,
         failuresToConquer: m.occurrences,
         timeToConquerMs: at - m.firstSeenAt,
       };
-      if (m.status === "locked" && !conquered) conquered = done;
-      return done;
     });
   } else if (signature && kind) {
     const existingIndex = misconceptions.findIndex(
@@ -349,7 +405,10 @@ export function recordPracticeAttempt(
         signature,
         summary: summarizeMisconception(kind, failingTests, input.topicTitle),
         kind,
-        depth: kind === "syntax" || kind === "runtime" ? "slip" : "deep",
+        depth:
+          kind === "syntax" || kind === "runtime" || kind === "formatting"
+            ? "slip"
+            : "deep",
         firstSeenAt: at,
         lastSeenAt: at,
         occurrences: 1,
@@ -364,8 +423,320 @@ export function recordPracticeAttempt(
     attempts: [attempt, ...prev.attempts].slice(0, MAX_ATTEMPTS),
     misconceptions: misconceptions.slice(0, 40),
     celebratedIds: prev.celebratedIds,
+    ingestedSessions: prev.ingestedSessions ?? [],
   };
   return { state, outcome: { attempt, locked, conquered } };
+}
+
+/** Deterministic fresh input: shifts every integer so the check is new. */
+export function variantStdin(stdin: string): string {
+  return stdin.replace(/-?\d+/g, (raw) => {
+    const n = Number(raw);
+    return String(n >= 0 ? n * 2 + 3 : n * 2 - 1);
+  });
+}
+
+/** The failing test names recorded in a misconception's signature. */
+export function signatureTests(signature: string): string[] {
+  const i = signature.indexOf(":");
+  return i < 0
+    ? []
+    : signature
+        .slice(i + 1)
+        .split("|")
+        .filter(Boolean);
+}
+
+export type ReassessmentPlan = {
+  /** Checks ready to grade as-is: the original failing checks plus any
+   *  previously hidden ones the learner was never shown. */
+  ready: ReassessmentTest[];
+  /** Fresh input variants; expected output must come from running the
+   *  exercise's reference solution on each new input. */
+  pending: { name: string; stdin: string; variantOf: string }[];
+};
+
+/**
+ * Builds the reassessment plan for a locked pattern from the exercise's real
+ * tests: original failing checks stay (regression evidence), hidden checks
+ * join as unseen evidence, and stdin-bearing checks get one deterministic
+ * fresh-input variant each (expected computed from the reference solution).
+ */
+export function buildReassessmentPlan(
+  m: Misconception,
+  exerciseTests: {
+    name: string;
+    stdin: string;
+    expected: string;
+    hidden?: boolean;
+  }[],
+  hasSolution: boolean,
+): ReassessmentPlan {
+  const wanted = signatureTests(m.signature);
+  const ready: ReassessmentTest[] = [];
+  const pending: ReassessmentPlan["pending"] = [];
+  for (const t of exerciseTests) {
+    const isFailing = wanted.includes(t.name.toLowerCase().trim());
+    if (isFailing) {
+      ready.push({ name: t.name, stdin: t.stdin, expected: t.expected });
+      if (hasSolution && /\d/.test(t.stdin)) {
+        pending.push({
+          name: `Fresh input variant of "${t.name}"`,
+          stdin: variantStdin(t.stdin),
+          variantOf: t.name,
+        });
+      }
+    } else if (t.hidden) {
+      ready.push({
+        name: t.name,
+        stdin: t.stdin,
+        expected: t.expected,
+        unseen: true,
+      });
+    }
+  }
+  return { ready, pending };
+}
+
+/**
+ * Anti-hardcode construct check: the fresh program must genuinely use the
+ * construct the pattern was about (a loop, an if, its own function, a
+ * self-call), so pasting the expected output cannot pass the reassessment.
+ */
+export function constructSatisfied(
+  construct:
+    | {
+        regex?: string | null | undefined;
+        selfCall?: boolean | null | undefined;
+      }
+    | null
+    | undefined,
+  code: string,
+): boolean {
+  if (!construct) return true;
+  if (construct.regex && !new RegExp(construct.regex, "m").test(code))
+    return false;
+  if (construct.selfCall) {
+    const def = code.match(
+      /(?:^|\n)\s*(?:def\s+(\w+)|(?:int|void|long|float|double|char)\s+(\w+)\s*\([^)]*\)\s*\{)/,
+    );
+    const name = def?.[1] ?? def?.[2];
+    if (!name || name === "main") return false;
+    const rest = code.slice(code.indexOf(name) + name.length);
+    if (!new RegExp(`\\b${name}\\s*\\(`).test(rest)) return false;
+  }
+  return true;
+}
+
+/** Saves a prepared reassessment onto its locked misconception. */
+export function attachReassessment(
+  prev: StruggleState,
+  misconceptionId: string,
+  reassessment: Reassessment,
+): StruggleState {
+  return {
+    ...prev,
+    ingestedSessions: prev.ingestedSessions ?? [],
+    misconceptions: prev.misconceptions.map((m) =>
+      m.id === misconceptionId && m.status === "locked"
+        ? { ...m, reassessment }
+        : m,
+    ),
+  };
+}
+
+/**
+ * Reassess → Conquer: records one graded targeted-reassessment Submit. The
+ * pattern conquers only when every reassessment check passes AND the code
+ * satisfies the required construct, at a time after the lock. A failed
+ * reassessment is more recorded evidence on the same pattern.
+ */
+export function recordReassessmentAttempt(
+  prev: StruggleState,
+  input: {
+    misconceptionId: string;
+    graded: GradedResult[];
+    constructOk: boolean;
+    at?: number;
+  },
+): { state: StruggleState; outcome: RecordOutcome | null } {
+  const at = input.at ?? Date.now();
+  const target = prev.misconceptions.find(
+    (m) => m.id === input.misconceptionId,
+  );
+  if (!target || target.status !== "locked" || (target.lockedAt ?? 0) >= at)
+    return { state: prev, outcome: null };
+
+  const total = input.graded.length;
+  const failing = input.graded.filter((g) => !g.passed);
+  const fullPass = total > 0 && failing.length === 0 && input.constructOk;
+  const kind = failing.length ? classifyFailure(failing[0]!) : null;
+
+  counter += 1;
+  const attempt: PracticeAttempt = {
+    id: `${target.topicId}:${target.language}:reassess:${at}:${counter}`,
+    topicId: target.topicId,
+    topicTitle: target.topicTitle,
+    language: target.language,
+    exerciseTitle: "Targeted reassessment",
+    at,
+    passed: input.constructOk ? total - failing.length : 0,
+    total,
+    fullPass,
+    kind,
+    failingTests: failing.map((g) => g.name),
+    signature: kind ? target.signature : null,
+    source: "reassessment",
+  };
+
+  const misconceptions = prev.misconceptions.map((m) => {
+    if (m.id !== target.id) return m;
+    const bumped: Misconception = {
+      ...m,
+      lastSeenAt: at,
+      reassessment: m.reassessment
+        ? { ...m.reassessment, attempts: m.reassessment.attempts + 1 }
+        : m.reassessment,
+    };
+    if (fullPass) {
+      return {
+        ...bumped,
+        status: "conquered" as const,
+        conqueredAt: at,
+        failuresToConquer: m.occurrences,
+        timeToConquerMs: at - m.firstSeenAt,
+        reassessed: true,
+      };
+    }
+    return { ...bumped, occurrences: m.occurrences + 1 };
+  });
+  const updated = misconceptions.find((m) => m.id === target.id)!;
+
+  return {
+    state: {
+      attempts: [attempt, ...prev.attempts].slice(0, MAX_ATTEMPTS),
+      misconceptions,
+      celebratedIds: prev.celebratedIds,
+      ingestedSessions: prev.ingestedSessions ?? [],
+    },
+    outcome: {
+      attempt,
+      locked: null,
+      conquered: fullPass && updated.status === "conquered" ? updated : null,
+    },
+  };
+}
+
+/**
+ * Feeds one VS Code build session into the same engine, deduped by its
+ * session signature. A completed session counts as the VS Code path's
+ * reassessment: the mentor's follow-up/recovery challenge is a new challenge
+ * attempted after the lock, so completing it conquers patterns this challenge
+ * (or its base mission) locked earlier.
+ */
+export function recordBuildSessionOutcome(
+  prev: StruggleState,
+  input: {
+    sessionKey: string;
+    topicId: string;
+    baseTopicId?: string | undefined;
+    topicTitle: string;
+    language: string;
+    exerciseTitle: string;
+    completed: boolean;
+    failed: boolean;
+    passed: number;
+    total: number;
+    checkpoints?:
+      | { title: string; status: string; lastOutput?: string | undefined }[]
+      | undefined;
+    at?: number;
+  },
+): { state: StruggleState; outcome: RecordOutcome | null } {
+  const ingested = prev.ingestedSessions ?? [];
+  if (ingested.includes(input.sessionKey))
+    return { state: prev, outcome: null };
+  const at = input.at ?? Date.now();
+
+  let graded: GradedResult[];
+  if (input.checkpoints && input.checkpoints.length > 0) {
+    graded = input.checkpoints.map((c) => ({
+      name: c.title,
+      hidden: true,
+      passed: c.status === "passed",
+      expected: "",
+      actual: c.lastOutput ?? "",
+      status: c.status === "passed" ? "Accepted" : "Wrong Answer",
+      stderr: "",
+    }));
+  } else if (input.total > 0) {
+    graded = Array.from({ length: input.total }, (_, i) => ({
+      name: `challenge test ${i + 1}`,
+      hidden: true,
+      passed: i < input.passed,
+      expected: "",
+      actual: "",
+      status: i < input.passed ? "Accepted" : "Wrong Answer",
+      stderr: "",
+    }));
+  } else {
+    graded = [
+      {
+        name: "challenge completion",
+        hidden: true,
+        passed: input.completed,
+        expected: "",
+        actual: "",
+        status: input.completed ? "Accepted" : "Wrong Answer",
+        stderr: "",
+      },
+    ];
+  }
+
+  const { state: recorded, outcome } = recordPracticeAttempt(
+    { ...prev, ingestedSessions: [] },
+    {
+      topicId: input.topicId,
+      topicTitle: input.topicTitle,
+      language: input.language,
+      exerciseTitle: input.exerciseTitle,
+      exerciseHint: "",
+      graded,
+      at,
+      source: "vscode",
+    },
+  );
+
+  let misconceptions = recorded.misconceptions;
+  let conquered = outcome.conquered;
+  if (input.completed) {
+    const ids = new Set(
+      [input.topicId, input.baseTopicId].filter((v): v is string => Boolean(v)),
+    );
+    misconceptions = misconceptions.map((m) => {
+      if (m.status !== "locked" || !ids.has(m.topicId)) return m;
+      if ((m.lockedAt ?? 0) >= at) return m;
+      const done: Misconception = {
+        ...m,
+        status: "conquered",
+        conqueredAt: at,
+        failuresToConquer: m.occurrences,
+        timeToConquerMs: at - m.firstSeenAt,
+        reassessed: true,
+      };
+      if (!conquered) conquered = done;
+      return done;
+    });
+  }
+
+  return {
+    state: {
+      ...recorded,
+      misconceptions,
+      ingestedSessions: [...ingested, input.sessionKey].slice(-200),
+    },
+    outcome: { ...outcome, conquered },
+  };
 }
 
 /** Marks a conquered misconception's celebration as shown. */
@@ -380,6 +751,7 @@ export function pendingCelebration(prev: StruggleState): Misconception | null {
       (m) =>
         m.status === "conquered" &&
         m.depth === "deep" &&
+        m.reassessed === true &&
         (m.failuresToConquer ?? 0) >= LOCK_THRESHOLD &&
         !prev.celebratedIds.includes(m.id),
     ) ?? null
@@ -441,7 +813,7 @@ export type StruggleMetrics = {
   conqueredCount: number;
   /** % of locked misconceptions that were later conquered. */
   conquerRate: number | null;
-  /** Average ms from first failure to conquering pass. */
+  /** Average elapsed wall-clock ms from first failure to conquering pass. */
   avgTimeToConquerMs: number | null;
   /**
    * Share of recent failures that repeated an already-seen signature vs the
@@ -537,16 +909,21 @@ export function strugglePatterns(prev: StruggleState): string[] {
   return patterns;
 }
 
-/** Failure Replay: the honest before/after story of one conquered pattern. */
+/**
+ * Failure Replay: the honest before/after story of one conquered pattern.
+ * Every clause quotes recorded data; elapsed figures are wall-clock time
+ * between recorded submissions, never claimed as active learning time.
+ */
 export function failureReplay(m: Misconception): {
   before: string;
   cause: string;
   after: string;
 } {
   const before = m.example
-    ? `"${m.example.testName}" kept failing${m.example.actual ? ` - your output was "${m.example.actual.slice(0, 80)}" against the goal "${m.example.expected.slice(0, 80)}"` : ""}.`
+    ? `"${m.example.testName}" kept failing${m.example.actual ? ` - your recorded output was "${m.example.actual.slice(0, 80)}" against the goal "${m.example.expected.slice(0, 80)}"` : ""}.`
     : `${m.summary}.`;
-  const cause = `The same pattern showed up ${m.failuresToConquer ?? m.occurrences} times across your submissions, so it was a ${m.depth === "deep" ? "conceptual gap" : "repeat slip"}, not bad luck.`;
+  const n = m.failuresToConquer ?? m.occurrences;
+  const cause = `Recorded failing in ${n} graded submission${n === 1 ? "" : "s"}, always the same check (${KIND_LABEL[m.kind]}). The exact outputs above are the recorded evidence.`;
   const mins =
     typeof m.timeToConquerMs === "number"
       ? Math.max(1, Math.round(m.timeToConquerMs / 60000))
@@ -555,8 +932,10 @@ export function failureReplay(m: Misconception): {
     mins === null
       ? ""
       : mins < 60
-        ? `, ${mins} min after the first failure`
-        : `, ${Math.round(mins / 60)} h after the first failure`;
-  const after = `Your latest attempt passed every check on ${m.topicTitle}${took}.`;
+        ? ` Elapsed time from the first recorded failure: ${mins} min.`
+        : ` Elapsed time from the first recorded failure: about ${Math.round(mins / 60)} h.`;
+  const after = m.reassessed
+    ? `You then passed this pattern's targeted reassessment - fresh checks you had not seen before.${took}`
+    : `A later recorded attempt passed every check on ${m.topicTitle}.${took}`;
   return { before, cause, after };
 }

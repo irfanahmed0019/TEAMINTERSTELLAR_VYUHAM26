@@ -60,8 +60,8 @@ export function StruggleDNA() {
             Your Struggle DNA is built only from your real attempts. Submit
             practice tasks on the Learn page or in the practice workspace -
             every failure and every pass is recorded here, repeated patterns get
-            targeted fixes, and conquered patterns become your Proof of
-            Struggle.
+            targeted fixes, and patterns beaten through a targeted reassessment
+            become your Proof of Struggle.
           </p>
         </div>
       </section>
@@ -99,7 +99,7 @@ export function StruggleDNA() {
               ? "—"
               : fmtDuration(metrics.avgTimeToConquerMs)
           }
-          label="Avg. first failure → independent solve"
+          label="Avg. elapsed time: first failure → conquer"
         />
         <Metric
           icon={TrendingDown}
@@ -207,7 +207,9 @@ export function StruggleDNA() {
                     {m.summary}
                   </p>
                   <span className="pill shrink-0 bg-amber-100 font-bold text-amber-700">
-                    {m.status === "locked" ? "Targeted fix active" : "Watching"}{" "}
+                    {m.status === "locked"
+                      ? "Targeted fix active"
+                      : "Inferred - watching"}{" "}
                     · {m.occurrences}×
                   </span>
                 </div>
@@ -217,8 +219,11 @@ export function StruggleDNA() {
                   </p>
                 )}
                 <p className="mt-2 text-[11.5px] font-semibold text-amber-700">
-                  {m.depth === "deep" ? "Conceptual pattern" : "Repeat slip"} ·
-                  first seen {new Date(m.firstSeenAt).toLocaleDateString()}
+                  {m.depth === "deep"
+                    ? "Repeated same-check failure"
+                    : "Repeat slip (compile / crash / format)"}{" "}
+                  · first recorded{" "}
+                  {new Date(m.firstSeenAt).toLocaleDateString()}
                 </p>
               </div>
             ))}
@@ -238,8 +243,9 @@ export function StruggleDNA() {
         <div className="mt-4 space-y-3">
           {conquered.length === 0 ? (
             <p className="text-[13px] font-semibold text-muted-foreground">
-              Nothing conquered yet. When you pass a topic after failing the
-              same pattern twice or more, it lands here.
+              Nothing conquered yet. When a repeated pattern locks and you pass
+              its targeted reassessment (fresh checks you have not seen), it
+              lands here.
             </p>
           ) : (
             conquered.map((m) => <ConqueredCard key={m.id} misconception={m} />)

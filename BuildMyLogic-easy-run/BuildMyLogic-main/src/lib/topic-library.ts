@@ -32,6 +32,21 @@ export type TopicExercise = {
   tests: TopicTest[];
   hint: string;
   explain: string;
+  /**
+   * Reference solution, used only to generate fresh reassessment inputs:
+   * the engine runs it once on a deterministic new stdin to produce the new
+   * expected output. Present on exercises whose tests read input.
+   */
+  solution?: string;
+  /**
+   * Construct the fresh reassessment program must genuinely use, so pasting
+   * the expected output cannot pass (deterministic anti-hardcode check).
+   */
+  reassessConstruct?: {
+    label: string;
+    regex?: string;
+    selfCall?: boolean;
+  };
 };
 
 export type StudyTopic = {
@@ -347,6 +362,7 @@ export const STUDY_TOPICS: StudyTopic[] = [
             hidden: true,
           },
         ],
+        solution: `#include <stdio.h>\n\nint main(void) {\n    int n;\n    scanf("%d", &n);\n    printf("%d\\n", n * 2);\n    return 0;\n}`,
         hint: 'You can multiply right inside printf: `printf("%d\\n", n * 2);`.',
         explain:
           "scanf saved the typed number into n, and you printed n times 2. The program works for any number the user types.",
@@ -370,6 +386,7 @@ export const STUDY_TOPICS: StudyTopic[] = [
             hidden: true,
           },
         ],
+        solution: `n = int(input())\nprint(n * 2)`,
         hint: "Write `print(n * 2)` below the input line.",
         explain:
           "input() saved the typed number into n, and you printed n times 2. The program works for any number the user types.",
@@ -573,6 +590,11 @@ export const STUDY_TOPICS: StudyTopic[] = [
             hidden: true,
           },
         ],
+        solution: `#include <stdio.h>\n\nint main(void) {\n    int n;\n    scanf("%d", &n);\n    if (n > 0) {\n        printf("positive\\n");\n    } else {\n        printf("not positive\\n");\n    }\n    return 0;\n}`,
+        reassessConstruct: {
+          label: "an if / else decision",
+          regex: "\\bif\\b",
+        },
         hint: '`if (n > 0) { printf("positive\\n"); } else { printf("not positive\\n"); }`',
         explain:
           "The if checked n > 0. When it was true the first block ran, otherwise the else block ran. That is a decision.",
@@ -600,6 +622,11 @@ export const STUDY_TOPICS: StudyTopic[] = [
             hidden: true,
           },
         ],
+        solution: `n = int(input())\nif n > 0:\n    print("positive")\nelse:\n    print("not positive")`,
+        reassessConstruct: {
+          label: "an if / else decision",
+          regex: "\\bif\\b",
+        },
         hint: 'if n > 0:\n    print("positive")\nelse:\n    print("not positive")',
         explain:
           "The if checked n > 0. When it was true the first block ran, otherwise the else block ran. That is a decision.",
@@ -700,6 +727,10 @@ export const STUDY_TOPICS: StudyTopic[] = [
             expected: "1\n2\n3\n4\n5",
           },
         ],
+        reassessConstruct: {
+          label: "a loop (for or while)",
+          regex: "\\b(for|while)\\b",
+        },
         hint: 'for (int i = 1; i <= 5; i++) { printf("%d\\n", i); }',
         explain:
           "The loop started i at 1, printed it, added 1, and repeated until i passed 5. Five lines from one printf.",
@@ -721,6 +752,10 @@ export const STUDY_TOPICS: StudyTopic[] = [
             expected: "1\n2\n3\n4\n5",
           },
         ],
+        reassessConstruct: {
+          label: "a loop (for or while)",
+          regex: "\\b(for|while)\\b",
+        },
         hint: "for i in range(1, 6):\n    print(i)",
         explain:
           "range(1, 6) gives 1 to 5, and the loop printed each one. Five lines from one print.",
@@ -800,6 +835,10 @@ export const STUDY_TOPICS: StudyTopic[] = [
         starterCode: `#include <stdio.h>\n\n// write int square(int n) here\n\nint main(void) {\n    // print square(6)\n    return 0;\n}`,
         expectedOutput: "36",
         tests: [{ name: "Prints square(6) = 36", stdin: "", expected: "36" }],
+        reassessConstruct: {
+          label: "a function of your own (not just main)",
+          regex: "(int|void|long|float|double|char)\\s+(?!main\\b)\\w+\\s*\\(",
+        },
         hint: 'int square(int n) { return n * n; } then printf("%d\\n", square(6));',
         explain:
           "You named a block of code square. Calling square(6) ran that block with n = 6 and returned 36.",
@@ -815,6 +854,10 @@ export const STUDY_TOPICS: StudyTopic[] = [
         starterCode: `# write def square(n): here\n\n# print square(6)`,
         expectedOutput: "36",
         tests: [{ name: "Prints square(6) = 36", stdin: "", expected: "36" }],
+        reassessConstruct: {
+          label: "a function you defined with def",
+          regex: "\\bdef\\s+\\w+",
+        },
         hint: "def square(n):\n    return n * n\n\nprint(square(6))",
         explain:
           "You named a block of code square. Calling square(6) ran that block with n = 6 and returned 36.",
@@ -896,6 +939,10 @@ export const STUDY_TOPICS: StudyTopic[] = [
         tests: [
           { name: "factorial(5) prints 120", stdin: "", expected: "120" },
         ],
+        reassessConstruct: {
+          label: "a function that calls itself (recursion)",
+          selfCall: true,
+        },
         hint: "Write `return n * factorial(n - 1);` after the if.",
         explain:
           "factorial(5) asked factorial(4), which asked factorial(3), down to 1 - then the answers multiplied back up to 120.",
@@ -913,6 +960,10 @@ export const STUDY_TOPICS: StudyTopic[] = [
         tests: [
           { name: "factorial(5) prints 120", stdin: "", expected: "120" },
         ],
+        reassessConstruct: {
+          label: "a function that calls itself (recursion)",
+          selfCall: true,
+        },
         hint: "Write `return n * factorial(n - 1)` at the same indent as the if.",
         explain:
           "factorial(5) asked factorial(4), which asked factorial(3), down to 1 - then the answers multiplied back up to 120.",
@@ -991,6 +1042,10 @@ export const STUDY_TOPICS: StudyTopic[] = [
         starterCode: `#include <stdio.h>\n\nint main(void) {\n    int marks[3] = {4, 8, 15};\n    int total = 0;\n    // add every marks[i] into total\n    printf("%d\\n", total);\n    return 0;\n}`,
         expectedOutput: "27",
         tests: [{ name: "Prints the total 27", stdin: "", expected: "27" }],
+        reassessConstruct: {
+          label: "a loop (for or while)",
+          regex: "\\b(for|while)\\b",
+        },
         hint: "for (int i = 0; i < 3; i++) { total = total + marks[i]; }",
         explain:
           "The loop visited marks[0], marks[1] and marks[2], adding each one: 4 + 8 + 15 = 27.",
@@ -1006,6 +1061,10 @@ export const STUDY_TOPICS: StudyTopic[] = [
         starterCode: `marks = [4, 8, 15]\ntotal = 0\n# add every m in marks into total\nprint(total)`,
         expectedOutput: "27",
         tests: [{ name: "Prints the total 27", stdin: "", expected: "27" }],
+        reassessConstruct: {
+          label: "a loop (for or while)",
+          regex: "\\b(for|while)\\b",
+        },
         hint: "for m in marks:\n    total = total + m",
         explain:
           "The loop visited each item in the list, adding them up: 4 + 8 + 15 = 27.",

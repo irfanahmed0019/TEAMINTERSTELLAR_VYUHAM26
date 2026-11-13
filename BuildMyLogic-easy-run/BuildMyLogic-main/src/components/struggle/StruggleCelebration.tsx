@@ -121,8 +121,9 @@ function CelebrationModal({ misconception }: { misconception: Misconception }) {
               {misconception.summary}
             </p>
             <p className="mt-4 text-[13px] font-medium text-muted-foreground">
-              You failed this {misconception.failuresToConquer} times, kept
-              going, and just passed every check on your own. That is the skill.
+              This check failed in {misconception.failuresToConquer} of your
+              recorded submissions. You then passed a targeted reassessment with
+              fresh checks you had not seen. That is the skill.
             </p>
             <button
               type="button"
