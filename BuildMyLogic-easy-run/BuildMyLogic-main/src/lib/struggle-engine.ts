@@ -66,6 +66,9 @@ export type ReassessmentTest = {
  * code must genuinely use so pasting the expected output cannot pass.
  */
 export type Reassessment = {
+  title?: string | undefined;
+  task?: string | undefined;
+  version?: string | undefined;
   tests: ReassessmentTest[];
   createdAt: number;
   attempts: number;
@@ -223,7 +226,7 @@ export function summarizeMisconception(
     case "runtime":
       return `Repeating crashes on "${test}" in ${topicTitle}`;
     case "edge_case":
-      return `Main case works but "${test}" keeps failing in ${topicTitle}`;
+      return `Repeated failure on "${test}" in ${topicTitle}`;
     case "logic":
       return `Output for "${test}" keeps missing the goal in ${topicTitle}`;
     case "formatting":
@@ -249,13 +252,13 @@ export function buildTargetedChallenge(
     case "runtime":
       return {
         title: `Targeted fix: stop the crash`,
-        task: `"${test}" crashes your program. Before the crashing line, print the values it uses. One of them is not what you think - guard or fix that value, then re-run.`,
+        task: `"${test}" crashes your program. Before the crashing line, print the values it uses. Compare those values with the task requirements, then re-run after your fix.`,
         check: hint,
       };
     case "edge_case":
       return {
         title: `Targeted fix: "${test}"`,
-        task: `Your main logic works but "${test}" keeps failing. Write the smallest program that handles exactly that case on its own. When it passes, merge that handling back into your full solution.`,
+        task: `The check "${test}" keeps failing. Write the smallest program that handles exactly that case on its own. When it passes, merge that handling back into your full solution.`,
         check: hint,
       };
     case "logic":
@@ -528,6 +531,123 @@ export function constructSatisfied(
   return true;
 }
 
+/** Curated transfer tasks. Each changes the original task, not just its editor. */
+export function newReassessment(
+  topicId: string,
+  language: string,
+  at: number,
+): Reassessment | null {
+  const catalog: Record<
+    string,
+    { title: string; task: string; cases: [string, string][] }
+  > = {
+    "first-program": {
+      title: "Two-line greeting",
+      task: "Print Build on the first line and Logic on the second. Match capitalization exactly. This differs from the original Hello, world task.",
+      cases: [["", "Build\nLogic"]],
+    },
+    variables: {
+      title: "Swap and add",
+      task: "Read two integers on separate lines. Store them in variables, then print their sum followed by their product, each on its own line.",
+      cases: [
+        ["3\n7\n", "10\n21"],
+        ["-2\n5\n", "3\n-10"],
+        ["0\n4\n", "4\n0"],
+      ],
+    },
+    input: {
+      title: "Triple, then add one",
+      task: "Read one integer n. Print 3 * n + 1. This changes the original doubling task. Handle zero and negative inputs too.",
+      cases: [
+        ["4\n", "13"],
+        ["0\n", "1"],
+        ["-3\n", "-8"],
+      ],
+    },
+    math: {
+      title: "Quotient and remainder",
+      task: "Read a nonnegative integer n and a positive divisor d on separate lines. Print the integer quotient n / d and the remainder n % d on separate lines.",
+      cases: [
+        ["23\n4\n", "5\n3"],
+        ["0\n3\n", "0\n0"],
+        ["12\n6\n", "2\n0"],
+      ],
+    },
+    conditions: {
+      title: "Three-way sign decision",
+      task: "Read an integer. Print negative for n < 0, zero for n == 0, or positive for n > 0. Use lowercase, with no prompts. Unlike the original task, zero needs its own branch.",
+      cases: [
+        ["-7\n", "negative"],
+        ["0\n", "zero"],
+        ["19\n", "positive"],
+      ],
+    },
+    loops: {
+      title: "Sum the even numbers",
+      task: "Read a nonnegative integer n. Use a loop to add every even integer from 0 through n (inclusive), then print the sum. This is a new task, not the original count from 1 to 5.",
+      cases: [
+        ["6\n", "12"],
+        ["0\n", "0"],
+        ["7\n", "12"],
+        ["2\n", "2"],
+      ],
+    },
+    functions: {
+      title: "Cube through a function",
+      task: "Read an integer n. Define a function cube(n) that returns n * n * n, call it, and print the result. This changes the original square task.",
+      cases: [
+        ["3\n", "27"],
+        ["-2\n", "-8"],
+        ["0\n", "0"],
+      ],
+    },
+    recursion: {
+      title: "Recursive sum",
+      task: "Read a nonnegative integer n. Define sum_to(n) recursively: return 0 for n == 0, otherwise n + sum_to(n - 1). Print sum_to(n). This changes the original factorial task.",
+      cases: [
+        ["4\n", "10"],
+        ["0\n", "0"],
+        ["1\n", "1"],
+        ["7\n", "28"],
+      ],
+    },
+    "arrays-lists": {
+      title: "Count values above a threshold",
+      task: "Read count n, then n integers (one per line), then a threshold t. Store the values in an array/list and print how many are strictly greater than t. For n == 0, print 0.",
+      cases: [
+        ["4\n2\n8\n5\n9\n5\n", "2"],
+        ["0\n3\n", "0"],
+        ["3\n4\n4\n4\n4\n", "0"],
+      ],
+    },
+    strings: {
+      title: "Count lowercase vowels",
+      task: "Read one line of lowercase letters (possibly empty). Count occurrences of a, e, i, o, u and print the count. This differs from the original string-length task.",
+      cases: [
+        ["logic\n", "2"],
+        ["rhythm\n", "0"],
+        ["\n", "0"],
+        ["aeiou\n", "5"],
+      ],
+    },
+  };
+  const spec = catalog[topicId];
+  if (!spec || !["c", "python"].includes(language.toLowerCase())) return null;
+  return {
+    title: spec.title,
+    task: spec.task,
+    version: "transfer-v1",
+    tests: spec.cases.map(([stdin, expected], i) => ({
+      name: `Transfer check ${i + 1}`,
+      stdin,
+      expected,
+      unseen: true,
+    })),
+    createdAt: at,
+    attempts: 0,
+  };
+}
+
 /** Saves a prepared reassessment onto its locked misconception. */
 export function attachReassessment(
   prev: StruggleState,
@@ -567,8 +687,36 @@ export function recordReassessmentAttempt(
   if (!target || target.status !== "locked" || (target.lockedAt ?? 0) >= at)
     return { state: prev, outcome: null };
 
+  const spec = target.reassessment;
+  if (
+    !spec ||
+    spec.version !== "transfer-v1" ||
+    spec.createdAt <= (target.lockedAt ?? 0) ||
+    spec.createdAt > at
+  )
+    return { state: prev, outcome: null };
+  const canonical = newReassessment(
+    target.topicId,
+    target.language,
+    spec.createdAt,
+  );
+  if (
+    !canonical ||
+    JSON.stringify(spec.tests) !== JSON.stringify(canonical.tests)
+  )
+    return { state: prev, outcome: null };
   const total = input.graded.length;
-  const failing = input.graded.filter((g) => !g.passed);
+  const norm = (v: string) => v.replace(/\r/g, "").trim();
+  const matchesSpec =
+    total === spec.tests.length &&
+    spec.tests.every((t, i) => {
+      const g = input.graded[i];
+      return g && g.name === t.name && g.expected === t.expected;
+    });
+  if (!matchesSpec) return { state: prev, outcome: null };
+  const failing = input.graded.filter(
+    (g) => !g.passed || norm(g.actual) !== norm(g.expected),
+  );
   const fullPass = total > 0 && failing.length === 0 && input.constructOk;
   const kind = failing.length ? classifyFailure(failing[0]!) : null;
 
@@ -629,10 +777,8 @@ export function recordReassessmentAttempt(
 
 /**
  * Feeds one VS Code build session into the same engine, deduped by its
- * session signature. A completed session counts as the VS Code path's
- * reassessment: the mentor's follow-up/recovery challenge is a new challenge
- * attempted after the lock, so completing it conquers patterns this challenge
- * (or its base mission) locked earlier.
+ * session signature. A completed session records progress but never automatically conquers a
+ * pattern: completion alone does not prove a new relevant reassessment.
  */
 export function recordBuildSessionOutcome(
   prev: StruggleState,
@@ -659,26 +805,36 @@ export function recordBuildSessionOutcome(
   const at = input.at ?? Date.now();
 
   let graded: GradedResult[];
-  if (input.checkpoints && input.checkpoints.length > 0) {
-    graded = input.checkpoints.map((c) => ({
-      name: c.title,
-      hidden: true,
-      passed: c.status === "passed",
-      expected: "",
-      actual: c.lastOutput ?? "",
-      status: c.status === "passed" ? "Accepted" : "Wrong Answer",
-      stderr: "",
-    }));
+  if (
+    input.checkpoints?.some(
+      (c) => c.status === "passed" || c.status === "failed",
+    )
+  ) {
+    graded = input.checkpoints
+      .filter((c) => c.status === "passed" || c.status === "failed")
+      .map((c) => ({
+        name: c.title,
+        hidden: true,
+        passed: c.status === "passed",
+        expected: "",
+        actual: c.lastOutput ?? "",
+        status: c.status === "passed" ? "Accepted" : "Wrong Answer",
+        stderr: "",
+      }));
   } else if (input.total > 0) {
-    graded = Array.from({ length: input.total }, (_, i) => ({
-      name: `challenge test ${i + 1}`,
-      hidden: true,
-      passed: i < input.passed,
-      expected: "",
-      actual: "",
-      status: i < input.passed ? "Accepted" : "Wrong Answer",
-      stderr: "",
-    }));
+    // Aggregate scores do not identify individual failing tests. Record one
+    // explicitly aggregate signal, not invented per-test pass positions.
+    graded = [
+      {
+        name: "aggregate challenge outcome (test identities unavailable)",
+        hidden: true,
+        passed: input.completed && input.passed === input.total,
+        expected: "",
+        actual: "",
+        status: input.completed ? "Accepted" : "Wrong Answer",
+        stderr: "",
+      },
+    ];
   } else {
     graded = [
       {
@@ -707,27 +863,11 @@ export function recordBuildSessionOutcome(
     },
   );
 
-  let misconceptions = recorded.misconceptions;
-  let conquered = outcome.conquered;
-  if (input.completed) {
-    const ids = new Set(
-      [input.topicId, input.baseTopicId].filter((v): v is string => Boolean(v)),
-    );
-    misconceptions = misconceptions.map((m) => {
-      if (m.status !== "locked" || !ids.has(m.topicId)) return m;
-      if ((m.lockedAt ?? 0) >= at) return m;
-      const done: Misconception = {
-        ...m,
-        status: "conquered",
-        conqueredAt: at,
-        failuresToConquer: m.occurrences,
-        timeToConquerMs: at - m.firstSeenAt,
-        reassessed: true,
-      };
-      if (!conquered) conquered = done;
-      return done;
-    });
-  }
+  const misconceptions = recorded.misconceptions;
+  const conquered = outcome.conquered;
+  // Session completion does not prove a NEW, relevant reassessment. Keep
+  // locks until explicit transfer-task evidence is available; never infer it
+  // from a recovery suffix or a later completion alone.
 
   return {
     state: {
@@ -794,8 +934,8 @@ export function struggleByTopic(prev: StruggleState): TopicStruggle[] {
   for (const m of prev.misconceptions) {
     const row = map.get(m.topicId);
     if (!row) continue;
-    if (m.status === "conquered") row.conquered += 1;
-    else row.activeMisconceptions += 1;
+    if (m.status === "conquered" && m.reassessed === true) row.conquered += 1;
+    else if (m.status !== "conquered") row.activeMisconceptions += 1;
   }
   for (const row of map.values()) {
     const entries = Object.entries(row.kinds) as [FailureKind, number][];
@@ -829,9 +969,12 @@ export function struggleMetrics(prev: StruggleState): StruggleMetrics {
     (m) =>
       m.status === "locked" ||
       (m.status === "conquered" &&
-        (m.failuresToConquer ?? 0) >= LOCK_THRESHOLD),
+        (m.failuresToConquer ?? 0) >= LOCK_THRESHOLD &&
+        m.reassessed === true),
   );
-  const conquered = prev.misconceptions.filter((m) => m.status === "conquered");
+  const conquered = prev.misconceptions.filter(
+    (m) => m.status === "conquered" && m.reassessed === true,
+  );
   const conqueredLocked = conquered.filter(
     (m) => (m.failuresToConquer ?? 0) >= LOCK_THRESHOLD,
   );
@@ -923,7 +1066,7 @@ export function failureReplay(m: Misconception): {
     ? `"${m.example.testName}" kept failing${m.example.actual ? ` - your recorded output was "${m.example.actual.slice(0, 80)}" against the goal "${m.example.expected.slice(0, 80)}"` : ""}.`
     : `${m.summary}.`;
   const n = m.failuresToConquer ?? m.occurrences;
-  const cause = `Recorded failing in ${n} graded submission${n === 1 ? "" : "s"}, always the same check (${KIND_LABEL[m.kind]}). The exact outputs above are the recorded evidence.`;
+  const cause = `Recorded failing in ${n} graded submission${n === 1 ? "" : "s"}, for this tracked pattern (${KIND_LABEL[m.kind]}). This groups observed results; it does not establish what caused the mistakes.`;
   const mins =
     typeof m.timeToConquerMs === "number"
       ? Math.max(1, Math.round(m.timeToConquerMs / 60000))
@@ -935,7 +1078,7 @@ export function failureReplay(m: Misconception): {
         ? ` Elapsed time from the first recorded failure: ${mins} min.`
         : ` Elapsed time from the first recorded failure: about ${Math.round(mins / 60)} h.`;
   const after = m.reassessed
-    ? `You then passed this pattern's targeted reassessment - fresh checks you had not seen before.${took}`
+    ? `You then passed this pattern's targeted reassessment - a changed task with new transfer checks.${took}`
     : `A later recorded attempt passed every check on ${m.topicTitle}.${took}`;
   return { before, cause, after };
 }

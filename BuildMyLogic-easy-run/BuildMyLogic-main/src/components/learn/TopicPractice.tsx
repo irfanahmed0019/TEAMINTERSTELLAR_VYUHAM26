@@ -17,12 +17,7 @@ import {
   saveTargetedReassessment,
   useLoop,
 } from "@/lib/loop-store";
-import {
-  buildReassessmentPlan,
-  constructSatisfied,
-  type Reassessment,
-  type ReassessmentTest,
-} from "@/lib/struggle-engine";
+import { newReassessment, constructSatisfied } from "@/lib/struggle-engine";
 import type { TopicExercise, TopicLanguage } from "@/lib/topic-library";
 
 /** Blank starting point for the fresh reassessment program. */
@@ -186,53 +181,23 @@ export function TopicPractice({
     setPreparing(true);
     setError("");
     try {
-      const plan = buildReassessmentPlan(
-        activeMisconception,
-        exercise.tests,
-        Boolean(exercise.solution),
-      );
-      const variants: ReassessmentTest[] = [];
-      let note = "";
-      if (plan.pending.length > 0 && exercise.solution) {
-        try {
-          const items = await execute(
-            plan.pending.map((v) => v.stdin),
-            exercise.solution,
-          );
-          plan.pending.forEach((v, i) => {
-            const r = items[i];
-            if (r && r.statusId === 3)
-              variants.push({
-                name: v.name,
-                stdin: v.stdin,
-                expected: (r.stdout ?? "").replace(/\r/g, "").trimEnd(),
-                variantOf: v.variantOf,
-              });
-          });
-          if (variants.length < plan.pending.length)
-            note =
-              "Some fresh-input variants could not be prepared, so this reassessment uses the remaining checks only.";
-        } catch {
-          note =
-            "Fresh-input variants could not be prepared right now, so this reassessment uses the original and unseen checks.";
-        }
-      }
-      const tests = [...plan.ready, ...variants];
-      if (tests.length === 0)
+      const reassessment =
+        activeMisconception.reassessment?.version === "transfer-v1"
+          ? activeMisconception.reassessment
+          : newReassessment(topicId, language, Date.now());
+      if (!reassessment)
         throw new Error(
-          "This exercise has no recorded checks to build a reassessment from.",
+          "No transfer task is available for this topic yet. Your pattern stays locked.",
         );
-      const reassessment: Reassessment = {
-        tests,
-        createdAt: Date.now(),
-        attempts: 0,
-        constructLabel: exercise.reassessConstruct?.label ?? null,
-        constructRegex: exercise.reassessConstruct?.regex ?? null,
-        constructSelfCall: exercise.reassessConstruct?.selfCall ?? null,
-      };
       saveTargetedReassessment(activeMisconception.id, reassessment);
-      setReassessNote(note);
-      setReassessCode(freshStarter(language));
+      setReassessNote(
+        "Curated transfer task: changed requirements and new test cases. Passing verifies these checks, not unaided work or general mastery.",
+      );
+      setReassessCode(
+        window.localStorage.getItem(
+          `bml.reassess.${activeMisconception.id}.v1`,
+        ) || freshStarter(language),
+      );
       setResults(null);
       setPassed(false);
       setConstructIssue(false);
@@ -298,8 +263,8 @@ export function TopicPractice({
             </p>
             <p className="mt-2 text-[11.5px] font-semibold text-amber-700">
               Re-passing the same exercise no longer clears this pattern - it
-              conquers when you pass a targeted reassessment: a fresh program
-              graded on checks you have not seen.
+              conquers when you pass a targeted reassessment: a changed task
+              graded on new transfer checks.
             </p>
             <button
               type="button"
@@ -313,7 +278,7 @@ export function TopicPractice({
                 <Target className="h-3.5 w-3.5" />
               )}{" "}
               {activeMisconception.reassessment
-                ? "Restart targeted reassessment"
+                ? "Resume targeted reassessment"
                 : "Start targeted reassessment"}
             </button>
           </div>
@@ -324,11 +289,10 @@ export function TopicPractice({
               <Target className="h-3 w-3" /> Targeted reassessment
             </span>
             <h3 className="display mt-3 text-[18px] font-extrabold tracking-[-0.02em]">
-              Prove the fix with a fresh program
+              {activeMisconception.reassessment.title ?? "New transfer task"}
             </h3>
             <p className="mt-1 text-[13px] text-muted-foreground">
-              {activeMisconception.targetedChallenge?.task ??
-                activeMisconception.summary}
+              {activeMisconception.reassessment.task}
             </p>
             <p className="mt-4 text-[12px] font-black uppercase tracking-widest text-muted-foreground">
               Checks your fresh program must pass
@@ -354,8 +318,8 @@ export function TopicPractice({
             {activeMisconception.reassessment.constructLabel && (
               <p className="mt-3 rounded-xl bg-muted p-3 text-[12.5px] font-semibold">
                 Your fresh program must use{" "}
-                {activeMisconception.reassessment.constructLabel} - pasting the
-                expected output cannot pass.
+                {activeMisconception.reassessment.constructLabel} (a basic
+                code-pattern check, not a guarantee against hardcoding).
               </p>
             )}
             {reassessNote && (
@@ -369,6 +333,20 @@ export function TopicPractice({
                   <Check className="h-4 w-4" /> Reassessment passed - pattern
                   conquered.
                 </p>
+              </div>
+            )}
+            {results && !passed && (
+              <div className="mt-4 space-y-2" role="status">
+                {results.map((r) => (
+                  <p
+                    key={r.name}
+                    className={`rounded-xl p-3 text-[12px] ${r.passed ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800"}`}
+                  >
+                    {r.passed ? "Passed" : "Not passed"}: {r.name}
+                    {!r.passed &&
+                      ` - expected ${JSON.stringify(r.expected)}, got ${JSON.stringify(r.actual)}. ${r.stderr || r.status}`}
+                  </p>
+                ))}
               </div>
             )}
             {constructIssue && results && !passed && (
@@ -516,7 +494,18 @@ export function TopicPractice({
         <div className="mt-3">
           <CodeEditor
             value={mode === "reassess" ? reassessCode : code}
-            onChange={mode === "reassess" ? setReassessCode : updateCode}
+            onChange={
+              mode === "reassess"
+                ? (next) => {
+                    setReassessCode(next);
+                    if (activeMisconception)
+                      window.localStorage.setItem(
+                        `bml.reassess.${activeMisconception.id}.v1`,
+                        next,
+                      );
+                  }
+                : updateCode
+            }
             language={language}
             label={`Code editor for ${exercise.title}`}
           />

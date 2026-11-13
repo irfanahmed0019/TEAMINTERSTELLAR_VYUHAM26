@@ -34,6 +34,7 @@ const KIND_BAR: Record<string, string> = {
   runtime: "bg-orange-400",
   edge_case: "bg-amber-400",
   logic: "bg-red-400",
+  formatting: "bg-violet-400",
 };
 
 /**
@@ -72,7 +73,9 @@ export function StruggleDNA() {
   const topics = struggleByTopic(struggle!);
   const patterns = strugglePatterns(struggle!);
   const active = misconceptions.filter((m) => m.status !== "conquered");
-  const conquered = misconceptions.filter((m) => m.status === "conquered");
+  const conquered = misconceptions.filter(
+    (m) => m.status === "conquered" && m.reassessed === true,
+  );
 
   return (
     <div className="mt-5 space-y-5">
@@ -208,7 +211,7 @@ export function StruggleDNA() {
                   </p>
                   <span className="pill shrink-0 bg-amber-100 font-bold text-amber-700">
                     {m.status === "locked"
-                      ? "Targeted fix active"
+                      ? "Repeated pattern - inferred"
                       : "Inferred - watching"}{" "}
                     · {m.occurrences}×
                   </span>
@@ -308,7 +311,7 @@ function ConqueredCard({ misconception: m }: { misconception: Misconception }) {
             <Flame className="h-3 w-3" /> {m.failuresToConquer ?? m.occurrences}{" "}
             fails
             {typeof m.timeToConquerMs === "number"
-              ? ` · ${fmtDuration(m.timeToConquerMs)}`
+              ? ` · ${fmtDuration(m.timeToConquerMs)} elapsed`
               : ""}
           </span>
           <ChevronDown

@@ -347,12 +347,9 @@ export function recordMissionEvidence(missionId: string, amount = 2) {
 export function applyBuildSessionEvidence(remote: BuildSessionState) {
   setLoopState((prev) => {
     if (!prev.plan) return prev;
-    const mission =
-      prev.plan.missions.find((item) => item.id === remote.challenge_id) ??
-      prev.plan.missions.find(
-        (item) => prev.missionProgress[item.id]?.status === "active",
-      ) ??
-      prev.plan.missions[0];
+    const mission = prev.plan.missions.find(
+      (item) => item.id === remote.challenge_id,
+    );
     if (!mission) return prev;
     const score = remote.test_score;
     const completed =
@@ -361,8 +358,11 @@ export function applyBuildSessionEvidence(remote: BuildSessionState) {
     const struggling = !completed && Boolean(remote.potential_struggle);
     const failed = remote.status === "failed";
     if (!completed && !struggling && !failed) return prev;
-    const signature = `build-session:${remote.session_id}:${remote.status}:${remote.attempts}:${score?.passed ?? 0}:${remote.hints_used}`;
-    if (prev.activity.some((item) => item.text.includes(signature)))
+    const signature = `build-session:${remote.session_id}:attempt:${remote.attempts}`;
+    if (
+      (prev.struggle?.ingestedSessions ?? []).includes(signature) ||
+      prev.activity.some((item) => item.text.includes(signature))
+    )
       return prev;
 
     const missionProgress = { ...prev.missionProgress };
@@ -497,7 +497,7 @@ export function applyBuildSessionEvidence(remote: BuildSessionState) {
         topicId: mission.id,
         baseTopicId: baseMissionId !== mission.id ? baseMissionId : undefined,
         topicTitle: mission.title,
-        language: remote.language ?? "",
+        language: (remote.language ?? "").toLowerCase(),
         exerciseTitle: remote.title ?? mission.title,
         completed,
         failed,

@@ -14,6 +14,7 @@ import {
   failureReplay,
   failureSignature,
   markCelebrated,
+  newReassessment,
   pendingCelebration,
   recordBuildSessionOutcome,
   recordPracticeAttempt,
@@ -31,6 +32,17 @@ const baseInput = {
   exerciseTitle: "Sum 1 to n",
   exerciseHint: "range(a, b) stops before b.",
 };
+
+
+function prepare(state) {
+  const m = state.misconceptions.find(m => m.status === "locked");
+  return attachReassessment(state, m.id, newReassessment(m.topicId, m.language, 3000));
+}
+function transferGraded() {
+  return newReassessment("loops", "python", 3000).tests.map(t => ({
+    name: t.name, hidden: false, passed: true, expected: t.expected, actual: t.expected, status: "Accepted", stderr: "",
+  }));
+}
 
 function graded(fails) {
   const all = [
@@ -103,6 +115,7 @@ test("a regular full pass does NOT conquer a locked pattern; only its reassessme
   let state = emptyStruggleState;
   state = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 1000 }).state;
   state = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 2000 }).state;
+  state = prepare(state);
   const locked = state.misconceptions[0];
   assert.equal(locked.status, "locked");
 
@@ -115,7 +128,7 @@ test("a regular full pass does NOT conquer a locked pattern; only its reassessme
   // A reassessment pass before the lock time is rejected outright.
   const early = recordReassessmentAttempt(afterPass.state, {
     misconceptionId: locked.id,
-    graded: graded([]),
+    graded: transferGraded(),
     constructOk: true,
     at: 1500,
   });
@@ -124,7 +137,7 @@ test("a regular full pass does NOT conquer a locked pattern; only its reassessme
   // Reassessment without the required construct cannot conquer.
   const noConstruct = recordReassessmentAttempt(afterPass.state, {
     misconceptionId: locked.id,
-    graded: graded([]),
+    graded: transferGraded(),
     constructOk: false,
     at: 70000,
   });
@@ -134,7 +147,7 @@ test("a regular full pass does NOT conquer a locked pattern; only its reassessme
   // A real reassessment pass after the lock conquers and celebrates once.
   const { state: next, outcome } = recordReassessmentAttempt(afterPass.state, {
     misconceptionId: locked.id,
-    graded: graded([]),
+    graded: transferGraded(),
     constructOk: true,
     at: 80000,
   });
@@ -169,9 +182,10 @@ test("struggle DNA and metrics come only from recorded attempts", () => {
   let state = emptyStruggleState;
   state = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 1000 }).state;
   state = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 2000 }).state;
+  state = prepare(state);
   state = recordReassessmentAttempt(state, {
     misconceptionId: state.misconceptions[0].id,
-    graded: graded([]),
+    graded: transferGraded(),
     constructOk: true,
     at: 3600000,
   }).state;
@@ -194,9 +208,10 @@ test("failure replay quotes only recorded data and honest elapsed time", () => {
   let state = emptyStruggleState;
   state = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 1000 }).state;
   state = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 2000 }).state;
+  state = prepare(state);
   const { outcome } = recordReassessmentAttempt(state, {
     misconceptionId: state.misconceptions[0].id,
-    graded: graded([]),
+    graded: transferGraded(),
     constructOk: true,
     at: 62000,
   });
@@ -285,7 +300,44 @@ test("VS Code build sessions feed the engine once per session signature", () => 
   });
   state = r.state;
   const done = state.misconceptions.find((m) => m.id === locked.id);
-  assert.equal(done.status, "conquered", "later completed challenge conquers");
-  assert.equal(done.reassessed, true);
-  assert.ok(pendingCelebration(state) === null || pendingCelebration(state).id === done.id);
+  assert.equal(done.status, "locked", "completion alone cannot prove a relevant new reassessment");
+  assert.notEqual(done.reassessed, true);
+  assert.equal(pendingCelebration(state), null);
+});
+
+test("reassessment cannot conquer without a stored NEW task, with altered checks, or missing checks", () => {
+  let state = emptyStruggleState;
+  state = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 1000 }).state;
+  state = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 2000 }).state;
+  const args = { misconceptionId: state.misconceptions[0].id, graded: transferGraded(), constructOk: true, at: 9000 };
+  assert.equal(recordReassessmentAttempt(state, args).outcome, null);
+  state = prepare(state);
+  assert.equal(recordReassessmentAttempt(state, { ...args, graded: transferGraded().slice(0, 1) }).outcome, null);
+  assert.equal(recordReassessmentAttempt(state, { ...args, graded: graded([]) }).outcome, null);
+  assert.equal(recordReassessmentAttempt(state, args).outcome.conquered.reassessed, true);
+});
+
+test("all ten study topics have genuinely changed curated transfer tasks", () => {
+  for (const topic of ["first-program", "variables", "input", "math", "conditions", "loops", "functions", "recursion", "arrays-lists", "strings"]) {
+    for (const lang of ["python", "c"]) {
+      const task = newReassessment(topic, lang, 3000);
+      assert.equal(task.version, "transfer-v1");
+      assert.ok(task.task.length > 40);
+      assert.ok(task.tests.every(t => t.unseen));
+    }
+  }
+  assert.equal(newReassessment("unknown", "python", 3000), null);
+});
+
+test("stored task version and altered canonical test set are rejected", () => {
+  let state = emptyStruggleState;
+  state = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 1000 }).state;
+  state = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 2000 }).state;
+  const id = state.misconceptions[0].id;
+  const spec = newReassessment("loops", "python", 3000);
+  const args = {misconceptionId:id,graded:transferGraded(),constructOk:true,at:9000};
+  let altered = attachReassessment(state,id,{...spec,version:"unknown-v2"});
+  assert.equal(recordReassessmentAttempt(altered,args).outcome,null);
+  altered = attachReassessment(state,id,{...spec,tests:spec.tests.slice(0,1)});
+  assert.equal(recordReassessmentAttempt(altered,args).outcome,null);
 });

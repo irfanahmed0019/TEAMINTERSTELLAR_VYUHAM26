@@ -1,0 +1,42 @@
+{
+  "first-program": {
+    "python": "print(\"Build\")\nprint(\"Logic\")",
+    "c": "#include <stdio.h>\n#include <string.h>\nint main(void){ puts(\"Build\"); puts(\"Logic\"); return 0; }"
+  },
+  "variables": {
+    "python": "a=int(input()); b=int(input()); print(a+b); print(a*b)",
+    "c": "#include <stdio.h>\n#include <string.h>\nint main(void){ int a,b; scanf(\"%d%d\", &a,&b); printf(\"%d\\n%d\\n\",a+b,a*b); return 0; }"
+  },
+  "input": {
+    "python": "n=int(input()); print(3*n+1)",
+    "c": "#include <stdio.h>\n#include <string.h>\nint main(void){ int n; scanf(\"%d\", &n); printf(\"%d\\n\",3*n+1); return 0; }"
+  },
+  "math": {
+    "python": "n=int(input()); d=int(input()); print(n//d); print(n%d)",
+    "c": "#include <stdio.h>\n#include <string.h>\nint main(void){ int n,d; scanf(\"%d%d\",&n,&d); printf(\"%d\\n%d\\n\",n/d,n%d); return 0; }"
+  },
+  "conditions": {
+    "python": "n=int(input()); print(\"negative\" if n<0 else \"zero\" if n==0 else \"positive\")",
+    "c": "#include <stdio.h>\n#include <string.h>\nint main(void){ int n; scanf(\"%d\",&n); puts(n<0?\"negative\":n==0?\"zero\":\"positive\"); return 0; }"
+  },
+  "loops": {
+    "python": "n=int(input()); total=0\nfor i in range(0,n+1,2):\n    total+=i\nprint(total)",
+    "c": "#include <stdio.h>\n#include <string.h>\nint main(void){ int n,total=0; scanf(\"%d\",&n); for(int i=0;i<=n;i+=2) total+=i; printf(\"%d\\n\",total); return 0; }"
+  },
+  "functions": {
+    "python": "def cube(n):\n    return n*n*n\nprint(cube(int(input())))",
+    "c": "#include <stdio.h>\n#include <string.h>\nint cube(int n){ return n*n*n; }\nint main(void){ int n; scanf(\"%d\",&n); printf(\"%d\\n\",cube(n)); return 0; }"
+  },
+  "recursion": {
+    "python": "def sum_to(n):\n    if n==0: return 0\n    return n+sum_to(n-1)\nprint(sum_to(int(input())))",
+    "c": "#include <stdio.h>\n#include <string.h>\nint sum_to(int n){ return n==0?0:n+sum_to(n-1); }\nint main(void){ int n; scanf(\"%d\",&n); printf(\"%d\\n\",sum_to(n)); return 0; }"
+  },
+  "arrays-lists": {
+    "python": "n=int(input()); values=[int(input()) for _ in range(n)]; t=int(input()); print(sum(1 for v in values if v>t))",
+    "c": "#include <stdio.h>\n#include <string.h>\nint main(void){ int n,t,count=0,a[1000]; scanf(\"%d\",&n); for(int i=0;i<n;i++) scanf(\"%d\",&a[i]); scanf(\"%d\",&t); for(int i=0;i<n;i++) if(a[i]>t) count++; printf(\"%d\\n\",count); return 0; }"
+  },
+  "strings": {
+    "python": "text=input(); print(sum(1 for ch in text if ch in \"aeiou\"))",
+    "c": "#include <stdio.h>\n#include <string.h>\nint main(void){ char text[1000]; int count=0; if(!fgets(text,sizeof(text),stdin)) text[0]=0; for(int i=0;text[i];i++) if(strchr(\"aeiou\",text[i])) count++; printf(\"%d\\n\",count); return 0; }"
+  }
+}
