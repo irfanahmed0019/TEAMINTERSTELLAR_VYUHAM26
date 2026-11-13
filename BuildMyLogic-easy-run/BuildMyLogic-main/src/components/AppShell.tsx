@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 import { LayoutGrid, BookOpen, Timer, Settings as SettingsIcon, LogOut, Bell, ChevronDown, MessageCircle, BarChart3, Camera } from "lucide-react";
-import { getLoopState, resetLoop, setLoopState, useLoop } from "@/lib/loop-store";
+import { getLoopState, resetLoop, useLoop } from "@/lib/loop-store";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
 import { StruggleCelebration } from "@/components/struggle/StruggleCelebration";
 import { signOut, useAuth } from "@/lib/auth";
@@ -22,7 +22,8 @@ export function AppShell({ crumb, title, subtitle, quote, children, wide = false
   const navigate = useNavigate();
   const hydrated = useCloudHydrated(auth?.uid);
   const [notice, setNotice] = useState<string | null>(null);
-  const name = state.profile?.name?.trim() || "Builder";
+  const savedName = state.profile?.name?.trim();
+  const name = (!savedName || savedName === "Builder") ? (auth?.displayName || "Builder") : savedName;
   useEffect(() => {
     if (state.onboarded) return;
     // Signed-in learners: wait until their saved plan has actually loaded.
@@ -36,14 +37,7 @@ export function AppShell({ crumb, title, subtitle, quote, children, wide = false
     return () => window.clearTimeout(timer);
   }, [state.onboarded, navigate, auth, hydrated]);
 
-  useEffect(() => {
-    if (auth?.displayName && state.profile && (state.profile.name === "Builder" || !state.profile.name)) {
-      setLoopState((prev) => ({
-        ...prev,
-        profile: prev.profile ? { ...prev.profile, name: auth.displayName } : prev.profile,
-      }));
-    }
-  }, [auth, state.profile]);
+
 
   return (
     <div className="min-h-screen bg-background">

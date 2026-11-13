@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import type { LoopState } from "./loop-types";
+import { parseCloudRead } from "./cloud-restore";
 
 const supabaseUrl = (import.meta.env["VITE_SUPABASE_URL"] as string | undefined) || "";
 const supabaseAnonKey = (import.meta.env["VITE_SUPABASE_ANON_KEY"] as string | undefined) || "";
@@ -82,21 +83,17 @@ export async function saveLearnerStateToSupabase(userId: string, state: LoopStat
 /**
  * Loads learner state from Supabase PostgreSQL database
  */
-export async function loadLearnerStateFromSupabase(userId: string): Promise<LoopState | null> {
-  if (!supabase) return null;
-  try {
-    const { data, error } = await supabase
-      .from("learner_memory")
-      .select("state_json")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (error || !data) return null;
-    return (data.state_json as LoopState) ?? null;
-  } catch (err) {
-    console.warn("Supabase load exception:", err);
-    return null;
-  }
+export async function loadLearnerStateFromSupabase(
+  userId: string,
+): Promise<LoopState | null> {
+  if (!supabase)
+    throw new Error("Cloud storage is not configured. Saving is paused.");
+  const result = await supabase
+    .from("learner_memory")
+    .select("state_json")
+    .eq("user_id", userId)
+    .maybeSingle();
+  return parseCloudRead<LoopState>(result);
 }
 
 /**

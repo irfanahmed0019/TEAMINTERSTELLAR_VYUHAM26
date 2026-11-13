@@ -26,3 +26,9 @@ A new website load can recover earlier extension attempts from the session's ret
 - Authenticated production cloud write/RLS/read and cross-session hydration still require an isolated authenticated test identity. Serialization and source inspection are not that test.
 
 Finite tests do not prove unaided work, active learning time, mental state, general mastery, genuine use of a construct or tamper-resistant certification. Elapsed time is wall-clock time. Do not present these patterns as independently verified beliefs or job credentials.
+
+## Cloud restore safety
+
+Cloud read errors, invalid saved JSON, and missing configuration fail closed. Only an error-free absent row is treated as no saved state. Restore failures keep cloud autosave paused and show a retry action without changing saved cloud data. Successful restore normalizes data locally but does not write a migration or upload local state merely because someone signed in. Google display names are used as a display fallback rather than silently editing the saved profile. A subsequent state change can save only after a successful restore/confirmed absence for the same current identity; stale restores and queued saves are ignored after identity changes.
+
+Local automated checks exercise the actual client and CloudSync against a dummy HTTP service for permission, server, network, malformed-row, retry, no-row, existing-row normalization and explicit-edit/reload cases. This is not authenticated production persistence/RLS evidence. A real dedicated test identity and a supported test-only cleanup route are still required for a safe production fixture test.

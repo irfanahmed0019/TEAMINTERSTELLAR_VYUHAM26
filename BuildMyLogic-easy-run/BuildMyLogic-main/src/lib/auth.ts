@@ -186,15 +186,25 @@ export async function signOut() {
   persist();
 }
 
-export async function saveLoopStateToCloud(state: unknown): Promise<boolean> {
+export async function saveLoopStateToCloud(
+  state: unknown,
+  expectedUid?: string,
+): Promise<boolean> {
   const current = getAuthSession();
-  if (!current?.uid) return false;
+  if (!current?.uid || (expectedUid && current.uid !== expectedUid))
+    return false;
   return await saveLearnerStateToSupabase(current.uid, state as LoopState);
 }
 
-export async function loadLoopStateFromCloud(): Promise<unknown | null> {
+export async function loadLoopStateFromCloud(
+  expectedUid?: string,
+): Promise<unknown | null> {
   const current = getAuthSession();
-  if (!current?.uid) return null;
+  if (!current?.uid || (expectedUid && current.uid !== expectedUid)) {
+    throw new Error(
+      "Cloud restore requires the same signed-in learner. Saving is paused.",
+    );
+  }
   return await loadLearnerStateFromSupabase(current.uid);
 }
 
