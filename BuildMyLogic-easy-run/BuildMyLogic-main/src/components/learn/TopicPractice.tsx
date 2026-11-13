@@ -259,7 +259,9 @@ export function TopicPractice({
               {activeMisconception.summary}
             </p>
             <p className="mt-1.5 text-[12.5px] font-medium leading-5 text-amber-900">
-              {activeMisconception.targetedChallenge?.task}
+              Practice the underlying topic with a changed task below. Its new
+              input/output requirements test transfer beyond the original
+              failing exercise.
             </p>
             <p className="mt-2 text-[11.5px] font-semibold text-amber-700">
               Re-passing the same exercise no longer clears this pattern - it
