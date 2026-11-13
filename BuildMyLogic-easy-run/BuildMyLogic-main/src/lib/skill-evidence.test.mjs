@@ -147,3 +147,22 @@ test("struggle state survives the cloud save/load serialization round trip", () 
   );
   assert.ok(Array.isArray(restored.struggle.ingestedSessions), "ingestedSessions always present after restore");
 });
+
+test("first website handoff recovers two actual earlier VS Code attempts and reload stays deduped",()=>{
+ const remote=session({session_id:'history-qa',concept:'loops',status:'active',potential_struggle:true,attempts:2,test_score:{passed:0,total:1},checkpoints:[{index:0,title:'Loops',detail:'Check the loop',status:'failed',attempts:2,lastOutput:'Wrong output'}],attempt_history:[1,2].map(attempt=>({attempt,at:10000+attempt,passed:0,total:1,checkpoints:[{title:'Loops',status:'failed',lastOutput:'Wrong output'}]}))});
+ applyBuildSessionEvidence(remote);
+ const state=getLoopState();
+ const pattern=state.struggle.misconceptions.find(m=>m.sourceSessionId==='history-qa');
+ assert.equal(pattern.status,'locked');assert.equal(pattern.occurrences,2);assert.equal(pattern.transferTopicId,'loops');
+ assert.equal(pattern.firstSeenAt,10001);assert.equal(pattern.lockedAt,10002);
+ const count=state.struggle.attempts.length;applyBuildSessionEvidence(remote);
+ assert.equal(getLoopState().struggle.attempts.length,count);
+});
+
+test("cloud serialization preserves linked diagnosis and first prediction without claiming authenticated persistence",()=>{
+ const state=getLoopState();const pattern=state.struggle.misconceptions.find(m=>m.sourceSessionId==='history-qa');
+ const withPrediction={...state,struggle:{...state.struggle,misconceptions:state.struggle.misconceptions.map(m=>m.id===pattern.id?{...m,diagnosis:{probeId:'prediction-v1:loops:python',choice:0,confirmed:true,reviewed:true,at:11000}}:m)}};
+ const hydrated=normalizeLoopState(JSON.parse(JSON.stringify(withPrediction)));
+ const saved=hydrated.struggle.misconceptions.find(m=>m.id===pattern.id);
+ assert.equal(saved.sourceSessionId,'history-qa');assert.equal(saved.transferTopicId,'loops');assert.equal(saved.diagnosis.choice,0);assert.equal(saved.diagnosis.confirmed,true);
+});

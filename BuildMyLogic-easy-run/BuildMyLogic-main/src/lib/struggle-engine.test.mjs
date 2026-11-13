@@ -341,3 +341,84 @@ test("stored task version and altered canonical test set are rejected", () => {
   altered = attachReassessment(state,id,{...spec,tests:spec.tests.slice(0,1)});
   assert.equal(recordReassessmentAttempt(altered,args).outcome,null);
 });
+
+test("prediction evidence is saved before explanation and cannot be retrofitted after review", async () => {
+  const {recordDiagnosticPrediction,diagnosticProbe}=await import('./struggle-engine.ts');
+  const state = lockState(); const id=state.misconceptions[0].id;
+  const prediction=recordDiagnosticPrediction(state,id,0,false,3000,false);
+  assert.equal(prediction.misconceptions[0].diagnosis.reviewed,false);
+  const confirmed=recordDiagnosticPrediction(prediction,id,1,true,4000,true);
+  assert.equal(confirmed.misconceptions[0].diagnosis.choice,0);
+  assert.equal(confirmed.misconceptions[0].diagnosis.at,3000);
+  assert.equal(confirmed.misconceptions[0].diagnosis.confirmed,true);
+  assert.equal(recordDiagnosticPrediction(confirmed,id,1,false,5000),confirmed);
+  const replay=failureReplay(confirmed.misconceptions[0]);
+  assert.ok(replay.cause.includes('Your confirmed explanation'));
+  assert.ok(replay.cause.includes('reported cause'));
+  assert.ok(replay.before.includes(diagnosticProbe('loops','python').options[0]));
+});
+
+test("correct and uncertain predictions do not establish a causal misconception", async()=>{
+ const {recordDiagnosticPrediction}=await import('./struggle-engine.ts');
+ for(const choice of [1,2]) {
+  const state=lockState(); const id=state.misconceptions[0].id;
+  const next=recordDiagnosticPrediction(state,id,choice,true,3000);
+  assert.equal(next.misconceptions[0].diagnosis.confirmed,false);
+  assert.ok(failureReplay(next.misconceptions[0]).cause.includes('unresolved'));
+ }
+});
+
+test("diagnosis-specific task validates its exact confirmed prediction and changed checks", async()=>{
+ const {recordDiagnosticPrediction}=await import('./struggle-engine.ts');
+ let state=lockState();const id=state.misconceptions[0].id;
+ state=recordDiagnosticPrediction(state,id,0,true,3000);
+ const spec=newReassessment('loops','python',4000,true);
+ state=attachReassessment(state,id,spec);
+ const args={misconceptionId:id,constructOk:true,at:5000,graded:spec.tests.map(t=>({...t,hidden:true,actual:t.expected,passed:true,status:'Accepted',stderr:''}))};
+ assert.equal(recordReassessmentAttempt(state,args).outcome.conquered.status,'conquered');
+ const unconfirmed={...state,misconceptions:state.misconceptions.map(m=>({...m,diagnosis:{...m.diagnosis,confirmed:false}}))};
+ assert.equal(recordReassessmentAttempt(unconfirmed,args).outcome,null);
+});
+
+test("VS Code transfer relevance needs an exact concept and actual concept checkpoint failure",()=>{
+ const common={sessionKey:'one',sessionId:'s1',topicId:'mission-1',topicTitle:'Build an app',language:'python',exerciseTitle:'App',completed:false,failed:true,passed:0,total:1,at:1000,concept:'loops'};
+ const supported=recordBuildSessionOutcome(emptyStruggleState,{...common,checkpoints:[{title:'Loops',status:'failed'}]}).state;
+ assert.equal(supported.misconceptions[0].transferTopicId,'loops');
+ assert.equal(supported.misconceptions[0].sourceSessionId,'s1');
+ for(const checkpoints of [undefined,[{title:'Start FastAPI server',status:'failed'}]]){
+  const broad=recordBuildSessionOutcome(emptyStruggleState,{...common,checkpoints}).state;
+  assert.equal(broad.misconceptions[0].transferTopicId,undefined);
+ }
+});
+
+function lockState() {
+ let state = emptyStruggleState;
+ for (const at of [1000,2000]) state = recordPracticeAttempt(state, {...baseInput,at,graded:graded(["edge case: n = 1"])}).state;
+ return state;
+}
+
+test("mentor context distinguishes learner hypotheses from unresolved observed patterns", async()=>{
+ const {diagnosticMentorContext,recordDiagnosticPrediction}=await import('./struggle-engine.ts');
+ const state=lockState();const id=state.misconceptions[0].id;
+ assert.ok(diagnosticMentorContext(state).includes('Cause unresolved'));
+ const confirmed=recordDiagnosticPrediction(state,id,0,true,3000);
+ assert.ok(diagnosticMentorContext(confirmed,'loops').includes('Learner-confirmed hypothesis'));
+ assert.ok(diagnosticMentorContext(confirmed).includes('not a verified root cause'));
+ assert.equal(diagnosticMentorContext(confirmed,'strings'),'');
+});
+
+test("an unmapped project pattern cannot be conquered with a manually attached topic task",()=>{
+ let state=lockState();const id=state.misconceptions[0].id;
+ state={...state,misconceptions:state.misconceptions.map(m=>({...m,sourceSessionId:'project-session'}))};
+ state=attachReassessment(state,id,newReassessment('loops','python',3000));
+ assert.equal(recordReassessmentAttempt(state,{misconceptionId:id,graded:transferGraded(),constructOk:true,at:4000}).outcome,null);
+});
+
+test("one concept checkpoint may not remap an unrelated project failure",()=>{
+ const common={sessionId:'mixed',topicId:'mixed-mission',topicTitle:'Mixed project',language:'python',exerciseTitle:'Mixed',completed:false,failed:true,passed:0,total:1};
+ let state=recordBuildSessionOutcome(emptyStruggleState,{...common,sessionKey:'mixed:1',concept:'FastAPI',checkpoints:[{title:'Start server',status:'failed'}],at:1000}).state;
+ state=recordBuildSessionOutcome(state,{...common,sessionKey:'mixed:2',concept:'loops',checkpoints:[{title:'Loops',status:'failed'}],at:2000}).state;
+ const server=state.misconceptions.find(m=>m.summary.includes('Start server'));
+ const loops=state.misconceptions.find(m=>m.summary.includes('Loops'));
+ assert.equal(server.transferTopicId,undefined);assert.equal(loops.transferTopicId,'loops');
+});

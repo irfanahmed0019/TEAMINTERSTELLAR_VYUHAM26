@@ -3,6 +3,8 @@ import { Link } from "@tanstack/react-router";
 import { ArrowLeft, Loader2, Paperclip, Send, Sparkles } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { TopicPractice } from "@/components/learn/TopicPractice";
+import { useLoop } from "@/lib/loop-store";
+import { diagnosticMentorContext } from "@/lib/struggle-engine";
 import { aiMentorChat } from "@/lib/sarvam.functions";
 import { STUDY_TOPICS, type TopicLanguage } from "@/lib/topic-library";
 
@@ -21,6 +23,7 @@ export function MentorTopicWorkspace({
   topicId: string;
   language: TopicLanguage;
 }) {
+  const struggle = useLoop().struggle;
   const topic = STUDY_TOPICS.find((t) => t.id === topicId);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -62,6 +65,9 @@ export function MentorTopicWorkspace({
       const result = await aiMentorChat({
         data: {
           mentorName: "BuildMyLogic Mentor",
+          struggleContext: struggle
+            ? diagnosticMentorContext(struggle, topicId)
+            : "",
           mentorSpecialty: `Coding help for a beginner practising ${topic.title} in ${language === "c" ? "C" : "Python"}. Explain simply, never just hand over the full answer.`,
           learnerMessage: `I am practising the topic "${topic.title}" in ${language === "c" ? "C" : "Python"}. ${outgoing}`,
           history: next

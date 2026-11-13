@@ -98,6 +98,7 @@ export type BuildSessionState = {
   test_score?: { passed: number; total: number };
   latest_mentor_feedback?: string;
   recovery?: string;
+  attempt_history?: Array<{ attempt: number; at: number; passed: number; total: number; checkpoints: Array<{ title: string; status: string; lastOutput?: string | undefined }> }>;
   potential_struggle?: boolean;
   struggle_signal?: string;
   checkpoints?: Array<{

@@ -155,6 +155,22 @@ export async function verifySession(sessionId: string, allowFinished = false): P
 }
 
 function compact(session: LearningSession) {
+  const testEvents = session.events.filter(event => event.eventType === "test_result");
+  const offset = Math.max(0, session.attempts - testEvents.length);
+  const attemptHistory = testEvents.map((event, index) => {
+    let results: unknown = event.payload["checkpoint_results"];
+    if (typeof results === "string") { try { results = JSON.parse(results); } catch { results = undefined; } }
+    const checkpoints = Array.isArray(results) ? results.flatMap(item => {
+      if (!item || typeof item !== "object") return [];
+      const result = item as Record<string, unknown>;
+      const checkpoint = session.checkpoints[Number(result["index"])];
+      if (!checkpoint || typeof result["passed"] !== "boolean") return [];
+      return [{ title: checkpoint.title, status: result["passed"] ? "passed" : "failed", lastOutput: text(result["output"], 1200) }];
+    }) : [];
+    const passed = Math.max(0, Number(event.payload["passed"] ?? 0));
+    const total = Math.max(passed, Number(event.payload["total"] ?? 0));
+    return { attempt: offset + index + 1, at: Date.parse(event.at), passed, total, checkpoints };
+  });
   const lastSeen = session.lastSeenAt ? Date.parse(session.lastSeenAt) : 0;
   const extensionStatus = session.status === "failed" || session.status === "completed"
     ? session.status
@@ -170,7 +186,7 @@ function compact(session: LearningSession) {
     hints_used: session.hintsUsed, test_score: session.testScore, latest_mentor_feedback: session.latestFeedback, recovery: session.recovery,
     potential_struggle: session.potentialStruggle, struggle_signal: session.struggleSignal,
     checkpoints: session.checkpoints, project_review: session.projectReview, run_guidance: session.runGuidance,
-    extension_status: extensionStatus };
+    extension_status: extensionStatus, attempt_history: attemptHistory };
 }
 
 export async function connectLearningSession(body: Record<string, unknown>) {
@@ -213,7 +229,7 @@ function applyCheckpointResults(session: LearningSession, values: unknown) {
     if (!checkpoint || blocked || index !== session.checkpoints.findIndex((candidate) => candidate.status !== "passed")) break;
     checkpoint.attempts += 1;
     checkpoint.lastOutput = text(result["output"], 1200);
-    if (Boolean(result["passed"])) {
+    if (result["passed"]) {
       checkpoint.status = "passed";
       checkpoint.evidence = "verified";
       const next = session.checkpoints[index + 1];

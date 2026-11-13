@@ -48,3 +48,8 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 ## [Unreleased]
 
 - Initial release
+
+## 0.2.4
+- Add "Diagnose & reassess on website" to the connected challenge panel.
+- The handoff carries the exact session ID. The website recovers recorded test attempts once, asks a prediction probe, and runs supported C/Python transfer tasks with real grading.
+- Framework/project failures without a concept-specific executable specification stay locked. An exit-zero command is not proof of a new relevant reassessment.

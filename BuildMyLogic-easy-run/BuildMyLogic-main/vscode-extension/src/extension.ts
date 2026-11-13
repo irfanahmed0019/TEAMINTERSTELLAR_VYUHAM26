@@ -9,7 +9,7 @@ import { MentorPanel, MENTOR_VIEW_ID } from './mentorPanel';
 
 const viewId = 'buildMyLogic.sidebar';
 type Connection = { sessionId: string };
-type Message = { command: 'connect' | 'hint' | 'stuck' | 'runTests' | 'submit' | 'failed' | 'disconnect'; sessionId?: string };
+type Message = { command: 'connect' | 'hint' | 'stuck' | 'runTests' | 'submit' | 'failed' | 'disconnect' | 'reassess'; sessionId?: string };
 
 class Sidebar implements vscode.WebviewViewProvider {
   private view?: vscode.WebviewView; private session?: RemoteSession; private connection?: Connection; private live = false; private loopToken = 0; private lastHeartbeatAt = 0; private evidenceSubscriptions: vscode.Disposable[] = []; private diagnosticTimer?: NodeJS.Timeout; private pendingUriSession?: { sessionId: string };
@@ -48,6 +48,7 @@ class Sidebar implements vscode.WebviewViewProvider {
       if (m.command === 'connect') return void this.connect(m.sessionId || '', false);
       if (m.command === 'disconnect') { this.stop(); this.clearEvidenceSubscriptions(); this.session = undefined; this.connection = undefined; await vscode.workspace.getConfiguration('buildMyLogic').update('session', undefined, vscode.ConfigurationTarget.Global); return this.post({ type: 'disconnected' }); }
       if (!this.session || !this.connection) return this.status('Connect an active BuildMyLogic session first.', true);
+      if (m.command === 'reassess') { const url = new URL('/reassess', this.api.getBaseUrl()); url.searchParams.set('session', this.connection.sessionId); await vscode.env.openExternal(vscode.Uri.parse(url.toString())); return; }
       if (m.command === 'hint' || m.command === 'stuck') { const r = await this.api.hint(this.connection.sessionId, m.command === 'stuck'); this.session = r.state || this.session; return this.post({ type: 'guidance', text: r.guidance, session: this.session }); }
       if (m.command === 'failed') { const yes = await vscode.window.showWarningMessage("You couldn't complete this challenge? This marks it failed and starts recovery.", { modal: true }, 'Yes, Help Me Recover'); if (yes !== 'Yes, Help Me Recover') return; const r = await this.api.fail(this.connection.sessionId, 'Learner selected I Failed'); this.session = r.state || this.session; return this.post({ type: 'failed', text: `${r.recovery || ''}\n\nMini-task: ${r.mini_task || ''}`, session: this.session }); }
       if (m.command === 'submit') return void this.submitProject();
@@ -236,7 +237,7 @@ class Sidebar implements vscode.WebviewViewProvider {
   private status(text: string, error = false) { this.post({ type: 'status', text, error }); }
   private post(message: unknown) { void this.view?.webview.postMessage(message); }
 }
-function valid(v: unknown): v is Message { return !!v && typeof v === 'object' && ['connect', 'hint', 'stuck', 'runTests', 'submit', 'failed', 'disconnect'].includes(String((v as Message).command)); }
+function valid(v: unknown): v is Message { return !!v && typeof v === 'object' && ['connect', 'hint', 'stuck', 'runTests', 'submit', 'failed', 'disconnect', 'reassess'].includes(String((v as Message).command)); }
 export function activate(context: vscode.ExtensionContext) {
   const config = loadAppConfig();
   const sidebar = new Sidebar(new SessionClient(config.apiBaseUrl));

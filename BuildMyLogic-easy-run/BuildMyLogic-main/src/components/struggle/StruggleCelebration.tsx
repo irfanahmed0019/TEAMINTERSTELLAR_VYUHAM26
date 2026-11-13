@@ -93,7 +93,7 @@ function CelebrationModal({ misconception }: { misconception: Misconception }) {
       ))}
 
       <div
-        className="relative w-full max-w-lg rounded-3xl border border-border bg-card p-6 shadow-2xl sm:p-8"
+        className="relative max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-3xl border border-border bg-card p-6 shadow-2xl sm:p-8"
         style={{ animation: "bml-pop-in 0.45s ease-out both" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -121,9 +121,9 @@ function CelebrationModal({ misconception }: { misconception: Misconception }) {
               {misconception.summary}
             </p>
             <p className="mt-4 text-[13px] font-medium text-muted-foreground">
-              This check failed in {misconception.failuresToConquer} of your
-              recorded submissions. You then passed a targeted reassessment with
-              fresh checks you had not seen. That is the skill.
+              This pattern recorded {misconception.failuresToConquer} failing
+              submissions. You then passed a changed-task reassessment. Those
+              output checks are the evidence, not a claim of general mastery.
             </p>
             <button
               type="button"

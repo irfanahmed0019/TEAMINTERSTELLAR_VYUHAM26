@@ -3,8 +3,10 @@ import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { aiMentorChat } from "@/lib/sarvam.functions";
 import { setMentorAvailability } from "@/lib/mentor-availability";
-import { logActivity } from "@/lib/loop-store";
+import { logActivity, useLoop } from "@/lib/loop-store";
 
+
+import { diagnosticMentorContext } from "@/lib/struggle-engine";
 
 type MentorMode = "chat" | "zoom";
 type Mentor = { id: string; name: string; role: string; focus: string; description: string; initials: string; color: string };
@@ -57,6 +59,7 @@ function calendarUrl(booking: Booking, mentor: Mentor) {
 }
 
 export function MentorChat() {
+  const struggle = useLoop().struggle;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mode, setMode] = useState<MentorMode | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -118,7 +121,7 @@ export function MentorChat() {
     setBusy(true);
     setChatError("");
     try {
-      const result = await aiMentorChat({ data: { mentorName: mentor.name, mentorSpecialty: mentor.focus, learnerMessage: outgoing, history: next.slice(-10).map((item) => ({ role: item.role === "student" ? "student" as const : "mentor" as const, text: item.text })) } });
+      const result = await aiMentorChat({ data: { mentorName: mentor.name, struggleContext: struggle ? diagnosticMentorContext(struggle) : "", mentorSpecialty: mentor.focus, learnerMessage: outgoing, history: next.slice(-10).map((item) => ({ role: item.role === "student" ? "student" as const : "mentor" as const, text: item.text })) } });
       saveMessages([...next, { role: "mentor", text: result.message, at: Date.now() }]);
       setMentorAvailability("online");
     } catch {

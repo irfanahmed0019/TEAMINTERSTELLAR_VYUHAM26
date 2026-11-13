@@ -23,6 +23,7 @@ import {
   recordBuildSessionOutcome,
   recordPracticeAttempt,
   recordReassessmentAttempt,
+  recordDiagnosticPrediction,
   type GradedResult,
   type Misconception,
   type Reassessment,
@@ -347,10 +348,35 @@ export function recordMissionEvidence(missionId: string, amount = 2) {
 export function applyBuildSessionEvidence(remote: BuildSessionState) {
   setLoopState((prev) => {
     if (!prev.plan) return prev;
-    const mission = prev.plan.missions.find(
+    const plan = prev.plan;
+    const mission = plan.missions.find(
       (item) => item.id === remote.challenge_id,
     );
     if (!mission) return prev;
+    // Recover actual earlier attempts from the session event log. The first
+    // website visit may happen only after several extension failures.
+    let recovered = prev.struggle ?? emptyStruggleState;
+    for (const attempt of remote.attempt_history ?? []) {
+      if (attempt.attempt >= remote.attempts || !Number.isFinite(attempt.at))
+        continue;
+      const result = recordBuildSessionOutcome(recovered, {
+        sessionKey: `build-session:${remote.session_id}:attempt:${attempt.attempt}`,
+        sessionId: remote.session_id,
+        topicId: mission.id,
+        topicTitle: mission.title,
+        language: remote.language.toLowerCase(),
+        concept: remote.concept,
+        exerciseTitle: remote.title,
+        completed: attempt.total > 0 && attempt.passed >= attempt.total,
+        failed: attempt.passed < attempt.total,
+        passed: attempt.passed,
+        total: attempt.total,
+        checkpoints: attempt.checkpoints,
+        at: attempt.at,
+      });
+      recovered = result.state;
+    }
+    prev = { ...prev, struggle: recovered };
     const score = remote.test_score;
     const completed =
       remote.status === "completed" ||
@@ -366,7 +392,7 @@ export function applyBuildSessionEvidence(remote: BuildSessionState) {
       return prev;
 
     const missionProgress = { ...prev.missionProgress };
-    const skills = prev.plan.skills.map((skill) => {
+    const skills = plan.skills.map((skill) => {
       const matches = mission.skills.some(
         (name) =>
           skill.name.toLowerCase().includes(name.toLowerCase()) ||
@@ -405,7 +431,7 @@ export function applyBuildSessionEvidence(remote: BuildSessionState) {
       };
     }
 
-    let missions = [...prev.plan.missions];
+    let missions = [...plan.missions];
     if (completed) {
       missionProgress[mission.id] = {
         ...(missionProgress[mission.id] ?? {
@@ -494,6 +520,11 @@ export function applyBuildSessionEvidence(remote: BuildSessionState) {
       prev.struggle ?? emptyStruggleState,
       {
         sessionKey: signature,
+        concept: remote.concept,
+        sessionId: remote.session_id,
+        at:
+          remote.attempt_history?.find((a) => a.attempt === remote.attempts)
+            ?.at ?? Date.now(),
         topicId: mission.id,
         baseTopicId: baseMissionId !== mission.id ? baseMissionId : undefined,
         topicTitle: mission.title,
@@ -523,15 +554,15 @@ export function applyBuildSessionEvidence(remote: BuildSessionState) {
     return {
       ...prev,
       plan: {
-        ...prev.plan,
+        ...plan,
         missions,
         skills,
         headline: completed
           ? "You proved the skill. Now build the next layer."
           : "Your path has been adjusted around the exact point that needs practice.",
         progress: {
-          ...prev.plan.progress,
-          insights: [insight, ...prev.plan.progress.insights].slice(0, 6),
+          ...plan.progress,
+          insights: [insight, ...plan.progress.insights].slice(0, 6),
         },
       },
       missionProgress,
@@ -664,4 +695,23 @@ export function clearLearningChatMessages(key: string) {
       },
     };
   });
+}
+
+export function saveDiagnosticPrediction(
+  id: string,
+  choice: number,
+  confirmed: boolean,
+  reviewed = true,
+) {
+  setLoopState((prev) => ({
+    ...prev,
+    struggle: recordDiagnosticPrediction(
+      prev.struggle ?? emptyStruggleState,
+      id,
+      choice,
+      confirmed,
+      Date.now(),
+      reviewed,
+    ),
+  }));
 }

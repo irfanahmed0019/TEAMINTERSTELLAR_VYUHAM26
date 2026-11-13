@@ -15,6 +15,7 @@ import { Route as LearnRouteImport } from './routes/learn'
 import { Route as MentorRouteImport } from './routes/mentor'
 import { Route as MissionsRouteImport } from './routes/missions'
 import { Route as ProgressRouteImport } from './routes/progress'
+import { Route as ReassessRouteImport } from './routes/reassess'
 import { Route as SessionsRouteImport } from './routes/sessions'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SkillsRouteImport } from './routes/skills'
@@ -50,6 +51,11 @@ const MissionsRoute = MissionsRouteImport.update({
 const ProgressRoute = ProgressRouteImport.update({
   id: '/progress',
   path: '/progress',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReassessRoute = ReassessRouteImport.update({
+  id: '/reassess',
+  path: '/reassess',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SessionsRoute = SessionsRouteImport.update({
@@ -90,6 +96,7 @@ export interface FileRoutesByFullPath {
   '/mentor': typeof MentorRoute
   '/missions': typeof MissionsRoute
   '/progress': typeof ProgressRoute
+  '/reassess': typeof ReassessRoute
   '/sessions': typeof SessionsRoute
   '/settings': typeof SettingsRoute
   '/skills': typeof SkillsRoute
@@ -104,6 +111,7 @@ export interface FileRoutesByTo {
   '/mentor': typeof MentorRoute
   '/missions': typeof MissionsRoute
   '/progress': typeof ProgressRoute
+  '/reassess': typeof ReassessRoute
   '/sessions': typeof SessionsRoute
   '/settings': typeof SettingsRoute
   '/skills': typeof SkillsRoute
@@ -119,6 +127,7 @@ export interface FileRoutesById {
   '/mentor': typeof MentorRoute
   '/missions': typeof MissionsRoute
   '/progress': typeof ProgressRoute
+  '/reassess': typeof ReassessRoute
   '/sessions': typeof SessionsRoute
   '/settings': typeof SettingsRoute
   '/skills': typeof SkillsRoute
@@ -135,6 +144,7 @@ export interface FileRouteTypes {
     | '/mentor'
     | '/missions'
     | '/progress'
+    | '/reassess'
     | '/sessions'
     | '/settings'
     | '/skills'
@@ -149,6 +159,7 @@ export interface FileRouteTypes {
     | '/mentor'
     | '/missions'
     | '/progress'
+    | '/reassess'
     | '/sessions'
     | '/settings'
     | '/skills'
@@ -163,6 +174,7 @@ export interface FileRouteTypes {
     | '/mentor'
     | '/missions'
     | '/progress'
+    | '/reassess'
     | '/sessions'
     | '/settings'
     | '/skills'
@@ -178,6 +190,7 @@ export interface RootRouteChildren {
   MentorRoute: typeof MentorRoute
   MissionsRoute: typeof MissionsRoute
   ProgressRoute: typeof ProgressRoute
+  ReassessRoute: typeof ReassessRoute
   SessionsRoute: typeof SessionsRoute
   SettingsRoute: typeof SettingsRoute
   SkillsRoute: typeof SkillsRoute
@@ -228,6 +241,13 @@ declare module '@tanstack/react-router' {
       path: '/progress'
       fullPath: '/progress'
       preLoaderRoute: typeof ProgressRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reassess': {
+      id: '/reassess'
+      path: '/reassess'
+      fullPath: '/reassess'
+      preLoaderRoute: typeof ReassessRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sessions': {
@@ -282,6 +302,7 @@ const rootRouteChildren: RootRouteChildren = {
   MentorRoute: MentorRoute,
   MissionsRoute: MissionsRoute,
   ProgressRoute: ProgressRoute,
+  ReassessRoute: ReassessRoute,
   SessionsRoute: SessionsRoute,
   SettingsRoute: SettingsRoute,
   SkillsRoute: SkillsRoute,

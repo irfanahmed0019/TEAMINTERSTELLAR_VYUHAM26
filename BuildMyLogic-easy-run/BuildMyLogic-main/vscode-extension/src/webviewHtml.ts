@@ -261,6 +261,7 @@ export function sidebarHtml(cspSource: string): string {
         <button class="btn btn-secondary" id="stuck">🆘 I'm stuck</button>
       </div>
       <button class="btn btn-secondary" id="submit" style="margin-top:8px">⇧&nbsp; Submit project</button>
+      <button class="btn btn-secondary" id="reassess" style="margin-top:8px">Diagnose &amp; reassess on website</button>
       <button class="btn btn-ghost" id="failed" style="margin-top:8px">Mark as failed &amp; get a recovery plan</button>
     </div>
 
@@ -461,6 +462,7 @@ export function sidebarHtml(cspSource: string): string {
   $("run").addEventListener("click", function () { send("runTests"); });
   $("submit").addEventListener("click", function () { send("submit"); });
   $("hint").addEventListener("click", function () { send("hint"); });
+  $("reassess").addEventListener("click", function () { send("reassess"); });
   $("stuck").addEventListener("click", function () { send("stuck"); });
   $("failed").addEventListener("click", function () { send("failed"); });
   $("disconnect").addEventListener("click", function () { send("disconnect"); });

@@ -18,6 +18,7 @@ import {
   useLoop,
 } from "@/lib/loop-store";
 import { newReassessment, constructSatisfied } from "@/lib/struggle-engine";
+import { DiagnosticProbePanel } from "@/components/struggle/DiagnosticProbe";
 import type { TopicExercise, TopicLanguage } from "@/lib/topic-library";
 
 /** Blank starting point for the fresh reassessment program. */
@@ -43,16 +44,21 @@ export function TopicPractice({
   topicTitle,
   language,
   exercise,
+  patternId,
 }: {
   topicId: string;
   topicTitle: string;
   language: TopicLanguage;
   exercise: TopicExercise;
+  patternId?: string | undefined;
 }) {
   const struggle = useLoop().struggle;
   const activeMisconception = (struggle?.misconceptions ?? []).find(
     (m) =>
-      m.status === "locked" && m.topicId === topicId && m.language === language,
+      m.status === "locked" &&
+      (patternId
+        ? m.id === patternId
+        : m.topicId === topicId && m.language === language),
   );
   const [mode, setMode] = useState<"practice" | "reassess">("practice");
   const [preparing, setPreparing] = useState(false);
@@ -143,6 +149,7 @@ export function TopicPractice({
   }
 
   async function submit() {
+    if (patternId) return;
     setBusy("submit");
     setError("");
     try {
@@ -181,17 +188,25 @@ export function TopicPractice({
     setPreparing(true);
     setError("");
     try {
-      const reassessment =
-        activeMisconception.reassessment?.version === "transfer-v1"
-          ? activeMisconception.reassessment
-          : newReassessment(topicId, language, Date.now());
+      const reassessment = ["transfer-v1", "diagnostic-v1"].includes(
+        activeMisconception.reassessment?.version ?? "",
+      )
+        ? activeMisconception.reassessment
+        : newReassessment(
+            topicId,
+            language,
+            Date.now(),
+            Boolean(activeMisconception.diagnosis?.confirmed),
+          );
       if (!reassessment)
         throw new Error(
           "No transfer task is available for this topic yet. Your pattern stays locked.",
         );
       saveTargetedReassessment(activeMisconception.id, reassessment);
       setReassessNote(
-        "Curated transfer task: changed requirements and new test cases. Passing verifies these checks, not unaided work or general mastery.",
+        activeMisconception.diagnosis?.confirmed
+          ? "Task selected for your confirmed prediction hypothesis. Passing verifies finite output checks, not the cause of every prior failure or unaided mastery."
+          : "Curated topic transfer task. The cause of the original error remains unresolved; passing verifies these checks, not unaided work or general mastery.",
       );
       setReassessCode(
         window.localStorage.getItem(
@@ -250,6 +265,12 @@ export function TopicPractice({
       {/* Task panel */}
       <div className="rounded-2xl border border-border bg-card p-5">
         {activeMisconception && (
+          <DiagnosticProbePanel
+            key={activeMisconception.id}
+            pattern={activeMisconception}
+          />
+        )}
+        {activeMisconception && (
           <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3.5">
             <p className="flex items-center gap-1.5 text-[12px] font-black uppercase tracking-widest text-amber-700">
               <Crosshair className="h-3.5 w-3.5" /> Targeted fix for your
@@ -270,7 +291,11 @@ export function TopicPractice({
             </p>
             <button
               type="button"
-              disabled={preparing}
+              disabled={
+                preparing ||
+                (!activeMisconception.diagnosis?.reviewed &&
+                  !activeMisconception.reassessment)
+              }
               onClick={() => void startReassessment()}
               className="btn-base btn-primary-solid mt-3 text-xs font-bold"
             >
@@ -309,7 +334,7 @@ export function TopicPractice({
                   <span>
                     {t.name}
                     {t.unseen
-                      ? " - a check you had not been shown"
+                      ? " - changed-task output check"
                       : t.variantOf
                         ? ` - fresh input you have not seen (variant of "${t.variantOf}")`
                         : " - the original failing check"}
@@ -358,19 +383,21 @@ export function TopicPractice({
                 counts when it is solved with the required construct.
               </p>
             )}
-            <button
-              type="button"
-              onClick={() => {
-                setMode("practice");
-                setResults(null);
-                setPassed(false);
-                setConstructIssue(false);
-                setOutput("");
-              }}
-              className="btn-base btn-outline mt-4 text-xs"
-            >
-              Back to the full exercise
-            </button>
+            {!patternId && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("practice");
+                  setResults(null);
+                  setPassed(false);
+                  setConstructIssue(false);
+                  setOutput("");
+                }}
+                className="btn-base btn-outline mt-4 text-xs"
+              >
+                Back to the full exercise
+              </button>
+            )}
           </>
         ) : (
           <>
@@ -543,7 +570,9 @@ export function TopicPractice({
           </button>
           <button
             type="button"
-            disabled={busy !== null}
+            disabled={
+              busy !== null || Boolean(patternId && mode !== "reassess")
+            }
             onClick={() =>
               void (mode === "reassess" ? submitReassessment() : submit())
             }

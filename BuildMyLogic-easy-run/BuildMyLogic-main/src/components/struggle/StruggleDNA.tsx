@@ -216,6 +216,14 @@ export function StruggleDNA() {
                     · {m.occurrences}×
                   </span>
                 </div>
+                {m.status === "locked" && (
+                  <a
+                    className="btn-base btn-outline mt-3 text-xs"
+                    href={`/reassess?pattern=${encodeURIComponent(m.id)}`}
+                  >
+                    Diagnose and reassess this pattern
+                  </a>
+                )}
                 {m.targetedChallenge && (
                   <p className="mt-2 text-[12.5px] font-medium leading-5 text-amber-900">
                     {m.targetedChallenge.task}
@@ -247,8 +255,7 @@ export function StruggleDNA() {
           {conquered.length === 0 ? (
             <p className="text-[13px] font-semibold text-muted-foreground">
               Nothing conquered yet. When a repeated pattern locks and you pass
-              its targeted reassessment (fresh checks you have not seen), it
-              lands here.
+              its targeted changed-task reassessment, it lands here.
             </p>
           ) : (
             conquered.map((m) => <ConqueredCard key={m.id} misconception={m} />)

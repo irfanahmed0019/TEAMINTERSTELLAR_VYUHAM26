@@ -103,6 +103,10 @@ export type Misconception = {
   reassessment?: Reassessment | undefined;
   /** True only when the conquer came from a passed reassessment after the lock. */
   reassessed?: boolean | undefined;
+  /** Exact concept metadata from a connected VS Code session, not a guessed stack keyword. */
+  transferTopicId?: string | undefined;
+  sourceSessionId?: string | undefined;
+  diagnosis?: DiagnosticEvidence | undefined;
 };
 
 export type StruggleState = {
@@ -536,6 +540,7 @@ export function newReassessment(
   topicId: string,
   language: string,
   at: number,
+  diagnostic = false,
 ): Reassessment | null {
   const catalog: Record<
     string,
@@ -631,12 +636,52 @@ export function newReassessment(
       ],
     },
   };
+  if (diagnostic) {
+    catalog["variables"] = {
+      title: "Save, then change",
+      task: "Read an integer n. Set saved = n, then increase n by 5. Print saved and then n on separate lines. Changing n must not change saved.",
+      cases: [
+        ["3\n", "3\n8"],
+        ["-5\n", "-5\n0"],
+        ["0\n", "0\n5"],
+      ],
+    };
+    catalog["strings"] = {
+      title: "Count spaces in a line",
+      task: "Read a complete line, possibly empty. Print the number of literal space characters in it. Do not count the input newline. Preserve leading, trailing and repeated spaces.",
+      cases: [
+        ["a b\n", "1"],
+        [" a  b \n", "4"],
+        ["abc\n", "0"],
+        ["\n", "0"],
+      ],
+    };
+    catalog["arrays-lists"] = {
+      title: "Read an indexed item",
+      task: "Read a positive count n, then n integers (one per line), then a valid zero-based index k. Print the item at index k. The first item has index 0.",
+      cases: [
+        ["3\n10\n20\n30\n1\n", "20"],
+        ["1\n-4\n0\n", "-4"],
+        ["3\n7\n8\n9\n2\n", "9"],
+      ],
+    };
+    catalog["recursion"] = {
+      title: "Changed recursive base",
+      task: "Read a nonnegative integer n. Define f(0)=2 and f(n)=n+f(n-1). Print f(n). This changes both the old factorial task and the probe base case; do not assume a base of 0 or 1.",
+      cases: [
+        ["0\n", "2"],
+        ["1\n", "3"],
+        ["4\n", "12"],
+        ["7\n", "30"],
+      ],
+    };
+  }
   const spec = catalog[topicId];
   if (!spec || !["c", "python"].includes(language.toLowerCase())) return null;
   return {
     title: spec.title,
     task: spec.task,
-    version: "transfer-v1",
+    version: diagnostic ? "diagnostic-v1" : "transfer-v1",
     tests: spec.cases.map(([stdin, expected], i) => ({
       name: `Transfer check ${i + 1}`,
       stdin,
@@ -687,19 +732,36 @@ export function recordReassessmentAttempt(
   if (!target || target.status !== "locked" || (target.lockedAt ?? 0) >= at)
     return { state: prev, outcome: null };
 
+  if (target.sourceSessionId && !target.transferTopicId)
+    return { state: prev, outcome: null };
   const spec = target.reassessment;
   if (
     !spec ||
-    spec.version !== "transfer-v1" ||
+    !["transfer-v1", "diagnostic-v1"].includes(spec.version ?? "") ||
     spec.createdAt <= (target.lockedAt ?? 0) ||
     spec.createdAt > at
   )
     return { state: prev, outcome: null };
   const canonical = newReassessment(
-    target.topicId,
-    target.language,
+    target.transferTopicId ?? target.topicId,
+    supportedTransferLanguage(target.language) ?? target.language,
     spec.createdAt,
+    spec.version === "diagnostic-v1",
   );
+  if (
+    spec.version === "diagnostic-v1" &&
+    (!target.diagnosis?.confirmed ||
+      !target.diagnosis.reviewed ||
+      target.diagnosis.choice !== 0 ||
+      target.diagnosis.probeId !==
+        diagnosticProbe(
+          target.transferTopicId ?? target.topicId,
+          supportedTransferLanguage(target.language) ?? target.language,
+        )?.id ||
+      target.diagnosis.at <= (target.lockedAt ?? 0) ||
+      target.diagnosis.at > spec.createdAt)
+  )
+    return { state: prev, outcome: null };
   if (
     !canonical ||
     JSON.stringify(spec.tests) !== JSON.stringify(canonical.tests)
@@ -786,6 +848,8 @@ export function recordBuildSessionOutcome(
     sessionKey: string;
     topicId: string;
     baseTopicId?: string | undefined;
+    concept?: string | undefined;
+    sessionId?: string | undefined;
     topicTitle: string;
     language: string;
     exerciseTitle: string;
@@ -863,7 +927,29 @@ export function recordBuildSessionOutcome(
     },
   );
 
-  const misconceptions = recorded.misconceptions;
+  const concept = supportedTransferConcept(input.concept ?? "");
+  // Project/aggregate failures are not equivalent to a concept exercise. Only
+  // narrowly named failing concept checkpoints get this finite transfer path.
+  const exactFailure =
+    concept &&
+    input.checkpoints
+      ?.filter((c) => c.status === "failed")
+      .every((c) => supportedTransferConcept(c.title) === concept) &&
+    input.checkpoints?.some((c) => c.status === "failed");
+  const language = supportedTransferLanguage(input.language);
+  const misconceptions = recorded.misconceptions.map((m) =>
+    m.topicId === input.topicId &&
+    m.language === input.language &&
+    m.signature === outcome.attempt.signature &&
+    !outcome.attempt.fullPass
+      ? {
+          ...m,
+          sourceSessionId: input.sessionId ?? m.sourceSessionId,
+          transferTopicId:
+            concept && language && exactFailure ? concept : undefined,
+        }
+      : m,
+  );
   const conquered = outcome.conquered;
   // Session completion does not prove a NEW, relevant reassessment. Keep
   // locks until explicit transfer-task evidence is available; never infer it
@@ -1062,11 +1148,11 @@ export function failureReplay(m: Misconception): {
   cause: string;
   after: string;
 } {
-  const before = m.example
+  let before = m.example
     ? `"${m.example.testName}" kept failing${m.example.actual ? ` - your recorded output was "${m.example.actual.slice(0, 80)}" against the goal "${m.example.expected.slice(0, 80)}"` : ""}.`
     : `${m.summary}.`;
   const n = m.failuresToConquer ?? m.occurrences;
-  const cause = `Recorded failing in ${n} graded submission${n === 1 ? "" : "s"}, for this tracked pattern (${KIND_LABEL[m.kind]}). This groups observed results; it does not establish what caused the mistakes.`;
+  let cause = `Recorded failing in ${n} graded submission${n === 1 ? "" : "s"}, for this tracked pattern (${KIND_LABEL[m.kind]}). This groups observed results; it does not establish what caused the mistakes.`;
   const mins =
     typeof m.timeToConquerMs === "number"
       ? Math.max(1, Math.round(m.timeToConquerMs / 60000))
@@ -1077,8 +1163,276 @@ export function failureReplay(m: Misconception): {
       : mins < 60
         ? ` Elapsed time from the first recorded failure: ${mins} min.`
         : ` Elapsed time from the first recorded failure: about ${Math.round(mins / 60)} h.`;
-  const after = m.reassessed
+  let after = m.reassessed
     ? `You then passed this pattern's targeted reassessment - a changed task with new transfer checks.${took}`
     : `A later recorded attempt passed every check on ${m.topicTitle}.${took}`;
+  const diagnosis = m.diagnosis;
+  const probe = diagnosticProbe(
+    m.transferTopicId ?? m.topicId,
+    supportedTransferLanguage(m.language) ?? m.language,
+  );
+  if (diagnosis && probe && diagnosis.probeId === probe.id) {
+    before += ` On the prediction probe, you chose "${probe.options[diagnosis.choice] ?? "unknown"}"; the trace produces "${probe.options[probe.correct]}".`;
+    cause =
+      diagnosis.confirmed && diagnosis.choice !== probe.correct
+        ? `Your confirmed explanation: ${probe.hypothesis} This is your reported cause, supported by one prediction probe, not a verified account of every earlier error.`
+        : `The prediction probe ${diagnosis.choice === probe.correct ? "was correct and did not support this misconception" : "showed a prediction mismatch, but you did not confirm it as the cause of your original failure"}. The original cause remains unresolved.`;
+    if (diagnosis.confirmed && diagnosis.choice !== probe.correct)
+      after += ` Mental model to use: ${probe.model}`;
+  }
   return { before, cause, after };
+}
+
+export type DiagnosticEvidence = {
+  probeId: string;
+  choice: number;
+  confirmed: boolean;
+  reviewed?: boolean | undefined;
+  at: number;
+};
+export type DiagnosticProbe = {
+  id: string;
+  question: string;
+  options: string[];
+  correct: number;
+  hypothesis: string;
+  model: string;
+  transferFocus: string;
+};
+
+/** Narrow exact aliases only. A framework, title substring or stack never proves a concept. */
+export function supportedTransferConcept(concept: string): string | null {
+  const aliases: Record<string, string> = {
+    "first-program": "first-program",
+    "first program": "first-program",
+    variables: "variables",
+    input: "input",
+    "input/output": "input",
+    math: "math",
+    arithmetic: "math",
+    conditions: "conditions",
+    conditionals: "conditions",
+    loops: "loops",
+    functions: "functions",
+    arrays: "arrays-lists",
+    "arrays-lists": "arrays-lists",
+    "arrays/lists": "arrays-lists",
+    strings: "strings",
+    recursion: "recursion",
+  };
+  return aliases[concept.toLowerCase().trim()] ?? null;
+}
+export function supportedTransferLanguage(
+  language: string,
+): "c" | "python" | null {
+  const value = language.toLowerCase().trim();
+  return value === "c"
+    ? "c"
+    : value === "python" || value === "python3"
+      ? "python"
+      : null;
+}
+
+/** Predict before seeing the model. A wrong answer is evidence for a hypothesis, not mind-reading. */
+export function diagnosticProbe(
+  topic: string,
+  language: string,
+): DiagnosticProbe | null {
+  const c = language === "c";
+  const data: Record<string, Omit<DiagnosticProbe, "id">> = {
+    "first-program": {
+      question:
+        'Predict the output of two print calls, one for "Build" and one for "Logic", each ending in a newline.',
+      options: [
+        "Build Logic (one line)",
+        "Build then Logic (two lines)",
+        "Not sure",
+      ],
+      correct: 1,
+      hypothesis:
+        "I treated separate newline-terminated output calls as one line.",
+      model:
+        "Each newline ends the current line. Output layout is part of the contract.",
+      transferFocus: "Write a changed two-line greeting with exact layout.",
+    },
+    variables: {
+      question: "Set a = 3, b = a, then a = 7. What is b?",
+      options: ["7", "3", "Not sure"],
+      correct: 1,
+      hypothesis:
+        "I expected a copied integer variable to track later changes to the source variable.",
+      model:
+        "An integer assignment copies the current value. Changing a later does not change b.",
+      transferFocus: "Keep a saved value while changing the original variable.",
+    },
+    input: {
+      question:
+        "Input is the integer 4. A program reads n and prints 3*n+1. What does it print?",
+      options: ["4441", "13", "Not sure"],
+      correct: 1,
+      hypothesis: "I treated numeric input as text when applying arithmetic.",
+      model: "Convert input text to an integer before arithmetic. 3*4+1 is 13.",
+      transferFocus:
+        "Read and transform numeric input, including zero and negatives.",
+    },
+    math: {
+      question: c
+        ? "In C integer arithmetic, what are 7/2 and 7%2?"
+        : "In Python, what are 7//2 and 7%2?",
+      options: ["3.5 and 0", "3 and 1", "Not sure"],
+      correct: 1,
+      hypothesis: "I mixed up integer quotient, real division and remainder.",
+      model:
+        "For nonnegative integers, n = quotient*d + remainder, with remainder smaller than d.",
+      transferFocus:
+        "Compute both quotient and remainder, including exact divisibility.",
+    },
+    conditions: {
+      question:
+        "For n = 0, does the condition n > 0 select the positive branch?",
+      options: ["Yes", "No", "Not sure"],
+      correct: 1,
+      hypothesis: "I included zero in a strictly-positive branch.",
+      model:
+        "Strictly positive means greater than zero. Zero needs its own case when the task distinguishes signs.",
+      transferFocus:
+        "Distinguish negative, zero and positive without collapsing the boundary.",
+    },
+    loops: {
+      question: c
+        ? 'Predict the last value printed by: for (int i=1; i<5; i++) printf("%d ", i);'
+        : "Predict the last value printed by: for i in range(1, 5): print(i)",
+      options: ["5", "4", "Not sure"],
+      correct: 1,
+      hypothesis: "I expected an exclusive upper bound to be included.",
+      model:
+        "The loop runs only while the value is below the exclusive stop. To include n, use <= n in C or range(..., n+1) in Python.",
+      transferFocus:
+        "Include an even upper endpoint in a sum, and handle an empty range.",
+    },
+    functions: {
+      question:
+        "A function returns 4 but never prints. Its return value is ignored. What output appears?",
+      options: ["4", "No output", "Not sure"],
+      correct: 1,
+      hypothesis: "I treated returning a value as printing it.",
+      model:
+        "Return gives a value to the caller. Printing is a separate side effect.",
+      transferFocus:
+        "Return a computed value and explicitly print the result at the call site.",
+    },
+    "arrays-lists": {
+      question:
+        "An array/list contains [10, 20, 30]. What value is at index 1?",
+      options: ["10", "20", "Not sure"],
+      correct: 1,
+      hypothesis: "I treated zero-based indexing as one-based indexing.",
+      model:
+        "Index 0 names the first item; index 1 names the second. The last valid index is length-1.",
+      transferFocus:
+        "Process a changed collection, including a single-item boundary.",
+    },
+    strings: {
+      question:
+        'Predict the length of the string "a b". Count only its characters, not quotes or an input newline.',
+      options: ["2", "3", "Not sure"],
+      correct: 1,
+      hypothesis: "I ignored spaces when counting string characters.",
+      model:
+        "A space is a character. Input readers differ in whether they preserve spaces and trailing newlines.",
+      transferFocus:
+        "Handle character content rather than treating a string as a number or a single token.",
+    },
+    recursion: {
+      question:
+        "f(n) returns 1 at n=0; otherwise it returns n*f(n-1). What is f(0)?",
+      options: ["0", "1", "Not sure"],
+      correct: 1,
+      hypothesis: "I replaced the recursion base case with the input value.",
+      model:
+        "The base case returns exactly the specified value and stops recursion. In this probe it is 1 at zero; a changed task can specify another base.",
+      transferFocus:
+        "Keep a valid base case while changing a recursive computation.",
+    },
+  };
+  const probe = data[topic];
+  return probe && (language === "c" || language === "python")
+    ? { ...probe, id: `prediction-v1:${topic}:${language}` }
+    : null;
+}
+
+export function recordDiagnosticPrediction(
+  prev: StruggleState,
+  misconceptionId: string,
+  choice: number,
+  confirmed: boolean,
+  at = Date.now(),
+  reviewed = true,
+): StruggleState {
+  const target = prev.misconceptions.find(
+    (m) => m.id === misconceptionId && m.status === "locked",
+  );
+  if (
+    !target ||
+    target.diagnosis?.reviewed ||
+    !Number.isFinite(at) ||
+    at <= (target.lockedAt ?? 0)
+  )
+    return prev;
+  const lang = supportedTransferLanguage(target.language);
+  const probe = lang
+    ? diagnosticProbe(target.transferTopicId ?? target.topicId, lang)
+    : null;
+  if (
+    !probe ||
+    !Number.isInteger(choice) ||
+    choice < 0 ||
+    choice >= probe.options.length
+  )
+    return prev;
+  return {
+    ...prev,
+    misconceptions: prev.misconceptions.map((m) =>
+      m.id === target.id
+        ? {
+            ...m,
+            diagnosis: {
+              probeId: probe.id,
+              choice: target.diagnosis?.choice ?? choice,
+              confirmed:
+                confirmed &&
+                (target.diagnosis?.choice ?? choice) === 0 &&
+                reviewed,
+              reviewed,
+              at: target.diagnosis?.at ?? at,
+            },
+          }
+        : m,
+    ),
+  };
+}
+
+/** Only observed patterns and explicitly attributed learner hypotheses reach the mentor. */
+export function diagnosticMentorContext(
+  state: StruggleState,
+  topicId?: string,
+): string {
+  const patterns = state.misconceptions
+    .filter((m) => !topicId || (m.transferTopicId ?? m.topicId) === topicId)
+    .slice(-5);
+  return patterns
+    .map((m) => {
+      const probe = diagnosticProbe(
+        m.transferTopicId ?? m.topicId,
+        supportedTransferLanguage(m.language) ?? m.language,
+      );
+      const diagnosis = m.diagnosis;
+      const attribution =
+        diagnosis?.confirmed && probe
+          ? `Learner-confirmed hypothesis (one prediction probe, not a verified root cause): ${probe.hypothesis} Model: ${probe.model}`
+          : "Cause unresolved. Do not infer the learner's belief or thinking style from output grouping.";
+      return `${m.topicTitle}: ${m.occurrences} recorded failures; ${m.status}. ${attribution}`;
+    })
+    .join("\n")
+    .slice(0, 2000);
 }
