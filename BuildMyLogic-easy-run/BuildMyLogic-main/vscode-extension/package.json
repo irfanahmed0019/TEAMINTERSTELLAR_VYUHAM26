@@ -3,9 +3,9 @@
   "publisher": "buildmylogic",
   "displayName": "BuildMyLogic",
   "description": "BuildMyLogic in VS Code: learning challenges plus the AI Mentor - milestones, real graded C submissions, hints and task-aware chat on your persisted learning state.",
-  "version": "0.2.4",
+  "version": "0.3.1",
   "files": [
-    "dist/**",
+    "dist/extension.js",
     "media/**",
     "package.json",
     "README.md",
@@ -23,7 +23,8 @@
     "onView:buildMyLogic.sidebar",
     "onCommand:buildmylogic.analyzeMyCode",
     "onUri",
-    "onView:buildMyLogic.mentor"
+    "onView:buildMyLogic.mentor",
+    "onView:buildMyLogic.results"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -50,6 +51,13 @@
           "title": "BuildMyLogic",
           "icon": "media/buildMyLogic.svg"
         }
+      ],
+      "panel": [
+        {
+          "id": "buildMyLogicResults",
+          "title": "BuildMyLogic",
+          "icon": "media/buildMyLogic.svg"
+        }
       ]
     },
     "views": {
@@ -62,7 +70,15 @@
         {
           "type": "webview",
           "id": "buildMyLogic.mentor",
-          "name": "AI Mentor"
+          "name": "AI Mentor",
+          "when": "buildMyLogic.showAuthenticatedMentor"
+        }
+      ],
+      "buildMyLogicResults": [
+        {
+          "type": "webview",
+          "id": "buildMyLogic.results",
+          "name": "BuildMyLogic Results"
         }
       ]
     },
@@ -70,13 +86,18 @@
       {
         "command": "buildmylogic.analyzeMyCode",
         "title": "BuildMyLogic: Analyze My Code"
+      },
+      {
+        "command": "buildmylogic.openMentor",
+        "title": "BuildMyLogic: Open Authenticated Mentor"
       }
     ]
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
     "compile": "node esbuild.js",
-    "package": "node esbuild.js --production"
+    "package": "node esbuild.js --production",
+    "test": "node --experimental-strip-types --test src/ui-contract.test.mjs"
   },
   "devDependencies": {
     "@types/node": "20.x",

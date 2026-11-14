@@ -53,3 +53,12 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - Add "Diagnose & reassess on website" to the connected challenge panel.
 - The handoff carries the exact session ID. The website recovers recorded test attempts once, asks a prediction probe, and runs supported C/Python transfer tasks with real grading.
 - Framework/project failures without a concept-specific executable specification stay locked. An exit-zero command is not proof of a new relevant reassessment.
+
+## 0.3.1 - Independent four-tab workspace UI
+
+- Mission, Progress, Mentor and Recovery tabs, styled from the requested references.
+- Native bottom BuildMyLogic results view with published checkpoint states and actual command output.
+- Progress is scoped to the connected session, not an invented global skill score.
+- Recovery distinguishes observed repeated failures from a confirmed cause; owner-verified changed-task recovery remains on the website.
+- Mentor tab uses existing session feedback and links to the existing authenticated Mentor. No seeded chat or paid-AI bypass.
+- Independent current-repository implementation, not Aromal's separate unshared build.

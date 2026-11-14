@@ -3,17 +3,19 @@ import { spawn } from 'node:child_process';
 import { loadAppConfig } from './config';
 import { SessionClient, RemoteSession } from './sessionClient';
 import { sidebarHtml } from './webviewHtml';
+import { ResultsPanel, RESULTS_VIEW_ID } from './resultsPanel';
 import { startBridge, consumeStagedSession, SessionConnect } from './bridge';
 import { MentorClient } from './mentorClient';
 import { MentorPanel, MENTOR_VIEW_ID } from './mentorPanel';
 
 const viewId = 'buildMyLogic.sidebar';
 type Connection = { sessionId: string };
-type Message = { command: 'connect' | 'hint' | 'stuck' | 'runTests' | 'submit' | 'failed' | 'disconnect' | 'reassess'; sessionId?: string };
+type Message = { command: 'ready' | 'connect' | 'hint' | 'stuck' | 'runTests' | 'submit' | 'failed' | 'disconnect' | 'reassess' | 'openMentor'; sessionId?: string };
 
 class Sidebar implements vscode.WebviewViewProvider {
+  private running = false;
   private view?: vscode.WebviewView; private session?: RemoteSession; private connection?: Connection; private live = false; private loopToken = 0; private lastHeartbeatAt = 0; private evidenceSubscriptions: vscode.Disposable[] = []; private diagnosticTimer?: NodeJS.Timeout; private pendingUriSession?: { sessionId: string };
-  constructor(private readonly api: SessionClient) {}
+  constructor(private readonly api: SessionClient, private readonly results: ResultsPanel) {}
   resolveWebviewView(view: vscode.WebviewView) {
     this.view = view; view.webview.options = { enableScripts: true }; view.webview.html = sidebarHtml(view.webview.cspSource);
     view.onDidDispose(() => { this.stop(); this.clearEvidenceSubscriptions(); }); view.webview.onDidReceiveMessage((m: unknown) => { if (valid(m)) void this.handle(m); });
@@ -45,14 +47,20 @@ class Sidebar implements vscode.WebviewViewProvider {
   }
   private async handle(m: Message) {
     try {
+      if (m.command === 'ready') { if (this.session) this.post({type:'session',session:this.session}); return; }
+      if (m.command === 'openMentor') { await vscode.commands.executeCommand('buildmylogic.openMentor'); return; }
       if (m.command === 'connect') return void this.connect(m.sessionId || '', false);
-      if (m.command === 'disconnect') { this.stop(); this.clearEvidenceSubscriptions(); this.session = undefined; this.connection = undefined; await vscode.workspace.getConfiguration('buildMyLogic').update('session', undefined, vscode.ConfigurationTarget.Global); return this.post({ type: 'disconnected' }); }
+      if (m.command === 'disconnect') { this.stop(); this.clearEvidenceSubscriptions(); this.session = undefined; this.connection = undefined; await vscode.workspace.getConfiguration('buildMyLogic').update('session', undefined, vscode.ConfigurationTarget.Global); this.results.update(undefined, ''); return this.post({ type: 'disconnected' }); }
       if (!this.session || !this.connection) return this.status('Connect an active BuildMyLogic session first.', true);
       if (m.command === 'reassess') { const url = new URL('/reassess', this.api.getBaseUrl()); url.searchParams.set('session', this.connection.sessionId); await vscode.env.openExternal(vscode.Uri.parse(url.toString())); return; }
       if (m.command === 'hint' || m.command === 'stuck') { const r = await this.api.hint(this.connection.sessionId, m.command === 'stuck'); this.session = r.state || this.session; return this.post({ type: 'guidance', text: r.guidance, session: this.session }); }
       if (m.command === 'failed') { const yes = await vscode.window.showWarningMessage("You couldn't complete this challenge? This marks it failed and starts recovery.", { modal: true }, 'Yes, Help Me Recover'); if (yes !== 'Yes, Help Me Recover') return; const r = await this.api.fail(this.connection.sessionId, 'Learner selected I Failed'); this.session = r.state || this.session; return this.post({ type: 'failed', text: `${r.recovery || ''}\n\nMini-task: ${r.mini_task || ''}`, session: this.session }); }
-      if (m.command === 'submit') return void this.submitProject();
-      if (m.command === 'runTests') return void this.test();
+      if (m.command === 'submit' || m.command === 'runTests') {
+        if (this.running) return this.status('Wait for the current workspace action to finish.');
+        this.running = true;
+        try { if (m.command === 'submit') await this.submitProject(); else await this.test(); }
+        finally { this.running = false; }
+      }
     } catch (e) { this.status(e instanceof Error ? e.message : 'Session action failed.', true); }
   }
   private async connect(sessionId: string, silent: boolean) {
@@ -164,16 +172,20 @@ class Sidebar implements vscode.WebviewViewProvider {
   }
   private async test() {
     if (!this.session || !this.connection) return;
+    const connection = this.connection;
     const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath; if (!folder) throw new Error('Open the challenge workspace before running tests.');
     const plan = await this.api.runPlan(this.connection.sessionId, process.platform);
     this.post({ type: 'status', text: plan.run_plan?.guidance || 'BuildMyLogic is checking the next checkpoint locally.' });
     const checkpointResults = await this.runNextCheckpoint(folder, plan.run_plan?.command || '');
+    if (!checkpointResults.length) return;
+    if (this.connection?.sessionId !== connection.sessionId || this.session?.session_id !== connection.sessionId) return this.status('Session changed. Local output was not sent to another session.', true);
     const passed = checkpointResults.filter((item) => item.passed).length;
     const total = this.session.checkpoints?.length || 1;
     const latest = checkpointResults[checkpointResults.length - 1];
-    const r = await this.api.test(this.connection.sessionId, { status: latest?.passed ? 'passed' : 'failed', passed, total, score: passed, error: latest?.passed ? '' : latest?.output, stdout: latest?.output, checkpoint_results: checkpointResults, attempt: this.session.attempts + 1 });
+    const r = await this.api.test(connection.sessionId, { status: latest?.passed ? 'passed' : 'failed', passed, total, score: passed, error: latest?.passed ? '' : latest?.output, stdout: latest?.output, checkpoint_results: checkpointResults, attempt: this.session.attempts + 1 });
     this.session = r.state || this.session;
     if (this.session.status === 'completed') { this.clearEvidenceSubscriptions(); this.post({ type: 'status', text: 'Challenge proven. Live sync keeps running so the website can send follow-ups.', error: false }); }
+    this.results.update(this.session, latest?.output || 'No command output.'); await this.results.show();
     this.post({ type: 'tests', passed: Boolean(latest?.passed), output: latest?.output || 'No command output.', guidance: plan.run_plan?.guidance, session: this.session });
   }
 
@@ -182,9 +194,10 @@ class Sidebar implements vscode.WebviewViewProvider {
     const checkpoints = this.session.checkpoints?.length ? this.session.checkpoints : [{ index: 0, title: 'Run the project', detail: 'Run the project locally.', status: 'active' as const, attempts: 0 }];
     const checkpoint = checkpoints.find((item) => item.status !== 'passed') || checkpoints[checkpoints.length - 1];
     const text = `${checkpoint.title} ${checkpoint.detail}`.toLowerCase();
-    let result: { passed: boolean; output: string };
+    let result: { passed: boolean; output: string; cancelled?: boolean };
     if (this.session.language.toLowerCase().includes('python') && text.includes('python') && text.includes('venv')) {
       const version = await this.runCommand(process.platform === 'win32' ? 'py -3 --version' : 'python3 --version', folder, 15000);
+      if (version.cancelled) { this.status(version.output); return []; }
       const venv = vscode.Uri.joinPath(vscode.workspace.workspaceFolders![0]!.uri, 'venv');
       let venvExists = false; try { await vscode.workspace.fs.stat(venv); venvExists = true; } catch { /* checkpoint reports the missing folder */ }
       result = { passed: version.code === 0 && venvExists, output: `${version.output}\n${venvExists ? 'venv found.' : 'venv is missing. Create it with: ' + (process.platform === 'win32' ? 'py -3 -m venv venv' : 'python3 -m venv venv')}` };
@@ -200,13 +213,14 @@ class Sidebar implements vscode.WebviewViewProvider {
     } else {
       result = await this.runCommand(runCommand, folder, runCommand.includes('uvicorn') ? 12000 : 60000);
     }
+    if (result.cancelled) { this.status(result.output); return []; }
     return [{ index: checkpoint.index, passed: result.passed, output: result.output }];
   }
 
-  private async runCommand(command: string, cwd: string, timeoutMs: number) {
-    if (!vscode.workspace.isTrusted) return { code: 1, passed: false, output: 'Trust this workspace before running local commands.' };
+  private async runCommand(command: string, cwd: string, timeoutMs: number): Promise<{ code: number; passed: boolean; output: string; cancelled?: boolean }> {
+    if (!vscode.workspace.isTrusted) return { code: 1, passed: false, cancelled: true, output: 'Trust this workspace before running local commands. No test was recorded.' };
     const approval = await vscode.window.showWarningMessage(`Run this command locally in ${cwd}?\n${command}`, { modal: true }, 'Run command');
-    if (approval !== 'Run command') return { code: 1, passed: false, output: 'Command cancelled by the learner.' };
+    if (approval !== 'Run command') return { code: 1, passed: false, cancelled: true, output: 'Command cancelled. No test was run or recorded.' };
     const outputChannel = vscode.window.createOutputChannel('BuildMyLogic Tests'); outputChannel.show(true); outputChannel.appendLine(`$ ${command}`);
     return new Promise<{ code: number; passed: boolean; output: string }>((resolve) => {
       if (!command.trim()) return resolve({ code: 1, passed: false, output: 'No safe local run command was available for this project.' });
@@ -235,12 +249,15 @@ class Sidebar implements vscode.WebviewViewProvider {
     this.post({ type: 'submission', session: this.session, review, text: `${review?.verdict || 'Project submitted for BuildMyLogic review.'}\n\nFiles reviewed: ${files.length}` });
   }
   private status(text: string, error = false) { this.post({ type: 'status', text, error }); }
-  private post(message: unknown) { void this.view?.webview.postMessage(message); }
+  private post(message: unknown) { const m = message as {session?: RemoteSession}; if (m.session) this.results.update(m.session); void this.view?.webview.postMessage(message); }
 }
-function valid(v: unknown): v is Message { return !!v && typeof v === 'object' && ['connect', 'hint', 'stuck', 'runTests', 'submit', 'failed', 'disconnect', 'reassess'].includes(String((v as Message).command)); }
+function valid(v: unknown): v is Message { return !!v && typeof v === 'object' && ['ready', 'connect', 'hint', 'stuck', 'runTests', 'submit', 'failed', 'disconnect', 'reassess', 'openMentor'].includes(String((v as Message).command)); }
 export function activate(context: vscode.ExtensionContext) {
   const config = loadAppConfig();
-  const sidebar = new Sidebar(new SessionClient(config.apiBaseUrl));
+  const results = new ResultsPanel();
+  const sidebar = new Sidebar(new SessionClient(config.apiBaseUrl), results);
+  context.subscriptions.push(vscode.window.registerWebviewViewProvider(RESULTS_VIEW_ID, results));
+  context.subscriptions.push(vscode.commands.registerCommand('buildmylogic.openMentor', async () => { await vscode.commands.executeCommand('setContext', 'buildMyLogic.showAuthenticatedMentor', true); await vscode.commands.executeCommand('buildMyLogic.mentor.focus'); }));
   const mentor = new MentorPanel(context, new MentorClient(config.apiBaseUrl));
   const connectSession = (connect: SessionConnect) => sidebar.connectFromUri(vscode.Uri.parse(`vscode://buildmylogic.buildmylogic/connect?sessionId=${encodeURIComponent(connect.sessionId)}&apiBaseUrl=${encodeURIComponent(connect.apiBaseUrl)}`));
   context.subscriptions.push(vscode.window.registerWebviewViewProvider(viewId, sidebar));
@@ -251,7 +268,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(startBridge(context, {
     extensionVersion: String(context.extension?.packageJSON?.version || ''),
     connectSession: (connect) => connectSession(connect),
-    connectMentor: (connect) => mentor.connectFromBridge(connect),
+    connectMentor: async (connect) => { await vscode.commands.executeCommand('setContext', 'buildMyLogic.showAuthenticatedMentor', true); return mentor.connectFromBridge(connect); },
   }));
   // A folder opened from the website reloads this window; finish its pending
   // session connect here.

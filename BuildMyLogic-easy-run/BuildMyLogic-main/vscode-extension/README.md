@@ -195,3 +195,23 @@ Useful checks:
 - Preserved local analysis and hints.
 - Postponed GitHub, website, authentication, remote submission, cloud progress, and remote tests.
 - Expanded the README with architecture, messages, build/run, troubleshooting, future-work, and status documentation.
+
+### Four-tab workspace UI (0.3.1)
+
+Open the BuildMyLogic activity-bar icon to see Mission, Progress, Mentor and
+Recovery. Run Tests asks before running a local command and opens the native
+bottom BuildMyLogic panel. Rows show published checkpoint evidence, including
+unrun checks, and actual command output. Reports remain client-trusted, not
+server-attested. A passing command is not a general proficiency certificate.
+
+Progress percentages count this session's reported checks only. The Mentor tab
+shows recorded session feedback and offers the existing authenticated Mentor;
+there are no example conversations or invented replies. Recovery opens the
+signed-in website for owner checking, prediction probes and supported changed
+tasks. Repeated output mismatches alone do not establish a mental cause.
+
+The independent 0.3.1 build was developed from this repository. Its local QA
+uses a clearly labelled fixture backend and real gcc stdin/output checks. Local
+QA screenshots are not proof of a production account connection or a student's
+work. Production checks, if reported separately, must identify their actual
+scope. Existing login, account, AI and camera rules are unchanged.
