@@ -1,3 +1,4 @@
+import { EmailPasswordSignIn } from "@/components/EmailPasswordSignIn";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { ArrowRight, Check, Loader2, Send, Sparkles, WandSparkles } from "lucide-react";
@@ -169,9 +170,9 @@ export function ConversationalOnboarding() {
         <section className="relative mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center text-center">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary-soft px-3.5 py-1.5 text-[11px] font-bold text-accent-foreground"><Sparkles className="h-3.5 w-3.5" /> PERSONALIZED LEARNING</div>
           <h1 className="display text-[2rem] font-black leading-[1.1] tracking-[-0.05em] sm:text-5xl">What do you want to <span className="text-primary">build?</span></h1>
-          <p className="mt-3 text-[15px] leading-6 text-muted-foreground">Sign in once with Google. Your mentor asks everything else in a quick chat.</p>
+          <p className="mt-3 text-[15px] leading-6 text-muted-foreground">Sign in with Google or your email and password. Your mentor asks everything else in a quick chat.</p>
           {unavailable ? (
-            <p className="mt-8 rounded-2xl bg-destructive/10 px-4 py-4 text-sm font-medium text-destructive">Google sign-in is not configured on this site right now. Please try again shortly.</p>
+            <p className="mt-8 rounded-2xl bg-destructive/10 px-4 py-4 text-sm font-medium text-destructive">Sign-in is not configured on this site right now. Please try again shortly.</p>
           ) : loadingAccount ? (
             <div className="mt-8 flex items-center gap-2 text-sm font-medium text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin text-primary" /> Loading your account…</div>
           ) : (
@@ -181,7 +182,8 @@ export function ConversationalOnboarding() {
                 Continue with Google
               </button>
               {authError && <p className="mt-3 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{authError}</p>}
-              <p className="mt-4 text-xs text-muted-foreground">No resume or forms. Just Google, then a short chat.</p>
+              <EmailPasswordSignIn />
+              <p className="mt-4 text-xs text-muted-foreground">No resume needed. Sign in, then a short chat.</p>
             </>
           )}
         </section>

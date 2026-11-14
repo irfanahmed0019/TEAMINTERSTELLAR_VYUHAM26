@@ -12,7 +12,7 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm run lint && npm run build",
-    "test": "node --experimental-strip-types --test src/lib/rate-limit.test.mjs src/lib/request-auth.test.mjs src/lib/editor-keydown.test.mjs src/lib/reveal-schedule.test.mjs src/lib/skill-evidence.test.mjs src/lib/struggle-engine.test.mjs src/lib/session-history.test.mjs src/lib/cloud-restore.test.mjs src/lib/sample-progress.test.mjs",
+    "test": "node --experimental-strip-types --test src/lib/rate-limit.test.mjs src/lib/request-auth.test.mjs src/lib/editor-keydown.test.mjs src/lib/reveal-schedule.test.mjs src/lib/skill-evidence.test.mjs src/lib/struggle-engine.test.mjs src/lib/session-history.test.mjs src/lib/cloud-restore.test.mjs src/lib/sample-progress.test.mjs src/lib/email-auth.test.mjs",
     "test:references": "node --experimental-strip-types --test src/lib/reassessment-reference.test.mjs src/lib/diagnostic-reference.test.mjs"
   },
   "overrides": {

@@ -55,3 +55,19 @@ clearing browser storage. Concurrent edits detected at the preflight check abort
 the import. Close other editing tabs before applying. A final independent cloud
 read verifies save completion; an unconfirmed save is reported as unconfirmed,
 never silently treated as done.
+
+### Email/password sign-in
+
+The public onboarding screen now offers existing email/password account sign-in
+alongside the unchanged Google OAuth entry. Password authentication uses the
+same configured Supabase client and existing auth-state listener. No local
+credential fallback, signup, password reset, account linking or provider-setting
+change is performed. The password is cleared after each submitted attempt and
+never copied to app state, logs, URLs or browser storage by this form. Generic
+errors avoid exposing reflected provider responses or account existence.
+
+Google-only learners should keep using Google. Their Google password is not a
+BuildMyLogic password. Creating a separate real demo account requires an address
+the user controls and a separately collected replacement password, plus the
+provider's normal confirmation. This UI does not claim the requested demo
+account has already been created.
