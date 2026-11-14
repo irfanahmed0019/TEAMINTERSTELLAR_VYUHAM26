@@ -445,3 +445,28 @@ test("a previously persisted unverified conquest cannot trigger a celebration or
  const state={...emptyStruggleState,misconceptions:[prior]};
  assert.equal(pendingCelebration(state),null);assert.equal(struggleMetrics(state).conqueredCount,0);
 });
+
+test("cloud key ordering does not invalidate exact reassessment checks", async () => {
+  const { recordDiagnosticPrediction } = await import('./struggle-engine.ts');
+  let state = lockState();
+  const id = state.misconceptions[0].id;
+  state = recordDiagnosticPrediction(state, id, 0, true, 3000);
+  const spec = newReassessment('loops', 'python', 4000, true);
+  const cloudSpec = JSON.parse(JSON.stringify(spec), (_key, value) =>
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? Object.fromEntries(Object.entries(value).sort()) : value);
+  state = attachReassessment(state, id, cloudSpec);
+  const args = { misconceptionId: id, constructOk: true, at: 5000,
+    graded: spec.tests.map(t => ({ ...t, hidden: true, actual: t.expected,
+      passed: true, status: 'Accepted', stderr: '' })) };
+  assert.equal(recordReassessmentAttempt(state, args).outcome?.conquered?.status, 'conquered');
+  for (const key of ['name', 'stdin', 'expected', 'unseen', 'variantOf']) {
+    const tampered = structuredClone(state);
+    tampered.misconceptions[0].reassessment.tests[0][key] =
+      key === 'unseen' ? false : 'tampered';
+    assert.equal(recordReassessmentAttempt(tampered, args).outcome, null, key);
+  }
+  const extra = structuredClone(state);
+  extra.misconceptions[0].reassessment.tests.push(spec.tests[0]);
+  assert.equal(recordReassessmentAttempt(extra, args).outcome, null);
+});

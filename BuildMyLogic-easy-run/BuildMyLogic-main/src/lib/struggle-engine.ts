@@ -774,7 +774,20 @@ export function recordReassessmentAttempt(
     return { state: prev, outcome: null };
   if (
     !canonical ||
-    JSON.stringify(spec.tests) !== JSON.stringify(canonical.tests)
+    spec.tests.length !== canonical.tests.length ||
+    !spec.tests.every((test, index) => {
+      const expected = canonical.tests[index];
+      // Cloud JSON may reorder object keys. Compare the check's exact meaning,
+      // retaining check order and all validation fields, not serialized bytes.
+      return (
+        expected &&
+        test.name === expected.name &&
+        test.stdin === expected.stdin &&
+        test.expected === expected.expected &&
+        test.unseen === expected.unseen &&
+        test.variantOf === expected.variantOf
+      );
+    })
   )
     return { state: prev, outcome: null };
   const total = input.graded.length;
