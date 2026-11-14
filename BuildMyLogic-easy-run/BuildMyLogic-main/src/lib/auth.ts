@@ -7,6 +7,8 @@ import {
   signInWithSupabaseGoogle,
 } from "./supabase";
 import type { LoopState } from "./loop-types";
+import { signOutInOrder } from "./signout-order";
+import { resetLoop } from "./loop-store";
 
 export type AuthUser = {
   uid: string;
@@ -25,6 +27,7 @@ const AUTH_KEY = "loop.auth.v1";
 const listeners = new Set<() => void>();
 let session: AuthSession | null = null;
 let loaded = false;
+let signingOut = false;
 
 function load() {
   if (typeof window === "undefined" || loaded) return;
@@ -70,8 +73,10 @@ export function getAuthSession(): AuthSession | null {
 /** Returns the current Supabase access token before calling an authenticated API. */
 export async function getAuthSessionForApi(): Promise<AuthSession | null> {
   load();
+  if (signingOut) return null;
   if (!supabase) return session;
   const { data } = await supabase.auth.getSession();
+  if (signingOut) return null;
   const current = data.session;
   if (!current?.user) return session;
   session = {
@@ -82,10 +87,12 @@ export async function getAuthSessionForApi(): Promise<AuthSession | null> {
       (current.user.user_metadata?.["name"] as string) ||
       current.user.email?.split("@")[0] ||
       "Builder",
-    photoUrl: (current.user.user_metadata?.["avatar_url"] as string) || undefined,
+    photoUrl:
+      (current.user.user_metadata?.["avatar_url"] as string) || undefined,
     idToken: current.access_token,
     ...(current.refresh_token ? { refreshToken: current.refresh_token } : {}),
-    expiresAt: (current.expires_at ?? Math.floor(Date.now() / 1000) + 3600) * 1000,
+    expiresAt:
+      (current.expires_at ?? Math.floor(Date.now() / 1000) + 3600) * 1000,
   };
   persist();
   return session;
@@ -103,6 +110,7 @@ export function hasFirebaseConfig(): boolean {
 // Automatically listen to Supabase Auth state changes if configured
 if (supabase) {
   supabase.auth.onAuthStateChange((_event, supabaseSession) => {
+    if (signingOut) return;
     if (supabaseSession?.user) {
       const u = supabaseSession.user;
       session = {
@@ -114,9 +122,15 @@ if (supabase) {
           u.email?.split("@")[0] ||
           "Builder",
         photoUrl: (u.user_metadata?.["avatar_url"] as string) || undefined,
-        ...(supabaseSession.access_token ? { idToken: supabaseSession.access_token } : {}),
-        ...(supabaseSession.refresh_token ? { refreshToken: supabaseSession.refresh_token } : {}),
-        expiresAt: (supabaseSession.expires_at ?? Math.floor(Date.now() / 1000) + 3600) * 1000,
+        ...(supabaseSession.access_token
+          ? { idToken: supabaseSession.access_token }
+          : {}),
+        ...(supabaseSession.refresh_token
+          ? { refreshToken: supabaseSession.refresh_token }
+          : {}),
+        expiresAt:
+          (supabaseSession.expires_at ?? Math.floor(Date.now() / 1000) + 3600) *
+          1000,
       };
       persist();
     } else {
@@ -157,9 +171,14 @@ export async function signInWithGoogleCredential(credential: string) {
           (data.user.user_metadata?.["full_name"] as string) ||
           data.user.email?.split("@")[0] ||
           "Builder",
-        photoUrl: (data.user.user_metadata?.["avatar_url"] as string) || undefined,
-        ...(data.session?.access_token ? { idToken: data.session.access_token } : {}),
-        ...(data.session?.refresh_token ? { refreshToken: data.session.refresh_token } : {}),
+        photoUrl:
+          (data.user.user_metadata?.["avatar_url"] as string) || undefined,
+        ...(data.session?.access_token
+          ? { idToken: data.session.access_token }
+          : {}),
+        ...(data.session?.refresh_token
+          ? { refreshToken: data.session.refresh_token }
+          : {}),
         expiresAt: Date.now() + 3600 * 1000,
       };
       persist();
@@ -179,11 +198,24 @@ export async function signInWithGoogleCredential(credential: string) {
 }
 
 export async function signOut() {
-  if (supabase) {
-    await supabase.auth.signOut().catch(() => {});
-  }
-  session = null;
-  persist();
+  await signOutInOrder({
+    revoke: () => {
+      signingOut = true;
+      loaded = true;
+      session = null;
+      persist();
+    },
+    clear: resetLoop,
+    remote: async () => {
+      try {
+        if (supabase) await supabase.auth.signOut({ scope: "local" });
+      } finally {
+        session = null;
+        persist();
+        signingOut = false;
+      }
+    },
+  });
 }
 
 export async function saveLoopStateToCloud(
@@ -211,13 +243,14 @@ export async function loadLoopStateFromCloud(
 export async function renderGoogleButton(
   element: HTMLElement,
   onCredential: (credential: string) => void,
-  options?: Record<string, unknown>
+  options?: Record<string, unknown>,
 ) {
   // If Supabase is available, we render a clean Google button
   element.replaceChildren();
   const btn = document.createElement("button");
   btn.type = "button";
-  btn.className = "btn-base btn-outline flex items-center gap-2 text-xs font-bold w-full justify-center";
+  btn.className =
+    "btn-base btn-outline flex items-center gap-2 text-xs font-bold w-full justify-center";
   btn.innerHTML = `<svg class="h-4 w-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg> Continue with Google`;
   btn.onclick = async () => {
     try {

@@ -71,3 +71,13 @@ BuildMyLogic password. Creating a separate real demo account requires an address
 the user controls and a separately collected replacement password, plus the
 provider's normal confirmation. This UI does not claim the requested demo
 account has already been created.
+
+### Logout cloud-save race fix
+Logout now synchronously revokes local auth/write authority before clearing local
+learner state, then performs provider-local signout. Late auth events and API
+session refreshes cannot restore that authority during signout. Debounced cloud
+saves already check the current UID before sending; they now fail closed during
+the whole remote logout wait. Any pre-existing in-flight save contains the prior
+learner state, never the logout-cleared state. No password/account migration.
+Regression exercise delays provider logout 1.4 seconds and verifies no empty
+cloud write, followed by password sign-in and fresh reload restoring saved data.
