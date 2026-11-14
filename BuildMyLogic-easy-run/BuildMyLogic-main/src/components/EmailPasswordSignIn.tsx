@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Loader2, Mail } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { authenticateWithPassword } from "@/lib/email-auth";
+import { isDemoPreviewIdentifier } from "@/lib/demo-preview";
 
 export function EmailPasswordSignIn() {
   const [email, setEmail] = useState("");
@@ -11,6 +12,12 @@ export function EmailPasswordSignIn() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
+    if (isDemoPreviewIdentifier(email)) {
+      // Public preview only: never send or persist the supplied password.
+      setPassword("");
+      window.location.assign("/demo");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -73,7 +80,7 @@ export function EmailPasswordSignIn() {
           type="password"
           name="password"
           autoComplete="current-password"
-          required
+          required={!isDemoPreviewIdentifier(email)}
           disabled={busy}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
@@ -98,6 +105,13 @@ export function EmailPasswordSignIn() {
           className="rounded-xl bg-destructive/10 p-3 text-xs leading-5 text-destructive"
         >
           {error}
+        </p>
+      )}
+      {isDemoPreviewIdentifier(email) && (
+        <p className="rounded-xl bg-primary/10 p-3 text-xs leading-5">
+          Public demo preview: any password or no password opens sample data
+          only. It is not an authenticated account. Your password is not sent or
+          saved.
         </p>
       )}
       <p className="text-center text-[11px] leading-5 text-muted-foreground">

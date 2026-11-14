@@ -1,3 +1,4 @@
+import { useLocation } from "@tanstack/react-router";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { LoopState } from "./loop-types";
 import {
@@ -35,6 +36,11 @@ export function useCloudHydrated(uid: string | null | undefined): boolean {
 }
 
 export function CloudSync() {
+  const path = useLocation({ select: (location) => location.pathname });
+  return path === "/demo" ? null : <AccountCloudSync />;
+}
+
+function AccountCloudSync() {
   const auth = useAuth();
   const uid = auth?.uid;
   const state = useLoop();

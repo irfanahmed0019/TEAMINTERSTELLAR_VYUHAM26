@@ -81,3 +81,13 @@ the whole remote logout wait. Any pre-existing in-flight save contains the prior
 learner state, never the logout-cleared state. No password/account migration.
 Regression exercise delays provider logout 1.4 seconds and verifies no empty
 cloud write, followed by password sign-in and fresh reload restoring saved data.
+
+### Public demo preview
+The exact synthetic identifier demo@buildmylogic.invalid selects /demo before
+password authentication. Any supplied password is cleared and never sent or
+saved. /demo is a public sample preview, not an authenticated user: it does not
+use the learner store, provider tokens, cloud sync, paid AI or calendar actions.
+Its sample pack lives only in component memory and is rebuilt deterministically
+on reload. Existing real sessions and local/cloud learner records are untouched.
+Other identifiers continue to use normal password authentication. Exit demo
+returns to the normal site without signing anyone out or changing their state.
