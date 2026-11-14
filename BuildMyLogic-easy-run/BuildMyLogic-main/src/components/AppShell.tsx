@@ -1,11 +1,5 @@
-import { isPublicDemo, exitPublicDemo } from "@/lib/demo-mode";
 import { Link, useNavigate } from "@tanstack/react-router";
-import {
-  useEffect,
-  useState,
-  useSyncExternalStore,
-  type ReactNode,
-} from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   LayoutGrid,
   BookOpen,
@@ -50,11 +44,6 @@ export function AppShell({
   wide?: boolean;
   allowEmpty?: boolean;
 }) {
-  const demo = useSyncExternalStore(
-    () => () => {},
-    isPublicDemo,
-    () => false,
-  );
   const state = useLoop();
   const auth = useAuth();
   const navigate = useNavigate();
@@ -79,98 +68,15 @@ export function AppShell({
   }, [state.onboarded, navigate, auth, hydrated, allowEmpty]);
 
   return (
-    <div
-      onKeyDownCapture={(event) => {
-        if (
-          demo &&
-          (event.target as HTMLElement).closest("input,textarea,select")
-        ) {
-          event.preventDefault();
-          event.stopPropagation();
-        }
-      }}
-      className="min-h-screen bg-background"
-      onSubmitCapture={(event) => {
-        if (demo) {
-          event.preventDefault();
-          event.stopPropagation();
-          setNotice("This action is unavailable in public demo mode.");
-        }
-      }}
-      onClickCapture={(event) => {
-        if (!demo) return;
-        const element = (event.target as HTMLElement).closest(
-          "button,a,input,textarea,select",
-        );
-        if (!element) return;
-        if (element.hasAttribute("data-demo-exit")) {
-          event.preventDefault();
-          event.stopPropagation();
-          exitPublicDemo();
-          return;
-        }
-        const link = element.closest("a");
-        if (link) {
-          const href = link.getAttribute("href") || "";
-          if (
-            href.startsWith("/") &&
-            !href.startsWith("/api/") &&
-            !href.startsWith("//")
-          )
-            return;
-        }
-        const text = element.textContent?.trim() || "";
-        if (
-          element.tagName === "BUTTON" &&
-          [
-            "Overview",
-            "Skills",
-            "Missions",
-            "Struggle DNA",
-            "Activity",
-            "Dismiss",
-            "Close",
-            "Start Task",
-            "View Full Path →",
-          ].includes(text)
-        )
-          return;
-        event.preventDefault();
-        event.stopPropagation();
-        setNotice(
-          "Public demo: browse the app and sample progress. AI, code execution, camera, calendar and account changes require a real sign-in.",
-        );
-      }}
-    >
+    <div className="min-h-screen bg-background">
       <div className="min-w-0 pb-20">
-        {demo && (
-          <div
-            role="note"
-            className="sticky top-0 z-[60] flex flex-wrap items-center justify-between gap-2 border-b border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-950"
-          >
-            <span>
-              DEMO MODE - public sample session, not an authenticated account.
-              Changes are isolated. AI, code execution and account actions are
-              unavailable.
-            </span>
-            <button
-              data-demo-exit
-              className="rounded-lg border border-amber-400 px-3 py-1"
-            >
-              Exit demo
-            </button>
-          </div>
-        )}
         {state.sampleProvenance && (
           <div
             role="note"
             className="sticky top-0 z-50 border-b border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-semibold text-amber-950"
           >
             SAMPLE PROGRESS - demo numbers, history and wins. Not genuine
-            achievements.{" "}
-            {demo
-              ? "Public demo session only."
-              : "Your account is showing sample data."}
+            achievements. Your account is showing sample data.
           </div>
         )}
         <header className="flex h-16 items-center justify-between gap-3 border-b border-border/60 px-4 sm:px-6 lg:h-[76px] lg:gap-5 lg:px-8">
@@ -195,7 +101,7 @@ export function AppShell({
                 <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary" />
               )}
             </button>
-            {!auth && !demo && (
+            {!auth && (
               <div className="hidden sm:block">
                 <GoogleSignIn compact />
               </div>
@@ -212,15 +118,10 @@ export function AppShell({
             <button
               type="button"
               onClick={() => {
-                if (demo) {
-                  exitPublicDemo();
-                  return;
-                }
                 void signOut();
                 void navigate({ to: "/" });
               }}
-              data-demo-exit={demo ? "" : undefined}
-              aria-label={demo ? "Exit demo" : "Log out"}
+              aria-label="Log out"
               title="Log out"
               className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
             >

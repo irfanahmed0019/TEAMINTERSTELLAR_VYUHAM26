@@ -1,3 +1,4 @@
+import { passwordLoginEmail } from "./sample-account.ts";
 /** No signup, reset, fake local fallback or password persistence on this path. */
 export type PasswordAuthClient = {
   auth: {
@@ -28,7 +29,7 @@ export async function authenticateWithPassword(
   password: string,
 ): Promise<void> {
   if (!client) throw new Error("Email sign-in is not configured on this site.");
-  const normalized = email.trim();
+  const normalized = passwordLoginEmail(email);
   if (!normalized || !password)
     throw new Error("Enter your email and BuildMyLogic password.");
   try {

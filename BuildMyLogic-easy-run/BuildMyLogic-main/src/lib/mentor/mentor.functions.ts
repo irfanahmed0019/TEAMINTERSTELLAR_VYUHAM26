@@ -1,3 +1,4 @@
+import { isSampleAccount, SAMPLE_AI_UNAVAILABLE } from "../sample-account";
 import { createServerFn, createMiddleware } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 
@@ -14,6 +15,7 @@ const authed = createMiddleware({ type: "function" })
     const { authenticatedUserId } = await import("../request-auth.server");
     const userId = await authenticatedUserId(getRequest());
     if (!userId) throw new Error("Sign in to use AI features.");
+    if (isSampleAccount(userId)) throw new Error(SAMPLE_AI_UNAVAILABLE);
     return next({ context: { authenticatedUserId: userId } });
   });
 

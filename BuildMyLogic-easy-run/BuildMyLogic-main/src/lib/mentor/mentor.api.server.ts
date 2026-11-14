@@ -1,3 +1,4 @@
+import { isSampleAccount, SAMPLE_AI_UNAVAILABLE } from "../sample-account";
 /**
  * Server side of the AI Mentor. Everything that counts as learner evidence is
  * computed here: tests run on the Judge0 sandbox, grading and the adaptive
@@ -424,8 +425,9 @@ async function persist(
 
 /* ------------------------------ roadmap ------------------------------ */
 
-async function buildRoadmap(level: Level): Promise<Roadmap> {
+async function buildRoadmap(level: Level, noPaidAI = false): Promise<Roadmap> {
   const base = curatedRoadmap(level);
+  if (noPaidAI) return { ...base, aiNote: SAMPLE_AI_UNAVAILABLE };
   try {
     const key = process.env["SARVAM_API_KEY"]?.trim();
     if (!key || /^(your_|sk_your|sk_placeholder|replace_with_)/i.test(key))
@@ -664,6 +666,13 @@ export async function handleMentorApi(
         { ok: false, error: "Sign in to save and verify your learning." },
         401,
       );
+    if (
+      isSampleAccount(userId) &&
+      request.method === "POST" &&
+      p === "/api/mentor/ask"
+    ) {
+      return json(request, { ok: false, error: SAMPLE_AI_UNAVAILABLE }, 403);
+    }
     if (limited(userId, "acct", 40))
       return json(
         request,
@@ -684,7 +693,7 @@ export async function handleMentorApi(
           400,
           "Only the Arithmetic Operations in C journey is available.",
         );
-      const roadmap = await buildRoadmap(level);
+      const roadmap = await buildRoadmap(level, isSampleAccount(userId));
       const s = newState(level, roadmap);
       s.verified = true;
       await persist(

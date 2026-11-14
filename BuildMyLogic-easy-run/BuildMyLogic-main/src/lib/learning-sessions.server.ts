@@ -1,3 +1,4 @@
+import { isSampleAccount } from "./sample-account.ts";
 import { sarvamJson } from "./sarvam.server";
 
 export type LearningSession = {
@@ -313,7 +314,7 @@ function fallbackRunPlan(session: LearningSession, platform: string) {
 
 export async function getRunPlan(session: LearningSession, platform: string) {
   const fallback = fallbackRunPlan(session, platform);
-  const apiKey = process.env["SARVAM_API_KEY"]?.trim();
+  const apiKey = isSampleAccount(session.userId) ? undefined : process.env["SARVAM_API_KEY"]?.trim();
   if (apiKey) {
     try {
       const answer = await sarvamJson<{ guidance?: string }>(apiKey,
@@ -335,7 +336,7 @@ export async function submitProject(session: LearningSession, files: unknown) {
   session.projectFiles = accepted;
   const names = accepted.map((file) => file.path).join(", ").slice(0, 4000);
   const fallback = { score: session.status === "completed" ? 95 : 70, verdict: session.status === "completed" ? "Your project passed the BuildMyLogic evidence checks." : "Your project was submitted. BuildMyLogic found the next evidence you should strengthen.", strengths: accepted.length ? [`Submitted ${accepted.length} project files.`, `The ${session.language} project is connected to this learning session.`] : [], issues: session.status === "completed" ? [] : ["Complete the sequential checkpoints before claiming the project as proven."], missing: [], nextSteps: ["Review the checkpoint results, then run the project again."] };
-  const apiKey = process.env["SARVAM_API_KEY"]?.trim();
+  const apiKey = isSampleAccount(session.userId) ? undefined : process.env["SARVAM_API_KEY"]?.trim();
   if (apiKey) {
     try {
       const answer = await sarvamJson<typeof fallback>(apiKey,
@@ -358,7 +359,7 @@ async function mentor(session: LearningSession, level: "hint" | "stuck" | "recov
   const fallback = level === "recovery" ? "That is okay. Focus on one small condition related to the failing case, then try it before returning to the full challenge."
     : level === "stuck" ? `Let's isolate one small step. What condition should you check before the operation related to: ${recentError(session)}?`
     : `What happens in your program when this situation occurs: ${recentError(session)}?`;
-  const apiKey = process.env["SARVAM_API_KEY"]?.trim(); if (!apiKey) return fallback;
+  const apiKey = isSampleAccount(session.userId) ? undefined : process.env["SARVAM_API_KEY"]?.trim(); if (!apiKey) return fallback;
   try {
     const answer = await sarvamJson<{ guidance?: string }>(apiKey,
       "You are BuildMyLogic Mentor, a patient beginner programming mentor. Use very simple English and short sentences. Understand Manglish (Malayalam written in English) and reply with gentle Manglish plus clear English when useful. Return JSON only: {\"guidance\":\"...\"}. Do not give a complete solution. Ask one thinking question and give a progressively stronger, concise hint.",

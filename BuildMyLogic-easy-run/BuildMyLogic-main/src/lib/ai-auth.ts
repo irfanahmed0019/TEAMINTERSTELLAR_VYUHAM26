@@ -1,3 +1,4 @@
+import { isSampleAccount, SAMPLE_AI_UNAVAILABLE } from "./sample-account";
 import { createMiddleware } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { createRateLimiter } from "./rate-limit";
@@ -50,5 +51,6 @@ export const aiAuthed = createMiddleware({ type: "function" })
       );
     if (limited(`ai:${userId}`, AI_CALLS_PER_MINUTE))
       throw new Error("Too many AI requests. Wait a minute and try again.");
+    if (isSampleAccount(userId)) throw new Error(SAMPLE_AI_UNAVAILABLE);
     return next({ context: { authenticatedUserId: userId } });
   });

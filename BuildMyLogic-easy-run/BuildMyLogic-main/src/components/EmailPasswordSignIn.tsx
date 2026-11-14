@@ -1,4 +1,3 @@
-import { enterPublicDemo } from "@/lib/demo-mode";
 import { useState, type FormEvent } from "react";
 import { Loader2, Mail } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -13,12 +12,6 @@ export function EmailPasswordSignIn() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
-    if (isDemoPreviewIdentifier(email)) {
-      // Public preview only: never send or persist the supplied password.
-      setPassword("");
-      enterPublicDemo();
-      return;
-    }
     setBusy(true);
     setError("");
     try {
@@ -81,7 +74,7 @@ export function EmailPasswordSignIn() {
           type="password"
           name="password"
           autoComplete="current-password"
-          required={!isDemoPreviewIdentifier(email)}
+          required
           disabled={busy}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
@@ -110,9 +103,10 @@ export function EmailPasswordSignIn() {
       )}
       {isDemoPreviewIdentifier(email) && (
         <p className="rounded-xl bg-primary/10 p-3 text-xs leading-5">
-          Public demo mode: any password or no password opens this app with
-          sample data only. It is not an authenticated account. Your password is
-          not sent or saved.
+          Sample test account: demo@gmail.com is a login alias for the dedicated
+          demo@buildmylogic.invalid test account, not a Gmail mailbox. Enter the
+          saved account password. Extension testing and progress are enabled;
+          paid AI is off.
         </p>
       )}
       <p className="text-center text-[11px] leading-5 text-muted-foreground">
