@@ -215,3 +215,8 @@ uses a clearly labelled fixture backend and real gcc stdin/output checks. Local
 QA screenshots are not proof of a production account connection or a student's
 work. Production checks, if reported separately, must identify their actual
 scope. Existing login, account, AI and camera rules are unchanged.
+
+
+## 0.3.2 reliability update
+
+Timeouts stop the command process tree. Disconnect/session switches ignore stale responses. Connection errors stay on the configured API address. Commands still require workspace trust and explicit local execution approval.

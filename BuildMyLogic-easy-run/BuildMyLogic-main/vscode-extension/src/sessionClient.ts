@@ -20,29 +20,10 @@ export class SessionClient {
     return json;
   }
   public async connect(sessionId: string) {
-    const configured = this.baseUrl;
-    const candidates = [configured, 'https://buildmylogicxyz.vercel.app', 'http://127.0.0.1:8080', 'http://localhost:8080'];
-    try {
-      const current = new URL(configured);
-      if (current.hostname === 'localhost' || current.hostname === '127.0.0.1') {
-        candidates.push(`${current.protocol}//${current.hostname === 'localhost' ? '127.0.0.1' : 'localhost'}${current.port ? `:${current.port}` : ''}`);
-      } else if (current.hostname === 'buildmylogicxyz.vercel.app') {
-        candidates.push('http://127.0.0.1:8080', 'http://localhost:8080');
-      }
-    } catch { /* Keep the configured endpoint error below. */ }
-
-    let lastError: unknown;
-    for (const candidate of [...new Set(candidates)]) {
-      this.baseUrl = candidate;
-      try {
-        return await this.request('/api/sessions/connect', { method: 'POST', body: JSON.stringify({ session_id: sessionId }) });
-      } catch (error) {
-        lastError = error;
-      }
-    }
-    this.baseUrl = configured;
-    throw lastError instanceof Error ? lastError : new Error('BuildMyLogic could not connect this Session ID.');
+    // A failed endpoint must not disclose a private Session ID to another host.
+    return this.request('/api/sessions/connect', { method: 'POST', body: JSON.stringify({ session_id: sessionId }) });
   }
+
   /**
    * Read the session. With `since` + `waitMs` the server holds the request until
    * the state actually changes (long-poll), which is how website edits reach

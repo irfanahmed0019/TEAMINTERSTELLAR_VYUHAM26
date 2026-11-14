@@ -1,3 +1,10 @@
+# 0.3.2
+
+- Stop the whole local command process tree on timeout and bound captured output.
+- Ignore stale async results after disconnect or switching sessions.
+- Show network reconnect status honestly and recover the connected badge.
+- Keep failed session connections on the configured website, with no cross-host fallback.
+
 # Change Log
 
 All notable changes to the "logic-analyser" extension will be documented in this file.
