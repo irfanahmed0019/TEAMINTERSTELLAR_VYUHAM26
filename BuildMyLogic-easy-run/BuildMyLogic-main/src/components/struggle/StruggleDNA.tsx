@@ -44,7 +44,9 @@ const KIND_BAR: Record<string, string> = {
  * honest empty state, never invented history.
  */
 export function StruggleDNA() {
-  const struggle = useLoop().struggle;
+  const state = useLoop();
+  const struggle = state.struggle;
+  const sample = !!state.sampleProvenance;
   const attempts = struggle?.attempts ?? [];
   const misconceptions = struggle?.misconceptions ?? [];
 
@@ -82,6 +84,7 @@ export function StruggleDNA() {
 
   return (
     <div className="mt-5 space-y-5">
+      {sample && <p role="note" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm font-semibold text-amber-950">DEMO STRUGGLE DNA: All attempts, failures, passes and wins below are synthetic examples. They are not verified learner evidence or certification.</p>}
       {/* Metrics from the PRD's success measures */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Metric
@@ -249,10 +252,10 @@ export function StruggleDNA() {
       <section className="card-surface p-5 sm:p-6">
         <div className="flex items-center gap-2.5">
           <Trophy className="h-[18px] w-[18px] text-emerald-600" />
-          <h2 className="text-[16px] font-extrabold">Proof of Struggle</h2>
+          <h2 className="text-[16px] font-extrabold">{sample ? "Sample portfolio preview - not proof of real skills" : "Proof of Struggle"}</h2>
         </div>
         <p className="mt-1 text-[12px] font-medium text-muted-foreground">
-          The weaknesses you actually beat, with the receipt for each one.
+          {sample ? "Synthetic sample wins for exploring this view. Not genuine achievements." : "The weaknesses you actually beat, with the receipt for each one."}
         </p>
         <div className="mt-4 space-y-3">
           {conquered.length === 0 ? (

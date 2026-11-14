@@ -32,3 +32,26 @@ Finite tests do not prove unaided work, active learning time, mental state, gene
 Cloud read errors, invalid saved JSON, and missing configuration fail closed. Only an error-free absent row is treated as no saved state. Restore failures keep cloud autosave paused and show a retry action without changing saved cloud data. Successful restore normalizes data locally but does not write a migration or upload local state merely because someone signed in. Google display names are used as a display fallback rather than silently editing the saved profile. A subsequent state change can save only after a successful restore/confirmed absence for the same current identity; stale restores and queued saves are ignored after identity changes.
 
 Local automated checks exercise the actual client and CloudSync against a dummy HTTP service for permission, server, network, malformed-row, retry, no-row, existing-row normalization and explicit-edit/reload cases. This is not authenticated production persistence/RLS evidence. A real dedicated test identity and a supported test-only cleanup route are still required for a safe production fixture test.
+
+### Labeled sample progress import
+
+Settings offers an authenticated, cloud-hydration-gated sample import. It checks
+current cloud state before replacement, rejects a differing remote edit, and
+stores a private browser snapshot before applying any sample state. The original
+pre-sample snapshot can be downloaded and restored; subsequent imports also
+retain timestamped snapshots. This is not a database-wide import or a server
+session creation path. Restore replaces current learner-memory progress only.
+
+The sample pack contains 6 Python missions, 12 synthetic sessions, sample skill
+levels and 52 synthetic attempts (4 sample reassessment wins, 2 locked patterns).
+Top-level sample provenance and per-record synthetic flags survive cloud reload.
+A sticky banner labels every AppShell view. Progress achievement text and the
+Struggle DNA portfolio explicitly describe samples, not genuine evidence or
+certification. No owner-verified recovery session IDs are fabricated. Automatic
+AI plan retuning is skipped while sample provenance is present.
+
+The browser snapshot is not an account-wide backup service: download it before
+clearing browser storage. Concurrent edits detected at the preflight check abort
+the import. Close other editing tabs before applying. A final independent cloud
+read verifies save completion; an unconfirmed save is reported as unconfirmed,
+never silently treated as done.

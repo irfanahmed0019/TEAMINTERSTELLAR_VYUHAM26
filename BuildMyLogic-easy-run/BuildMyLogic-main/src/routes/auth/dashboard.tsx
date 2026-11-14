@@ -80,6 +80,7 @@ function Dashboard() {
         if (dashboardRetuneKey.current === key) return;
         dashboardRetuneKey.current = key;
         const currentState = getLoopState();
+        if (currentState.sampleProvenance) return;
         if (!currentState.profile || !currentState.plan) return;
         void aiRetunePlan({ data: { profile: currentState.profile, plan: currentState.plan, activity: currentState.activity } }).then((suggested) => {
           applySarvamDashboardPlan(suggested);

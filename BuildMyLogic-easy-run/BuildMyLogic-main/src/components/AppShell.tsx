@@ -16,7 +16,7 @@ const NAV = [
   { to: "/sessions", label: "Sessions", icon: Timer },
 ] as const;
 
-export function AppShell({ crumb, title, subtitle, quote, children, wide = false }: { crumb: string; title: string; subtitle: string; quote?: string | undefined; children: ReactNode; wide?: boolean }) {
+export function AppShell({ crumb, title, subtitle, quote, children, wide = false, allowEmpty = false }: { crumb: string; title: string; subtitle: string; quote?: string | undefined; children: ReactNode; wide?: boolean; allowEmpty?: boolean }) {
   const state = useLoop();
   const auth = useAuth();
   const navigate = useNavigate();
@@ -25,7 +25,7 @@ export function AppShell({ crumb, title, subtitle, quote, children, wide = false
   const savedName = state.profile?.name?.trim();
   const name = (!savedName || savedName === "Builder") ? (auth?.displayName || "Builder") : savedName;
   useEffect(() => {
-    if (state.onboarded) return;
+    if (state.onboarded || allowEmpty) return;
     // Signed-in learners: wait until their saved plan has actually loaded.
     if (auth && !hydrated) return;
     // During SSR hydration the first client render still carries the empty
@@ -35,13 +35,14 @@ export function AppShell({ crumb, title, subtitle, quote, children, wide = false
       if (!getLoopState().onboarded) void navigate({ to: "/" });
     }, 150);
     return () => window.clearTimeout(timer);
-  }, [state.onboarded, navigate, auth, hydrated]);
+  }, [state.onboarded, navigate, auth, hydrated, allowEmpty]);
 
 
 
   return (
     <div className="min-h-screen bg-background">
       <div className="min-w-0 pb-20">
+        {state.sampleProvenance && <div role="note" className="sticky top-0 z-50 border-b border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-semibold text-amber-950">SAMPLE PROGRESS - demo numbers, history and wins. Not genuine achievements. Your account is showing sample data.</div>}
         <header className="flex h-16 items-center justify-between gap-3 border-b border-border/60 px-4 sm:px-6 lg:h-[76px] lg:gap-5 lg:px-8">
           <Link to="/auth/dashboard" className="display flex items-center text-lg font-black tracking-[-0.05em]">BuildMyLogic<span className="mb-2 ml-0.5 h-1.5 w-1.5 rounded-full bg-primary" /></Link>
           <div className="flex items-center gap-2 sm:gap-3 lg:gap-4">

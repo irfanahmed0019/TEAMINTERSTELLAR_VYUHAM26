@@ -72,11 +72,13 @@ export type MissionProgress = {
   codeNotes?: string;
 };
 export type ActivityItem = {
+  synthetic?: true;
   at: number;
   text: string;
   kind: "mission" | "session" | "ai" | "skill";
 };
 export type SessionLog = {
+  synthetic?: true;
   at: number;
   minutes: number;
   missionTitle: string;
@@ -224,6 +226,7 @@ export type LearningChat = {
 };
 
 export type LoopState = {
+  sampleProvenance?: { version: 1; importedAt: number; label: string };
   onboarded: boolean;
   profile: Profile | null;
   plan: Plan | null;

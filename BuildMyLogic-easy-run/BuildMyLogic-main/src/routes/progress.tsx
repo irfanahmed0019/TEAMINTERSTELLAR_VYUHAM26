@@ -44,6 +44,7 @@ const COMPETENCY_AXES: { axis: string; keywords: string[] }[] = [
 
 function Progress() {
   const state = useLoop();
+  const sample = !!state.sampleProvenance;
   const [tab, setTab] = useState<"Overview" | "Skills" | "Missions" | "Struggle DNA" | "Activity">("Overview");
   const [selectedMission, setSelectedMission] = useState<string | null>(null);
   const plan = state.plan;
@@ -153,9 +154,9 @@ function Progress() {
         <>
           {/* Stat cards */}
           <div className="mt-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard icon={Layers} value={completedMissions.length} label="Projects Completed" />
-            <StatCard icon={Code2} value={state.sessions.length} label="Practice Sessions" />
-            <StatCard icon={BarChart3} value={`${averageSkill}%`} label="Overall Mastery" />
+            <StatCard icon={Layers} value={completedMissions.length} label={sample ? "Sample projects" : "Projects Completed"} />
+            <StatCard icon={Code2} value={state.sessions.length} label={sample ? "Sample sessions" : "Practice Sessions"} />
+            <StatCard icon={BarChart3} value={`${averageSkill}%`} label={sample ? "Sample mastery" : "Overall Mastery"} />
             <StatCard
               icon={Flame}
               value={
@@ -227,7 +228,7 @@ function Progress() {
                 </div>
                 <p className="display mt-3 text-[22px] font-black">{streakDays} day{streakDays === 1 ? "" : "s"}</p>
                 <p className="mt-0.5 text-[12px] text-muted-foreground">
-                  {streakDays > 0 ? `You've learned for ${streakDays} consecutive day${streakDays === 1 ? "" : "s"}!` : "Log a session today to start your streak."}
+                  {sample ? "Synthetic sample dates, not a genuine learning streak." : streakDays > 0 ? `You've learned for ${streakDays} consecutive day${streakDays === 1 ? "" : "s"}!` : "Log a session today to start your streak."}
                 </p>
                 <div className="mt-4 flex justify-between">
                   {week.map((day) => (
@@ -242,7 +243,7 @@ function Progress() {
               </section>
 
               <section className="card-surface p-5">
-                <h3 className="text-[15px] font-extrabold">Achievements</h3>
+                <h3 className="text-[15px] font-extrabold">{sample ? "Sample achievement preview" : "Achievements"}</h3>
                 <div className="mt-3 space-y-3">
                   {achievements.map((a) => (
                     <div key={a.title} className={`flex items-center gap-3 rounded-2xl border px-3.5 py-3 ${a.earned ? "border-border bg-card" : "border-dashed border-border opacity-60"}`}>
@@ -251,7 +252,7 @@ function Progress() {
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="text-[13px] font-bold">{a.title}</p>
-                        <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">{a.detail}</p>
+                        <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">{sample ? "Synthetic example, not earned by this learner." : a.detail}</p>
                       </div>
                       {a.earned ? (
                         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white"><Check className="h-3 w-3" strokeWidth={3.2} /></span>
@@ -272,7 +273,7 @@ function Progress() {
                 <TrendingUp className="h-[18px] w-[18px] text-emerald-600" />
                 <h2 className="text-[16px] font-extrabold">Stronger areas</h2>
               </div>
-              <p className="mt-1 text-[12px] font-medium text-muted-foreground">Based on your actual test and checkpoint results.</p>
+              <p className="mt-1 text-[12px] font-medium text-muted-foreground">{sample ? "Illustrative sample values, not real test or checkpoint results." : "Based on your actual test and checkpoint results."}</p>
               <div className="mt-4 space-y-3">
                 {standing.strong.length === 0 ? (
                   <p className="text-[13px] font-semibold text-muted-foreground">

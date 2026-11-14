@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Save, Trash2, Calendar, Download, ExternalLink, Check } from "lucide-react";
+import { SampleProgressImport } from "@/components/SampleProgressImport";
 import { AppShell } from "@/components/AppShell";
 import { logActivity, resetLoop, setLoopState, useLoop } from "@/lib/loop-store";
 import type { TechItem } from "@/lib/loop-types";
@@ -66,6 +67,7 @@ function Settings() {
 
   return (
     <AppShell
+      allowEmpty
       crumb="Settings"
       title="Settings"
       subtitle="Change how BuildMyLogic plans your missions, skills and daily sessions."
@@ -265,6 +267,7 @@ function Settings() {
         </div>
 
         <div className="space-y-6 lg:col-span-5">
+          <SampleProgressImport />
           <section className="card-surface p-5">
             <h3 className="text-sm font-bold">Your current plan</h3>
             <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">

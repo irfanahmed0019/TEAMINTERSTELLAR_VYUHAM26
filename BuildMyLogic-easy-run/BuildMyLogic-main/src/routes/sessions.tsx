@@ -127,6 +127,7 @@ function Sessions() {
     if (retuneKeyRef.current === retuneKey) return;
     retuneKeyRef.current = retuneKey;
     const current = getLoopState();
+    if (current.sampleProvenance) return;
     if (!current.profile || !current.plan) return;
     void aiRetunePlan({ data: { profile: current.profile, plan: current.plan, activity: current.activity } }).then((suggested) => {
       applySarvamDashboardPlan(suggested);

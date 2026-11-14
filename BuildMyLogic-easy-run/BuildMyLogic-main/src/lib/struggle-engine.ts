@@ -25,6 +25,7 @@ export type FailureKind =
 export type MisconceptionDepth = "slip" | "deep";
 
 export type PracticeAttempt = {
+  synthetic?: true;
   id: string;
   topicId: string;
   topicTitle: string;
@@ -78,6 +79,7 @@ export type Reassessment = {
 };
 
 export type Misconception = {
+  synthetic?: true;
   id: string;
   topicId: string;
   topicTitle: string;
