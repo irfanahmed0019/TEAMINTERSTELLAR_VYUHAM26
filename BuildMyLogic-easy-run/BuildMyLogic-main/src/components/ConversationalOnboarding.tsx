@@ -1,3 +1,4 @@
+import { isPublicDemo } from "@/lib/demo-mode";
 import { EmailPasswordSignIn } from "@/components/EmailPasswordSignIn";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
@@ -49,6 +50,7 @@ export function ConversationalOnboarding() {
   const firstName = auth?.displayName?.split(" ")[0] ?? "";
 
   useEffect(() => {
+    if (isPublicDemo()) { void navigate({to:"/auth/dashboard"}); return; }
     if (auth && hydrated && loop.onboarded && stage === "chat") void navigate({ to: "/auth/dashboard" });
   }, [auth, hydrated, loop.onboarded, stage, navigate]);
 

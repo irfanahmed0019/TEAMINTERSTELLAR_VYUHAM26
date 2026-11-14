@@ -1,3 +1,4 @@
+import { learnerStorage, isPublicDemo } from "@/lib/demo-mode";
 /**
  * BuildMyLogic — Learner Dashboard
  *
@@ -63,7 +64,7 @@ function Dashboard() {
   useEffect(() => {
     let cancelled = false;
     const syncBuildSession = async () => {
-      const raw = window.localStorage.getItem("bml-vscode-session");
+      const raw = learnerStorage.getItem("bml-vscode-session");
       if (!raw) return;
       try {
         const saved = JSON.parse(raw) as { sessionId?: string };
@@ -99,6 +100,7 @@ function Dashboard() {
 
   // Check if learner has booked a Google Calendar reminder recently
   useEffect(() => {
+    if (isPublicDemo()) return;
     const calendarPromptDismissed = window.sessionStorage.getItem("bml-calendar-dismissed");
     if (!calendarPromptDismissed && plan) {
       // Show subtle reminder banner to set their learning rhythm
@@ -210,7 +212,7 @@ function Dashboard() {
                     className="btn-base btn-primary-solid mt-6"
                     onClick={() => {
                       setMissionProgress(current.id, { status: "active" });
-                      window.localStorage.setItem("loop-auto-start-session", "1");
+                      learnerStorage.setItem("loop-auto-start-session", "1");
                       void navigate({ to: "/sessions" });
                     }}
                   >

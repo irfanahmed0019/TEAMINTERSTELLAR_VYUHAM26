@@ -1,3 +1,4 @@
+import { learnerStorage } from "@/lib/demo-mode";
 import { getAuthSession } from "@/lib/auth";
 import { ArrowLeft, CalendarClock, CheckCircle2, Clock3, ExternalLink, MessageCircle, Send, Sparkles, UserRound, Video } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -80,9 +81,9 @@ export function MentorChat() {
 
   useEffect(() => {
     try {
-      const savedMentor = window.localStorage.getItem("bml-selected-mentor");
+      const savedMentor = learnerStorage.getItem("bml-selected-mentor");
       if (savedMentor && MENTORS.some((item) => item.id === savedMentor)) setSelectedId(savedMentor);
-      const savedBookings = window.localStorage.getItem(BOOKING_STORAGE);
+      const savedBookings = learnerStorage.getItem(BOOKING_STORAGE);
       if (savedBookings) setBookings(JSON.parse(savedBookings) as Booking[]);
     } catch {
       // Local storage is optional. The page still works without it.
@@ -91,9 +92,9 @@ export function MentorChat() {
 
   useEffect(() => {
     if (!selectedId) return;
-    window.localStorage.setItem("bml-selected-mentor", selectedId);
+    learnerStorage.setItem("bml-selected-mentor", selectedId);
     try {
-      const saved = JSON.parse(window.localStorage.getItem(CHAT_STORAGE) || "{}") as Record<string, ChatMessage[]>;
+      const saved = JSON.parse(learnerStorage.getItem(CHAT_STORAGE) || "{}") as Record<string, ChatMessage[]>;
       setMessages(saved[selectedId]?.length ? saved[selectedId] : [starterMessage(MENTORS.find((item) => item.id === selectedId)!)]) ;
     } catch {
       setMessages([starterMessage(MENTORS.find((item) => item.id === selectedId)!)]);
@@ -106,8 +107,8 @@ export function MentorChat() {
   function saveMessages(next: ChatMessage[]) {
     setMessages(next);
     try {
-      const saved = JSON.parse(window.localStorage.getItem(CHAT_STORAGE) || "{}") as Record<string, ChatMessage[]>;
-      if (selectedId) window.localStorage.setItem(CHAT_STORAGE, JSON.stringify({ ...saved, [selectedId]: next.slice(-60) }));
+      const saved = JSON.parse(learnerStorage.getItem(CHAT_STORAGE) || "{}") as Record<string, ChatMessage[]>;
+      if (selectedId) learnerStorage.setItem(CHAT_STORAGE, JSON.stringify({ ...saved, [selectedId]: next.slice(-60) }));
     } catch {
       // Keep the live chat working if storage is unavailable.
     }
@@ -139,7 +140,7 @@ export function MentorChat() {
     const booking: Booking = { id: crypto.randomUUID?.() ?? `booking-${Date.now()}`, mentorId: mentor.id, date, time, duration, topic: topic.trim() || "Help with my BuildMyLogic project", zoomLink: zoomLink.trim(), createdAt: Date.now() };
     const next = [booking, ...bookings];
     setBookings(next);
-    window.localStorage.setItem(BOOKING_STORAGE, JSON.stringify(next));
+    learnerStorage.setItem(BOOKING_STORAGE, JSON.stringify(next));
     setScheduled(true);
     logActivity({ kind: "ai", text: `Requested a ${duration}-minute Zoom mentor session with ${mentor.name}.` });
   }

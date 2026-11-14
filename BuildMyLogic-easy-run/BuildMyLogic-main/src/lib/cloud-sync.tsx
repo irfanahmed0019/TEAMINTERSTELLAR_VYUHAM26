@@ -1,3 +1,4 @@
+import { isPublicDemo } from "./demo-mode";
 import { useLocation } from "@tanstack/react-router";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { LoopState } from "./loop-types";
@@ -37,7 +38,7 @@ export function useCloudHydrated(uid: string | null | undefined): boolean {
 
 export function CloudSync() {
   const path = useLocation({ select: (location) => location.pathname });
-  return path === "/demo" ? null : <AccountCloudSync />;
+  return path === "/demo" || isPublicDemo() ? null : <AccountCloudSync />;
 }
 
 function AccountCloudSync() {

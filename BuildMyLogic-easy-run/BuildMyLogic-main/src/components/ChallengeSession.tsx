@@ -1,3 +1,4 @@
+import { learnerStorage } from "@/lib/demo-mode";
 import { useEffect, useRef, useState } from "react";
 import { CalendarDays, Check, CheckCircle2, ChevronDown, Code2, Copy, ExternalLink, Flame, Github, Play, RotateCcw, Sparkles, Terminal, Timer, XCircle } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
@@ -17,8 +18,8 @@ export function ChallengeSession() {
   const planned = sessionPlan?.totalMinutes ?? 45;
   const missions = plan?.missions ?? [];
   const activeMission = missions.find((m) => state.missionProgress[m.id]?.status !== "done") ?? missions[0];
-  const storedStartedAt = typeof window !== "undefined" ? Number(window.localStorage.getItem("loop-session-started-at") || 0) : 0;
-  const storedDuration = typeof window !== "undefined" ? Number(window.localStorage.getItem("loop-session-duration") || 0) : 0;
+  const storedStartedAt = typeof window !== "undefined" ? Number(learnerStorage.getItem("loop-session-started-at") || 0) : 0;
+  const storedDuration = typeof window !== "undefined" ? Number(learnerStorage.getItem("loop-session-duration") || 0) : 0;
   const initialRemaining = storedStartedAt && storedDuration ? Math.max(0, storedDuration - Math.floor((Date.now() - storedStartedAt) / 1000)) : planned * 60;
   const [seconds, setSeconds] = useState(initialRemaining);
   const [running, setRunning] = useState(Boolean(storedStartedAt && initialRemaining > 0));
@@ -39,20 +40,20 @@ export function ChallengeSession() {
   const startRef = useRef(planned * 60);
 
   useEffect(() => {
-    const savedPath = window.localStorage.getItem("loop-vscode-path") ?? "";
-    const savedProject = window.localStorage.getItem("loop-project-folder") ?? "";
-    const savedSession = window.localStorage.getItem("bml-vscode-session");
+    const savedPath = learnerStorage.getItem("loop-vscode-path") ?? "";
+    const savedProject = learnerStorage.getItem("loop-project-folder") ?? "";
+    const savedSession = learnerStorage.getItem("bml-vscode-session");
     setWorkspacePath(savedPath);
     setProjectFolder(savedProject);
     if (savedSession) {
-      try { setVscodeSession(JSON.parse(savedSession)); } catch { window.localStorage.removeItem("bml-vscode-session"); }
+      try { setVscodeSession(JSON.parse(savedSession)); } catch { learnerStorage.removeItem("bml-vscode-session"); }
     }
     folderInputRef.current?.setAttribute("webkitdirectory", "");
     folderInputRef.current?.setAttribute("directory", "");
   }, []);
 
   useEffect(() => {
-    if (window.localStorage.getItem("loop-session-started-at")) return;
+    if (learnerStorage.getItem("loop-session-started-at")) return;
     startRef.current = planned * 60;
     setSeconds(planned * 60);
   }, [planned]);
@@ -62,8 +63,8 @@ export function ChallengeSession() {
     const id = window.setInterval(() => setSeconds((value) => {
       if (value <= 1) {
         setRunning(false);
-        window.localStorage.removeItem("loop-session-started-at");
-        window.localStorage.removeItem("loop-session-duration");
+        learnerStorage.removeItem("loop-session-started-at");
+        learnerStorage.removeItem("loop-session-duration");
         return 0;
       }
       return value - 1;
@@ -92,7 +93,7 @@ export function ChallengeSession() {
     if (!response.ok || !result.ok || !result.session_id) throw new Error(result.error || "Could not create the BuildMyLogic VS Code session.");
     const session = { sessionId: result.session_id };
     setVscodeSession(session);
-    window.localStorage.setItem("bml-vscode-session", JSON.stringify(session));
+    learnerStorage.setItem("bml-vscode-session", JSON.stringify(session));
     return { ...session, userId };
   }
 
@@ -120,8 +121,8 @@ export function ChallengeSession() {
           const folder = path.split(/[\\/]/).filter(Boolean).pop() || path;
           setWorkspacePath(path);
           setProjectFolder(folder);
-          window.localStorage.setItem("loop-vscode-path", path);
-          window.localStorage.setItem("loop-project-folder", folder);
+          learnerStorage.setItem("loop-vscode-path", path);
+          learnerStorage.setItem("loop-project-folder", folder);
           return path;
         }
       }
@@ -140,7 +141,7 @@ export function ChallengeSession() {
     const relative = (first as File & { webkitRelativePath?: string }).webkitRelativePath ?? first.name;
     const folder = relative.split("/")[0] || first.name;
     setProjectFolder(folder);
-    window.localStorage.setItem("loop-project-folder", folder);
+    learnerStorage.setItem("loop-project-folder", folder);
   }
 
   async function openVsCode() {
@@ -193,8 +194,8 @@ export function ChallengeSession() {
     try {
       const connected = await createVscodeSession();
       const startedAt = Date.now();
-      window.localStorage.setItem("loop-session-started-at", String(startedAt));
-      window.localStorage.setItem("loop-session-duration", String(startRef.current));
+      learnerStorage.setItem("loop-session-started-at", String(startedAt));
+      learnerStorage.setItem("loop-session-duration", String(startRef.current));
       setRunning(true);
       await openVsCode();
       await connectExtension(connected);
@@ -218,8 +219,8 @@ export function ChallengeSession() {
       recordMissionEvidence(activeMission.id, 2);
       if (done.length) setLoopState((prev) => ({ ...prev, missionProgress: { ...prev.missionProgress, [activeMission.id]: { ...(prev.missionProgress[activeMission.id] ?? { status: "active", completedSteps: [] }), completedSteps: Array.from(new Set([...(prev.missionProgress[activeMission.id]?.completedSteps ?? []), ...done])) } } }));
       setNote("");
-      window.localStorage.removeItem("loop-session-started-at");
-      window.localStorage.removeItem("loop-session-duration");
+      learnerStorage.removeItem("loop-session-started-at");
+      learnerStorage.removeItem("loop-session-duration");
     } catch (error) {
       setReview({ feedback: error instanceof Error ? error.message : "Could not review this session.", nextStep: "Try logging the session again.", skillBoost: "—" });
     } finally { setSaving(false); }
@@ -229,8 +230,8 @@ export function ChallengeSession() {
     if (!activeMission) return;
     const index = missions.findIndex((m) => m.id === activeMission.id);
     const next = missions[index + 1];
-    window.localStorage.removeItem("loop-session-started-at");
-    window.localStorage.removeItem("loop-session-duration");
+    learnerStorage.removeItem("loop-session-started-at");
+    learnerStorage.removeItem("loop-session-duration");
     setLoopState((prev) => ({ ...prev, missionProgress: { ...prev.missionProgress, [activeMission.id]: { ...(prev.missionProgress[activeMission.id] ?? { status: "active", completedSteps: [] }), status: "done", completedSteps: Array.from({ length: activeMission.steps.length }, (_, i) => i) }, ...(next ? { [next.id]: { ...(prev.missionProgress[next.id] ?? { status: "locked", completedSteps: [] }), status: "active" } } : {}) } }));
     recordMissionEvidence(activeMission.id, 5);
     logActivity({ kind: "mission", text: `Completed mission “${activeMission.title}”` });
@@ -260,7 +261,7 @@ export function ChallengeSession() {
 
         {message && <p className="rounded-xl border border-black/10 bg-primary-soft px-4 py-3 text-xs font-bold">{message}</p>}
 
-        <section className="card-surface p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-black">Session progress</h2><p className="mt-1 text-sm font-semibold">Build → test → fix → prove. Every attempt becomes evidence.</p></div><span className="text-xs font-black">{done.length}/{currentTasks.length}</span></div><div className="mt-4 h-2 rounded-full bg-black/10"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(pct, (done.length / currentTasks.length) * 100)}%` }} /></div><div className="mt-4 space-y-2">{currentTasks.map((task, index) => { const checked = done.includes(index); return <button type="button" key={`${task.title}-${index}`} onClick={() => setDone((prev) => checked ? prev.filter((x) => x !== index) : [...prev, index])} className={`flex w-full items-center gap-3 rounded-xl border p-4 text-left ${checked ? "border-primary bg-primary-soft" : "border-black/10 bg-white"}`}><span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 ${checked ? "border-primary bg-primary text-white" : "border-black/20"}`}>{checked && <Check className="h-4 w-4" />}</span><span className="min-w-0 flex-1"><b className="block text-sm">{task.title}</b><span className="mt-1 block text-xs font-semibold">{task.minutes} minutes</span></span></button>; })}</div><div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={() => { setRunning((value) => !value); if (!running) { window.localStorage.setItem("loop-session-started-at", String(Date.now())); window.localStorage.setItem("loop-session-duration", String(startRef.current)); } }} className="btn-base btn-ink"><Play className="h-4 w-4" />{running ? "Pause session" : "Resume session"}</button><button type="button" onClick={() => { setRunning(false); setSeconds(startRef.current); window.localStorage.removeItem("loop-session-started-at"); window.localStorage.removeItem("loop-session-duration"); }} className="btn-base btn-outline"><RotateCcw className="h-3.5 w-3.5" />Reset</button></div></section>
+        <section className="card-surface p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-black">Session progress</h2><p className="mt-1 text-sm font-semibold">Build → test → fix → prove. Every attempt becomes evidence.</p></div><span className="text-xs font-black">{done.length}/{currentTasks.length}</span></div><div className="mt-4 h-2 rounded-full bg-black/10"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(pct, (done.length / currentTasks.length) * 100)}%` }} /></div><div className="mt-4 space-y-2">{currentTasks.map((task, index) => { const checked = done.includes(index); return <button type="button" key={`${task.title}-${index}`} onClick={() => setDone((prev) => checked ? prev.filter((x) => x !== index) : [...prev, index])} className={`flex w-full items-center gap-3 rounded-xl border p-4 text-left ${checked ? "border-primary bg-primary-soft" : "border-black/10 bg-white"}`}><span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 ${checked ? "border-primary bg-primary text-white" : "border-black/20"}`}>{checked && <Check className="h-4 w-4" />}</span><span className="min-w-0 flex-1"><b className="block text-sm">{task.title}</b><span className="mt-1 block text-xs font-semibold">{task.minutes} minutes</span></span></button>; })}</div><div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={() => { setRunning((value) => !value); if (!running) { learnerStorage.setItem("loop-session-started-at", String(Date.now())); learnerStorage.setItem("loop-session-duration", String(startRef.current)); } }} className="btn-base btn-ink"><Play className="h-4 w-4" />{running ? "Pause session" : "Resume session"}</button><button type="button" onClick={() => { setRunning(false); setSeconds(startRef.current); learnerStorage.removeItem("loop-session-started-at"); learnerStorage.removeItem("loop-session-duration"); }} className="btn-base btn-outline"><RotateCcw className="h-3.5 w-3.5" />Reset</button></div></section>
 
         {review && <section className="rounded-2xl border-2 border-primary bg-primary-soft p-5"><div className="flex items-center justify-between"><h2 className="flex items-center gap-2 text-base font-black"><Sparkles className="h-4 w-4 text-primary" /> Session review</h2><button type="button" onClick={() => setReview(null)}><XCircle className="h-4 w-4" /></button></div><p className="mt-3 text-sm font-black">{review.feedback}</p><div className="mt-4 grid gap-3 md:grid-cols-2"><div className="rounded-xl bg-white p-4"><p className="text-[10px] font-black uppercase">Next action</p><p className="mt-1 text-sm font-black">{review.nextStep}</p></div><div className="rounded-xl bg-white p-4"><p className="text-[10px] font-black uppercase">Skill evidence</p><p className="mt-1 text-sm font-black">{review.skillBoost}</p></div></div></section>}
 

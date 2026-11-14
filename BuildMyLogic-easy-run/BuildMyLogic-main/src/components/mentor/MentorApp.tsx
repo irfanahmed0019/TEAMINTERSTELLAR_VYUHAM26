@@ -1,3 +1,4 @@
+import { learnerStorage } from "@/lib/demo-mode";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronRight, Circle, Loader2, Lock, Play, RotateCcw, Send, Sparkles, TriangleAlert, Lightbulb, Cloud, HardDrive } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
@@ -264,7 +265,7 @@ function Workspace({ state, commit, persist, signedIn, onReset }: { state: Mento
   // Load the saved code (or starter) when the exercise changes.
   useEffect(() => {
     let saved: string | null = null;
-    if (stateRef.current.verified) { try { saved = localStorage.getItem(`bml.mentor.code.${stateRef.current.id}.${exercise.id}`); } catch { /* ignore */ } }
+    if (stateRef.current.verified) { try { saved = learnerStorage.getItem(`bml.mentor.code.${stateRef.current.id}.${exercise.id}`); } catch { /* ignore */ } }
     setCode(saved ?? stateRef.current.lessons[lesson.id]!.code[exercise.id] ?? exercise.starter);
     setResults(null); setAssessment(null); setDecision(""); setError(null); setCustom(null); setHintShown([]); setMentor(null);
   }, [lesson.id, exercise.id]);
@@ -274,7 +275,7 @@ function Workspace({ state, commit, persist, signedIn, onReset }: { state: Mento
     setCode(v);
     if (saveCodeTimer.current) clearTimeout(saveCodeTimer.current);
     saveCodeTimer.current = setTimeout(() => {
-      if (stateRef.current.verified) { try { localStorage.setItem(`bml.mentor.code.${stateRef.current.id}.${exercise.id}`, v); } catch { /* ignore */ } return; }
+      if (stateRef.current.verified) { try { learnerStorage.setItem(`bml.mentor.code.${stateRef.current.id}.${exercise.id}`, v); } catch { /* ignore */ } return; }
       const s = structuredClone(stateRef.current);
       s.lessons[lesson.id]!.code[exercise.id] = v;
       saveLocal(s);

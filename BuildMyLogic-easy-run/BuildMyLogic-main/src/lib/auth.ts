@@ -1,3 +1,4 @@
+import { isPublicDemo } from "./demo-mode";
 import { useSyncExternalStore } from "react";
 import {
   supabase,
@@ -58,6 +59,7 @@ export function useAuth() {
       return () => listeners.delete(listener);
     },
     () => {
+      if (isPublicDemo()) return null;
       load();
       return session;
     },
@@ -66,12 +68,14 @@ export function useAuth() {
 }
 
 export function getAuthSession(): AuthSession | null {
+  if (isPublicDemo()) return null;
   load();
   return session;
 }
 
 /** Returns the current Supabase access token before calling an authenticated API. */
 export async function getAuthSessionForApi(): Promise<AuthSession | null> {
+  if (isPublicDemo()) return null;
   load();
   if (signingOut) return null;
   if (!supabase) return session;

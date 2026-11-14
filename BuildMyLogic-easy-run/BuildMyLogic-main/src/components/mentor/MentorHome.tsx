@@ -1,3 +1,4 @@
+import { learnerStorage, isPublicDemo } from "@/lib/demo-mode";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
@@ -94,7 +95,7 @@ export function MentorHome() {
     // still holds the empty server snapshot, which would greet "Builder".
     const liveName = getLoopState().profile?.name?.trim() || "Builder";
     try {
-      const saved = JSON.parse(window.localStorage.getItem(CHAT_STORAGE) || "[]") as ChatMessage[];
+      const saved = JSON.parse(learnerStorage.getItem(CHAT_STORAGE) || "[]") as ChatMessage[];
       setMessages(saved.length ? saved : [{ role: "mentor", text: welcomeMessage(liveName), at: Date.now() }]);
     } catch {
       setMessages([{ role: "mentor", text: welcomeMessage(liveName), at: Date.now() }]);
@@ -103,6 +104,7 @@ export function MentorHome() {
   }, []);
 
   useEffect(() => {
+    if (isPublicDemo()) {setMentorAvailability("offline", "AI is unavailable in public demo mode.");return;}
     // Non-billable: only asks the server whether an AI key is configured.
     aiMentorConfig({ data: {} })
       .then((result) => {
@@ -120,7 +122,7 @@ export function MentorHome() {
   function save(next: ChatMessage[]) {
     setMessages(next);
     try {
-      window.localStorage.setItem(CHAT_STORAGE, JSON.stringify(next.slice(-60)));
+      learnerStorage.setItem(CHAT_STORAGE, JSON.stringify(next.slice(-60)));
     } catch {
       // Chat still works if storage is unavailable.
     }

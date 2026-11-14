@@ -1,3 +1,4 @@
+import { learnerStorage } from "@/lib/demo-mode";
 import { useEffect, useState } from "react";
 import {
   Check,
@@ -82,7 +83,7 @@ export function TopicPractice({
   const draftKey = `bml.practice.${topicTitle}.${language}`;
   const [code, setCode] = useState(() => {
     try {
-      const saved = window.localStorage.getItem(draftKey);
+      const saved = learnerStorage.getItem(draftKey);
       return saved !== null && saved !== "" ? saved : exercise.starterCode;
     } catch {
       return exercise.starterCode;
@@ -99,7 +100,7 @@ export function TopicPractice({
   function updateCode(next: string) {
     setCode(next);
     try {
-      window.localStorage.setItem(draftKey, next);
+      learnerStorage.setItem(draftKey, next);
     } catch {
       // Storage full or blocked - the draft just won't survive a reload.
     }
@@ -214,7 +215,7 @@ export function TopicPractice({
           : "Curated topic transfer task. The cause of the original error remains unresolved; passing verifies these checks, not unaided work or general mastery.",
       );
       setReassessCode(
-        window.localStorage.getItem(
+        learnerStorage.getItem(
           `bml.reassess.${activeMisconception.id}.v1`,
         ) || freshStarter(language),
       );
@@ -540,7 +541,7 @@ export function TopicPractice({
                 ? (next) => {
                     setReassessCode(next);
                     if (activeMisconception)
-                      window.localStorage.setItem(
+                      learnerStorage.setItem(
                         `bml.reassess.${activeMisconception.id}.v1`,
                         next,
                       );

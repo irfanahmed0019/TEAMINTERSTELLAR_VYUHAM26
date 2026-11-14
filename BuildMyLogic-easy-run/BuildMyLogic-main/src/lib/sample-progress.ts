@@ -1,11 +1,11 @@
-import { emptyState, type LoopState } from "./loop-types";
+import { emptyState, type LoopState } from "./loop-types.ts";
 import {
   attachReassessment,
   emptyStruggleState,
   newReassessment,
   recordPracticeAttempt,
   recordReassessmentAttempt,
-} from "./struggle-engine";
+} from "./struggle-engine.ts";
 
 /** Authored sample records, never observations about the signed-in learner. */
 export function makeSampleProgress(at = Date.now()): LoopState {

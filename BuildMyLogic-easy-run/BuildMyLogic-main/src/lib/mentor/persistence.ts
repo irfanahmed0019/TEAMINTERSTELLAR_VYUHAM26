@@ -1,3 +1,4 @@
+import { learnerStorage, isPublicDemo } from "@/lib/demo-mode";
 /**
  * Client helpers for the AI Mentor.
  * - Signed-in learners: all evidence is created and stored by the server
@@ -12,13 +13,13 @@ const KEY = "bml.mentor.v1";
 
 export function loadLocal(): MentorState | null {
   try {
-    const raw = typeof localStorage !== "undefined" ? localStorage.getItem(KEY) : null;
+    const raw = typeof localStorage !== "undefined" ? learnerStorage.getItem(KEY) : null;
     const s = raw ? (JSON.parse(raw) as MentorState) : null;
     return s && s.version === 1 && !s.verified ? s : null;
   } catch { return null; }
 }
 export function saveLocal(s: MentorState | null) {
-  try { if (!s) localStorage.removeItem(KEY); else if (!s.verified) localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* storage full or blocked */ }
+  try { if (!s) learnerStorage.removeItem(KEY); else if (!s.verified) learnerStorage.setItem(KEY, JSON.stringify(s)); } catch { /* storage full or blocked */ }
 }
 
 export async function accountToken(): Promise<string | null> {
@@ -28,6 +29,7 @@ export async function accountToken(): Promise<string | null> {
 
 /** Calls a mentor API route. Sends the learner's token when signed in. */
 export async function mentorApi<T>(path: string, init?: { method?: "GET" | "POST"; body?: unknown; auth?: boolean }): Promise<T> {
+  if (isPublicDemo()) throw new Error("Code execution and account APIs are unavailable in public demo mode.");
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (init?.auth !== false) {
     const t = await accountToken();

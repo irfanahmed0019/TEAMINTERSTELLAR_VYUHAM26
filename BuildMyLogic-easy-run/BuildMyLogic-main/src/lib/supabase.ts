@@ -1,9 +1,12 @@
+import { isPublicDemo } from "./demo-mode";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import type { LoopState } from "./loop-types";
 import { parseCloudRead } from "./cloud-restore";
 
-const supabaseUrl = (import.meta.env["VITE_SUPABASE_URL"] as string | undefined) || "";
-const supabaseAnonKey = (import.meta.env["VITE_SUPABASE_ANON_KEY"] as string | undefined) || "";
+const supabaseUrl =
+  (import.meta.env["VITE_SUPABASE_URL"] as string | undefined) || "";
+const supabaseAnonKey =
+  (import.meta.env["VITE_SUPABASE_ANON_KEY"] as string | undefined) || "";
 
 export const hasSupabaseConfig = Boolean(supabaseUrl && supabaseAnonKey);
 
@@ -13,15 +16,16 @@ export const hasSupabaseConfig = Boolean(supabaseUrl && supabaseAnonKey);
 // defer client creation until the browser bundle is running.
 const isBrowser = typeof window !== "undefined";
 
-export const supabase: SupabaseClient | null = isBrowser && hasSupabaseConfig
-  ? createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-      },
-    })
-  : null;
+export const supabase: SupabaseClient | null =
+  isBrowser && hasSupabaseConfig && !isPublicDemo()
+    ? createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+        },
+      })
+    : null;
 
 export type LearningScheduleRecord = {
   id?: string;
@@ -58,7 +62,10 @@ export type SessionEventRecord = {
 /**
  * Saves complete learner state into Supabase PostgreSQL database
  */
-export async function saveLearnerStateToSupabase(userId: string, state: LoopState): Promise<boolean> {
+export async function saveLearnerStateToSupabase(
+  userId: string,
+  state: LoopState,
+): Promise<boolean> {
   if (!supabase) return false;
   try {
     const { error } = await supabase.from("learner_memory").upsert(
@@ -67,7 +74,7 @@ export async function saveLearnerStateToSupabase(userId: string, state: LoopStat
         state_json: state,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: "user_id" }
+      { onConflict: "user_id" },
     );
     if (error) {
       console.warn("Supabase learner_memory save error:", error.message);
@@ -99,7 +106,9 @@ export async function loadLearnerStateFromSupabase(
 /**
  * Saves or updates learning schedule in Supabase
  */
-export async function saveLearningScheduleToSupabase(schedule: LearningScheduleRecord): Promise<boolean> {
+export async function saveLearningScheduleToSupabase(
+  schedule: LearningScheduleRecord,
+): Promise<boolean> {
   if (!supabase) return false;
   try {
     const { error } = await supabase.from("learning_schedules").upsert(
@@ -107,7 +116,7 @@ export async function saveLearningScheduleToSupabase(schedule: LearningScheduleR
         ...schedule,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: "user_id" }
+      { onConflict: "user_id" },
     );
     return !error;
   } catch (err) {
@@ -119,7 +128,9 @@ export async function saveLearningScheduleToSupabase(schedule: LearningScheduleR
 /**
  * Records granular skill evidence into Supabase PostgreSQL
  */
-export async function recordSkillEvidenceToSupabase(evidence: SkillEvidenceRecord): Promise<boolean> {
+export async function recordSkillEvidenceToSupabase(
+  evidence: SkillEvidenceRecord,
+): Promise<boolean> {
   if (!supabase) return false;
   try {
     const { error } = await supabase.from("skill_evidence").insert({
@@ -137,11 +148,16 @@ export async function recordSkillEvidenceToSupabase(evidence: SkillEvidenceRecor
  * Triggers Supabase Google OAuth sign in
  */
 export async function signInWithSupabaseGoogle() {
-  if (!supabase) throw new Error("Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
+  if (!supabase)
+    throw new Error(
+      "Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.",
+    );
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      ...(typeof window !== "undefined" ? { redirectTo: `${window.location.origin}/auth/callback` } : {}),
+      ...(typeof window !== "undefined"
+        ? { redirectTo: `${window.location.origin}/auth/callback` }
+        : {}),
       queryParams: {
         access_type: "offline",
         prompt: "consent",

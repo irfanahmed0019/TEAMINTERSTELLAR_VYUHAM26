@@ -1,3 +1,4 @@
+import { enterPublicDemo } from "@/lib/demo-mode";
 import { useState, type FormEvent } from "react";
 import { Loader2, Mail } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -15,7 +16,7 @@ export function EmailPasswordSignIn() {
     if (isDemoPreviewIdentifier(email)) {
       // Public preview only: never send or persist the supplied password.
       setPassword("");
-      window.location.assign("/demo");
+      enterPublicDemo();
       return;
     }
     setBusy(true);
@@ -109,9 +110,9 @@ export function EmailPasswordSignIn() {
       )}
       {isDemoPreviewIdentifier(email) && (
         <p className="rounded-xl bg-primary/10 p-3 text-xs leading-5">
-          Public demo preview: any password or no password opens sample data
-          only. It is not an authenticated account. Your password is not sent or
-          saved.
+          Public demo mode: any password or no password opens this app with
+          sample data only. It is not an authenticated account. Your password is
+          not sent or saved.
         </p>
       )}
       <p className="text-center text-[11px] leading-5 text-muted-foreground">

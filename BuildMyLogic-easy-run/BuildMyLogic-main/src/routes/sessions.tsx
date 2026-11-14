@@ -1,3 +1,4 @@
+import { learnerStorage } from "@/lib/demo-mode";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Check, CheckCircle2, ChevronDown, Clock3, Code2, FolderOpen, Lightbulb, Pause, Play, RotateCcw, ShieldCheck, Sparkles, Timer, Upload, X, XCircle } from "lucide-react";
@@ -28,8 +29,8 @@ function Sessions() {
   const missions = plan?.missions ?? [];
   const activeMission = missions.find((m) => state.missionProgress[m.id]?.status !== "done") ?? missions[0];
   const nextMission = activeMission ? missions[missions.findIndex((m) => m.id === activeMission.id) + 1] : undefined;
-  const storedStartedAt = typeof window !== "undefined" ? Number(window.localStorage.getItem("loop-session-started-at") || 0) : 0;
-  const storedDuration = typeof window !== "undefined" ? Number(window.localStorage.getItem("loop-session-duration") || 0) : 0;
+  const storedStartedAt = typeof window !== "undefined" ? Number(learnerStorage.getItem("loop-session-started-at") || 0) : 0;
+  const storedDuration = typeof window !== "undefined" ? Number(learnerStorage.getItem("loop-session-duration") || 0) : 0;
   const initialRemaining = storedStartedAt && storedDuration ? Math.max(0, storedDuration - Math.floor((Date.now() - storedStartedAt) / 1000)) : planned * 60;
   const [seconds, setSeconds] = useState(initialRemaining);
   const [running, setRunning] = useState(Boolean(storedStartedAt && initialRemaining > 0));
@@ -54,37 +55,37 @@ function Sessions() {
   const retuneKeyRef = useRef("");
 
   useEffect(() => {
-    const saved = window.localStorage.getItem("loop-vscode-path") ?? "";
-    const savedProject = window.localStorage.getItem("loop-project-folder") ?? "";
-    const savedSession = window.localStorage.getItem("bml-vscode-session");
+    const saved = learnerStorage.getItem("loop-vscode-path") ?? "";
+    const savedProject = learnerStorage.getItem("loop-project-folder") ?? "";
+    const savedSession = learnerStorage.getItem("bml-vscode-session");
     setWorkspacePath(saved);
     setProjectFolder(savedProject);
     if (savedSession) {
       try {
         const parsed = JSON.parse(savedSession) as { sessionId?: string; status?: string };
         if (parsed.sessionId && /^BML-[A-Z0-9]{5}$/i.test(parsed.sessionId)) setVscodeSession({ sessionId: parsed.sessionId, status: "waiting" });
-        else window.localStorage.removeItem("bml-vscode-session");
-      } catch { window.localStorage.removeItem("bml-vscode-session"); }
+        else learnerStorage.removeItem("bml-vscode-session");
+      } catch { learnerStorage.removeItem("bml-vscode-session"); }
     }
     folderInputRef.current?.setAttribute("webkitdirectory", "");
     folderInputRef.current?.setAttribute("directory", "");
   }, []);
 
   useEffect(() => {
-    if (window.localStorage.getItem("loop-session-started-at")) return;
+    if (learnerStorage.getItem("loop-session-started-at")) return;
     startRef.current = planned * 60;
     setSeconds(planned * 60);
   }, [planned]);
 
   useEffect(() => {
     if (!running) return;
-    const id = window.setInterval(() => setSeconds((value) => { if (value <= 1) { setRunning(false); window.localStorage.removeItem("loop-session-started-at"); window.localStorage.removeItem("loop-session-duration"); return 0; } return value - 1; }), 1000);
+    const id = window.setInterval(() => setSeconds((value) => { if (value <= 1) { setRunning(false); learnerStorage.removeItem("loop-session-started-at"); learnerStorage.removeItem("loop-session-duration"); return 0; } return value - 1; }), 1000);
     return () => window.clearInterval(id);
   }, [running]);
 
   useEffect(() => {
-    if (window.localStorage.getItem("loop-auto-start-session") !== "1") return;
-    window.localStorage.removeItem("loop-auto-start-session");
+    if (learnerStorage.getItem("loop-auto-start-session") !== "1") return;
+    learnerStorage.removeItem("loop-auto-start-session");
     // Use the same flow as the visible Start Session button. This means a
     // mission launched from another page also selects a folder, creates the
     // shared session, and opens the extension in that workspace.
@@ -108,7 +109,7 @@ function Sessions() {
         } else if (!cancelled && (response.status === 401 || response.status === 404)) {
           setVscodeSession(null);
           setRemoteState(null);
-          window.localStorage.removeItem("bml-vscode-session");
+          learnerStorage.removeItem("bml-vscode-session");
           setPickerError("That VS Code session expired after the server restarted. Start a new session to generate a fresh Session ID.");
         }
       } catch { /* Retain the last confirmed state while offline. */ }
@@ -173,7 +174,7 @@ function Sessions() {
     const session = { sessionId: result.session_id, status: "waiting" };
     setVscodeSession(session);
     setRemoteState(result.state ?? null);
-    window.localStorage.setItem("bml-vscode-session", JSON.stringify(session));
+    learnerStorage.setItem("bml-vscode-session", JSON.stringify(session));
     return { ...session, userId };
   }
 
@@ -245,8 +246,8 @@ function Sessions() {
             setWorkspacePath(path);
             setProjectFolder(folder);
             setProjectFileCount(0);
-            window.localStorage.setItem("loop-vscode-path", path);
-            window.localStorage.setItem("loop-project-folder", folder);
+            learnerStorage.setItem("loop-vscode-path", path);
+            learnerStorage.setItem("loop-project-folder", folder);
             return path;
           }
         }
@@ -279,8 +280,8 @@ function Sessions() {
     startRef.current = duration;
     setSeconds(duration);
     setRunning(false);
-    window.localStorage.removeItem("loop-session-started-at");
-    window.localStorage.removeItem("loop-session-duration");
+    learnerStorage.removeItem("loop-session-started-at");
+    learnerStorage.removeItem("loop-session-duration");
   }
 
   function selectProjectFolder(files: FileList | null) {
@@ -291,14 +292,14 @@ function Sessions() {
     const folder = relative.split("/")[0] || first.name;
     setProjectFolder(folder);
     setProjectFileCount(files.length);
-    window.localStorage.setItem("loop-project-folder", folder);
+    learnerStorage.setItem("loop-project-folder", folder);
   }
 
   async function startSession(forceNew = false) {
     if (running && !forceNew) {
       setRunning(false);
-      window.localStorage.removeItem("loop-session-started-at");
-      window.localStorage.removeItem("loop-session-duration");
+      learnerStorage.removeItem("loop-session-started-at");
+      learnerStorage.removeItem("loop-session-duration");
       return;
     }
     try {
@@ -306,12 +307,12 @@ function Sessions() {
       if (forceNew) {
         setVscodeSession(null);
         setRemoteState(null);
-        window.localStorage.removeItem("bml-vscode-session");
+        learnerStorage.removeItem("bml-vscode-session");
       }
       const startedAt = Date.now();
       if (forceNew) setSeconds(duration);
-      window.localStorage.setItem("loop-session-started-at", String(startedAt));
-      window.localStorage.setItem("loop-session-duration", String(duration));
+      learnerStorage.setItem("loop-session-started-at", String(startedAt));
+      learnerStorage.setItem("loop-session-duration", String(duration));
       setRunning(true);
     } catch (error) {
       setPickerError(error instanceof Error ? error.message : "Could not start the BuildMyLogic session.");
@@ -322,7 +323,7 @@ function Sessions() {
   async function openAndConnectVsCode() {
     try {
       // The folder picker is optional: never block session creation on it.
-      const selectedPath = workspacePath.trim() || window.localStorage.getItem("loop-vscode-path")?.trim() || "";
+      const selectedPath = workspacePath.trim() || learnerStorage.getItem("loop-vscode-path")?.trim() || "";
       const hasFreshSession = Boolean(vscodeSession?.sessionId && /^BML-[A-Z0-9]{5}$/i.test(vscodeSession.sessionId));
       const connected = hasFreshSession && vscodeSession ? vscodeSession : await createVscodeSession();
       await openVsCode(connected, selectedPath);
@@ -334,7 +335,7 @@ function Sessions() {
   function disconnectVsCode() {
     setVscodeSession(null);
     setRemoteState(null);
-    window.localStorage.removeItem("bml-vscode-session");
+    learnerStorage.removeItem("bml-vscode-session");
   }
 
   async function copySessionId() {
@@ -372,8 +373,8 @@ function Sessions() {
         setLoopState((prev) => ({ ...prev, missionProgress: { ...prev.missionProgress, [activeMission.id]: { ...(prev.missionProgress[activeMission.id] ?? { status: "active", completedSteps: [] }), completedSteps: Array.from(new Set([...(prev.missionProgress[activeMission.id]?.completedSteps ?? []), ...done])) } } }));
       }
       setNote("");
-      window.localStorage.removeItem("loop-session-started-at");
-      window.localStorage.removeItem("loop-session-duration");
+      learnerStorage.removeItem("loop-session-started-at");
+      learnerStorage.removeItem("loop-session-duration");
     } catch (error) {
       setReview({ feedback: error instanceof Error ? error.message : "Could not review this session.", nextStep: "Try logging the session again.", skillBoost: "—" });
     } finally {
@@ -385,8 +386,8 @@ function Sessions() {
     if (!activeMission) return;
     const index = missions.findIndex((m) => m.id === activeMission.id);
     const next = missions[index + 1];
-    window.localStorage.removeItem("loop-session-started-at");
-    window.localStorage.removeItem("loop-session-duration");
+    learnerStorage.removeItem("loop-session-started-at");
+    learnerStorage.removeItem("loop-session-duration");
     setLoopState((prev) => ({
       ...prev,
       missionProgress: {

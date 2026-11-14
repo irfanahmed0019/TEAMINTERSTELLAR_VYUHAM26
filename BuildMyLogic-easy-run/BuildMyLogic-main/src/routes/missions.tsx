@@ -1,3 +1,4 @@
+import { learnerStorage } from "@/lib/demo-mode";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Check, ChevronRight, Lock, PlayCircle, Search, Timer, Sparkles, Database, Users, Globe, ListChecks, BarChart3, AlertCircle } from "lucide-react";
@@ -24,7 +25,7 @@ function Missions() {
     return ok && m.title.toLowerCase().includes(query.toLowerCase());
   }), [missions, filter, query, state.missionProgress, demonstratedSkills, completedIds]);
 
-  function start(id: string) { window.localStorage.setItem("loop-auto-start-session", "1"); setMissionProgress(id, { status: "active" }); void navigate({ to: "/sessions" }); }
+  function start(id: string) { learnerStorage.setItem("loop-auto-start-session", "1"); setMissionProgress(id, { status: "active" }); void navigate({ to: "/sessions" }); }
 
   return <AppShell crumb="Projects" title="Build. Learn. Prove." subtitle="Hands-on projects designed to take you from learning to real-world building." quote="Real skills come from real projects." wide>
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">

@@ -1,3 +1,4 @@
+import { learnerStorage } from "@/lib/demo-mode";
 import { useEffect, useState } from "react";
 import { getAuthSession, loadLoopStateFromCloud, useAuth } from "@/lib/auth";
 import { useCloudHydrated } from "@/lib/cloud-sync";
@@ -29,11 +30,11 @@ export function SampleProgressImport() {
     () =>
       typeof window !== "undefined" &&
       !!getAuthSession()?.uid &&
-      !!localStorage.getItem(backupKey(getAuthSession()!.uid)),
+      !!learnerStorage.getItem(backupKey(getAuthSession()!.uid)),
   );
 
   useEffect(() => {
-    setHasBackup(!!auth?.uid && !!localStorage.getItem(backupKey(auth.uid)));
+    setHasBackup(!!auth?.uid && !!learnerStorage.getItem(backupKey(auth.uid)));
   }, [auth?.uid]);
 
   async function replace(restore: boolean) {
@@ -61,7 +62,7 @@ export function SampleProgressImport() {
         );
       let next: LoopState;
       if (restore) {
-        const raw = localStorage.getItem(backupKey(uid));
+        const raw = learnerStorage.getItem(backupKey(uid));
         const saved = raw ? JSON.parse(raw) : null;
         if (saved?.uid !== uid || !saved.state)
           throw new Error(
@@ -70,12 +71,12 @@ export function SampleProgressImport() {
         next = normalizeLoopState(saved.state);
       } else {
         // Store a rollback before touching current state. Storage failure aborts import.
-        localStorage.setItem(
+        learnerStorage.setItem(
           `${backupKey(uid)}:snapshot:${Date.now()}`,
           JSON.stringify({ uid, backedUpAt: Date.now(), state: before }),
         );
-        if (!localStorage.getItem(backupKey(uid)))
-          localStorage.setItem(
+        if (!learnerStorage.getItem(backupKey(uid)))
+          learnerStorage.setItem(
             backupKey(uid),
             JSON.stringify({ uid, backedUpAt: Date.now(), state: before }),
           );
@@ -114,7 +115,7 @@ export function SampleProgressImport() {
   }
   function downloadBackup() {
     if (!auth?.uid) return;
-    const raw = localStorage.getItem(backupKey(auth.uid));
+    const raw = learnerStorage.getItem(backupKey(auth.uid));
     if (!raw) return;
     const url = URL.createObjectURL(
       new Blob([raw], { type: "application/json" }),

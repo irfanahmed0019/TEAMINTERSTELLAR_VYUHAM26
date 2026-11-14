@@ -1,3 +1,4 @@
+import { learnerStorage } from "@/lib/demo-mode";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
@@ -55,7 +56,7 @@ function Learn() {
   const [activeTopicId, setActiveTopicId] = useState<string | null>(null);
   const [language, setLanguage] = useState<TopicLanguage | null>(() => {
     try {
-      const saved = window.localStorage.getItem("bml.learn.lang");
+      const saved = learnerStorage.getItem("bml.learn.lang");
       return saved === "c" || saved === "python" ? saved : null;
     } catch {
       return null;
@@ -77,7 +78,7 @@ function Learn() {
   function chooseLanguage(next: TopicLanguage) {
     setLanguage(next);
     try {
-      window.localStorage.setItem("bml.learn.lang", next);
+      learnerStorage.setItem("bml.learn.lang", next);
     } catch {
       // Storage blocked - the choice just won't survive a reload.
     }

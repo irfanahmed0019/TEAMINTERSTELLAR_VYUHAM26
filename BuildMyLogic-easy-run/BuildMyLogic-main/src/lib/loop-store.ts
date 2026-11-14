@@ -1,3 +1,5 @@
+import { makeSampleProgress } from "./sample-progress.ts";
+import { learnerStorage, isPublicDemo } from "./demo-mode.ts";
 /**
  * BuildMyLogic — Reactive Learner State Store
  *
@@ -92,12 +94,12 @@ function load(): LoopState {
   if (loaded) return state;
   loaded = true;
   try {
-    const raw = window.localStorage.getItem(KEY);
+    const raw = learnerStorage.getItem(KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<LoopState>;
       state = normalizeLoopState(parsed);
     } else {
-      state = emptyState;
+      state = isPublicDemo() ? makeSampleProgress(1794614400000) : emptyState;
     }
   } catch {
     state = emptyState;
@@ -110,7 +112,7 @@ function load(): LoopState {
  */
 function persist() {
   try {
-    window.localStorage.setItem(KEY, JSON.stringify(state));
+    learnerStorage.setItem(KEY, JSON.stringify(state));
   } catch {
     /* storage full or unavailable */
   }
