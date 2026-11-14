@@ -45,7 +45,7 @@ const COMPETENCY_AXES: { axis: string; keywords: string[] }[] = [
 function Progress() {
   const state = useLoop();
   const sample = !!state.sampleProvenance;
-  const [tab, setTab] = useState<"Overview" | "Skills" | "Missions" | "Struggle DNA" | "Activity">("Overview");
+  const [tab, setTab] = useState<"Overview" | "Skills" | "Missions" | "Struggle DNA" | "Activity">(typeof window!=='undefined'&&new URLSearchParams(window.location.search).get('view')==='struggle'?"Struggle DNA":"Overview");
   const [selectedMission, setSelectedMission] = useState<string | null>(null);
   const plan = state.plan;
   const missions = plan?.missions ?? [];

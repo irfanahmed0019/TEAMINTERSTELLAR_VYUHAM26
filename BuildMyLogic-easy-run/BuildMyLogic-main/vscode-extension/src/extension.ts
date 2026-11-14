@@ -15,8 +15,9 @@ type Message = { command: 'ready' | 'connect' | 'hint' | 'stuck' | 'runTests' | 
 class Sidebar implements vscode.WebviewViewProvider {
   private running = false;
   private connectEpoch = 0;
+  private conquestQueue:Promise<void> = Promise.resolve();
   private view?: vscode.WebviewView; private session?: RemoteSession; private connection?: Connection; private live = false; private loopToken = 0; private lastHeartbeatAt = 0; private evidenceSubscriptions: vscode.Disposable[] = []; private diagnosticTimer?: NodeJS.Timeout; private pendingUriSession?: { sessionId: string };
-  constructor(private readonly api: SessionClient, private readonly results: ResultsPanel) {}
+  constructor(private readonly api: SessionClient, private readonly results: ResultsPanel, private readonly context: vscode.ExtensionContext) {}
   resolveWebviewView(view: vscode.WebviewView) {
     this.view = view; view.webview.options = { enableScripts: true }; view.webview.html = sidebarHtml(view.webview.cspSource);
     view.onDidDispose(() => { this.stop(); this.clearEvidenceSubscriptions(); }); view.webview.onDidReceiveMessage((m: unknown) => { if (valid(m)) void this.handle(m); });
@@ -71,7 +72,7 @@ class Sidebar implements vscode.WebviewViewProvider {
     try {
       if (!silent) this.status('Connecting to your BuildMyLogic session…');
       const r = await this.api.connect(sessionId); if (epoch !== this.connectEpoch) return; if (!r.session) throw new Error('Session has no challenge context.'); this.session = r.session; this.connection = { sessionId };
-      await vscode.workspace.getConfiguration('buildMyLogic').update('session', this.connection, vscode.ConfigurationTarget.Global); await vscode.workspace.getConfiguration('buildMyLogic').update('apiBaseUrl', this.api.getBaseUrl(), vscode.ConfigurationTarget.Global); this.post({ type: 'session', session: this.session }); this.status('Connected. Your challenge is ready.', false); this.installEvidenceSubscriptions(); this.startLiveSync();
+      await vscode.workspace.getConfiguration('buildMyLogic').update('session', this.connection, vscode.ConfigurationTarget.Global); await vscode.workspace.getConfiguration('buildMyLogic').update('apiBaseUrl', this.api.getBaseUrl(), vscode.ConfigurationTarget.Global); this.post({ type: 'session', session: this.session }); void this.notifyConquests(this.session); this.status('Connected. Your challenge is ready.', false); this.installEvidenceSubscriptions(); this.startLiveSync();
     } catch (error) {
       if (epoch !== this.connectEpoch) return;
       this.session = undefined; this.connection = undefined; this.stop(); this.clearEvidenceSubscriptions();
@@ -103,6 +104,7 @@ class Sidebar implements vscode.WebviewViewProvider {
     while (this.live && token === this.loopToken) {
       const connection = this.connection;
       if (!connection) return;
+      const cycleStarted=Date.now();
       try {
         if (Date.now() - this.lastHeartbeatAt >= 15000) {
           await this.api.heartbeat(connection.sessionId);
@@ -114,7 +116,8 @@ class Sidebar implements vscode.WebviewViewProvider {
         this.post({ type: 'connection', connected: true });
         this.status('Connected. Your challenge is ready.');
         const next = response.state;
-        if (next && (typeof since !== 'number' || next.rev !== since)) {
+        if(next) await this.notifyConquests(next);
+        if (next && (typeof since !== 'number' || next.rev !== since || JSON.stringify(next.conquest_receipts)!==JSON.stringify(this.session?.conquest_receipts))) {
           this.session = next;
           this.post({ type: 'session', session: next, live: true });
         }
@@ -122,8 +125,28 @@ class Sidebar implements vscode.WebviewViewProvider {
         if (!this.live || token !== this.loopToken) return;
         this.post({ type: 'connection', connected: false });
         this.status('○ Reconnecting to BuildMyLogic…', true);
-        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
+      // Older servers may ignore long-poll parameters. Never spin requests.
+      const remaining=8000-(Date.now()-cycleStarted);
+      if(remaining>0)await new Promise(resolve=>setTimeout(resolve,remaining));
+    }
+  }
+  private notifyConquests(session:RemoteSession):Promise<void>{
+    this.conquestQueue=this.conquestQueue.catch(()=>{}).then(()=>this.deliverConquests(session));
+    return this.conquestQueue;
+  }
+  private async deliverConquests(session:RemoteSession){
+    const connection=this.connection;
+    if(!connection || connection.sessionId!==session.session_id)return;
+    for(const receipt of session.conquest_receipts??[]){
+      if(this.connection!==connection)return;
+      const seen=this.context.globalState.get<string[]>('websiteConquestNotified',[]);
+      if(seen.includes(receipt.id))continue;
+      await this.context.globalState.update('websiteConquestNotified',[...seen,receipt.id].slice(-200));
+      if(this.connection!==connection)return;
+      void vscode.window.showInformationMessage(`Misconception Conquered: ${receipt.summary}. Website changed-task recovery recorded. Original project checks are unchanged.`, 'Open Failure Replay').then(action=>{
+        if(action==='Open Failure Replay')void vscode.env.openExternal(vscode.Uri.parse(new URL('/progress?view=struggle',this.api.getBaseUrl()).toString()));
+      });
     }
   }
   private clearEvidenceSubscriptions() { this.evidenceSubscriptions.forEach((subscription) => subscription.dispose()); this.evidenceSubscriptions = []; if (this.diagnosticTimer) clearTimeout(this.diagnosticTimer); this.diagnosticTimer = undefined; }
@@ -262,7 +285,7 @@ function valid(v: unknown): v is Message { return !!v && typeof v === 'object' &
 export function activate(context: vscode.ExtensionContext) {
   const config = loadAppConfig();
   const results = new ResultsPanel();
-  const sidebar = new Sidebar(new SessionClient(config.apiBaseUrl), results);
+  const sidebar = new Sidebar(new SessionClient(config.apiBaseUrl), results, context);
   context.subscriptions.push(vscode.window.registerWebviewViewProvider(RESULTS_VIEW_ID, results));
   context.subscriptions.push(vscode.commands.registerCommand('buildmylogic.openMentor', async () => { await vscode.commands.executeCommand('setContext', 'buildMyLogic.showAuthenticatedMentor', true); await vscode.commands.executeCommand('buildMyLogic.mentor.focus'); }));
   const mentor = new MentorPanel(context, new MentorClient(config.apiBaseUrl));

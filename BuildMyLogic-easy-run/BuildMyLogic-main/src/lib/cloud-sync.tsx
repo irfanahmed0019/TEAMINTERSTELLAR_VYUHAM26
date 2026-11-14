@@ -1,3 +1,4 @@
+import { publishSavedConquests } from "./publish-conquest";
 import { isPublicDemo } from "./demo-mode";
 import { useLocation } from "@tanstack/react-router";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -74,6 +75,7 @@ function AccountCloudSync() {
         readyUid.current = uid;
         setHydratedUid(uid);
         setHydrated(uid);
+        void publishSavedConquests(getLoopState(), uid).catch(() => {});
       })
       .catch(() => {
         if (!current()) return;
@@ -102,6 +104,7 @@ function AccountCloudSync() {
             getAuthSession()?.uid === uid
           ) {
             lastSaved.current = serialized;
+            void publishSavedConquests(state, uid).catch(() => {});
           }
         })
         .catch((error) =>

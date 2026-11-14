@@ -1,3 +1,4 @@
+import { publishSavedConquests } from "@/lib/publish-conquest";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { getAuthSession, getAuthSessionForApi } from "@/lib/auth";
@@ -84,6 +85,13 @@ function Reassess() {
           ? m.sourceSessionId === session
           : true),
   );
+  const completed = (state.struggle?.misconceptions ?? []).filter(
+    (m) =>
+      m.status === "conquered" &&
+      m.reassessed &&
+      m.sourceSessionId === session &&
+      m.recoveryOwnerId === getAuthSession()?.uid,
+  );
   return (
     <AppShell
       crumb="Recover"
@@ -95,7 +103,46 @@ function Reassess() {
           {status}
         </p>
       )}
-      {!patterns.length && (
+      {completed.map((m) => (
+        <section key={m.id} className="card-surface mb-4 p-5">
+          <h2 className="font-bold">Website recovery recorded: {m.summary}</h2>
+          <p className="mt-2 text-sm">
+            This changed-task result is saved separately from the original
+            project checks. The connected extension receives one notification
+            per pattern.
+          </p>
+          <button
+            className="btn-base btn-outline mt-3"
+            onClick={() => {
+              const uid = getAuthSession()?.uid;
+              if (uid)
+                void publishSavedConquests(
+                  getLoopState(),
+                  uid,
+                  session ?? undefined,
+                )
+                  .then(() =>
+                    setStatus(
+                      "Saved recovery synced to the connected session.",
+                    ),
+                  )
+                  .catch((e) =>
+                    setStatus(
+                      e instanceof Error
+                        ? e.message
+                        : "Recovery sync unavailable.",
+                    ),
+                  );
+            }}
+          >
+            Retry recovery sync to VS Code
+          </button>
+          <a className="ml-4 underline" href="/progress?view=struggle">
+            Open Failure Replay and portfolio
+          </a>
+        </section>
+      ))}
+      {!patterns.length && !completed.length && (
         <section className="card-surface p-6">
           <h2 className="font-bold">No linked locked pattern is available.</h2>
           <p className="mt-2 text-sm">

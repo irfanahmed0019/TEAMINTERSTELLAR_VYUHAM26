@@ -1,3 +1,9 @@
+# 0.3.3
+
+- Receive owner-saved website conquest receipts for the connected session.
+- Show one durable-deduped website recovery notification per pattern, with a Failure Replay link.
+- Keep original project checkpoints separate from changed-task recovery.
+
 # BuildMyLogic
 
 ## Combined workspace
