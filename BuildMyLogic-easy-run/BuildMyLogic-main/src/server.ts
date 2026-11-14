@@ -150,6 +150,34 @@ async function handleBuildMyLogicApi(
     return jsonResponse({ ok: true, version });
   }
 
+  if (request.method === "GET" && pathname === "/api/auth/signup-policy") {
+    const source = process.env["VITE_SUPABASE_URL"]?.trim(),
+      key = process.env["VITE_SUPABASE_ANON_KEY"]?.trim();
+    if (!source || !key)
+      return jsonResponse({ ok: true, confirmedEmailSignup: false });
+    try {
+      const r = await fetch(`${source}/auth/v1/settings`, {
+        headers: { apikey: key },
+        signal: AbortSignal.timeout(6000),
+      });
+      const settings = (await r.json()) as {
+        disable_signup?: boolean;
+        mailer_autoconfirm?: boolean;
+        external?: { email?: boolean };
+      };
+      return jsonResponse({
+        ok: true,
+        confirmedEmailSignup:
+          r.ok &&
+          settings.disable_signup === false &&
+          settings.mailer_autoconfirm === false &&
+          settings.external?.email === true,
+      });
+    } catch {
+      return jsonResponse({ ok: true, confirmedEmailSignup: false });
+    }
+  }
+
   // Learning sessions are the shared source of truth for the web dashboard and VS Code.
   // The website authenticates session creation. The extension joins the same session with
   // the short Session ID copied from the website.

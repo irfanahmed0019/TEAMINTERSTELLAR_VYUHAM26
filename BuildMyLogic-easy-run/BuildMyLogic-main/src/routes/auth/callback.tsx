@@ -1,6 +1,6 @@
 /**
  * BuildMyLogic — OAuth Callback Handler
- * 
+ *
  * Safely processes redirects from Supabase Google OAuth, extracts session
  * credentials from URL hash or code exchange, and redirects learner to Dashboard.
  */
@@ -15,7 +15,7 @@ export const Route = createFileRoute("/auth/callback")({
 
 function AuthCallback() {
   const navigate = useNavigate();
-  const [status, setStatus] = useState("Signing you in…");
+  const [status, setStatus] = useState("Completing sign-in...");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -31,6 +31,16 @@ function AuthCallback() {
       if (!supabase) return;
 
       try {
+        const redirectUrl = new URL(window.location.href);
+        const hash = new URLSearchParams(redirectUrl.hash.replace(/^#/, ""));
+        if (redirectUrl.searchParams.has("error") || hash.has("error")) {
+          window.history.replaceState({}, "", redirectUrl.pathname);
+          setStatus("This confirmation or sign-in link could not be used.");
+          setErrorMessage(
+            "It may have expired or already been used. Return to sign-in and try again.",
+          );
+          return;
+        }
         // 1. Check if session was already established or detected from URL hash
         const { data: sessionData } = await supabase.auth.getSession();
         if (sessionData?.session && isMounted) {
@@ -43,32 +53,44 @@ function AuthCallback() {
         const code = url.searchParams.get("code");
 
         if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (!error && isMounted) {
+          const { data, error } =
+            await supabase.auth.exchangeCodeForSession(code);
+          if (!error && data.session && isMounted) {
             void navigate({ to: "/auth/dashboard" });
+            return;
+          }
+          if (error && isMounted) {
+            setStatus("This confirmation or sign-in link could not be used.");
+            setErrorMessage("Return to sign-in and try again.");
             return;
           }
         }
 
         // 3. Listen for auth state change (e.g., hash fragment token detection)
-        const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-          if (session && isMounted) {
-            void navigate({ to: "/auth/dashboard" });
-          }
-        });
+        const { data: authListener } = supabase.auth.onAuthStateChange(
+          (event, session) => {
+            if (session && isMounted) {
+              void navigate({ to: "/auth/dashboard" });
+            }
+          },
+        );
         authStateCleanup = () => authListener.subscription.unsubscribe();
 
         // Fallback timer: if already signed in or after brief wait, head to dashboard
         setTimeout(() => {
           if (isMounted) {
-            void navigate({ to: "/auth/dashboard" });
+            setStatus("No completed sign-in was found.");
+            setErrorMessage(
+              "Confirm your email with its latest link, then return to sign-in.",
+            );
           }
-        }, 1500);
+        }, 2500);
       } catch (err) {
-        console.warn("Auth callback handled with fallback:", err);
+        console.warn("Auth callback did not complete.");
         if (isMounted) {
           // Graceful fallback to dashboard
-          setTimeout(() => void navigate({ to: "/auth/dashboard" }), 1000);
+          setStatus("Sign-in could not be completed.");
+          setErrorMessage("Return to sign-in and try again.");
         }
       }
     }
@@ -84,18 +106,26 @@ function AuthCallback() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="text-center card-surface p-8 max-w-sm w-full">
-        <div className="mb-4 h-9 w-9 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
+        {!errorMessage && (
+          <div className="mb-4 h-9 w-9 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
+        )}
         <p className="text-sm font-semibold text-foreground">{status}</p>
-        <p className="text-xs text-muted-foreground mt-2">Connecting your BuildMyLogic session…</p>
-        
+        <p className="text-xs text-muted-foreground mt-2">
+          Email confirmation and Google sign-in use the same secure account
+          callback.
+        </p>
+
         {errorMessage && (
           <div className="mt-4">
+            <p role="alert" className="mb-4 text-xs leading-5">
+              {errorMessage}
+            </p>
             <button
               type="button"
               onClick={() => void navigate({ to: "/auth/dashboard" })}
               className="btn-base btn-primary-solid text-xs py-2 px-4"
             >
-              Continue to Dashboard
+              Return to sign-in
             </button>
           </div>
         )}
