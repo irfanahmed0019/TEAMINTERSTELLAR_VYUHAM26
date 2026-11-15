@@ -1,3 +1,8 @@
+# 0.3.4
+
+- OS-aware computer setup: the sidebar detects Windows, macOS or Linux (and the Linux package manager) and checks Python 3, Git and a C compiler with read-only version probes when the sidebar opens and after each session connect.
+- New Setup tab shows the exact install command for each missing tool on your OS, with an "Install packages" button that runs it in a visible VS Code terminal only after you confirm the exact command. Nothing installs silently.
+
 # 0.3.3
 
 - Receive owner-saved website conquest receipts for the connected session.

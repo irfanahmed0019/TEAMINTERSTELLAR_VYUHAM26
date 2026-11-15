@@ -7,16 +7,17 @@ import { ResultsPanel, RESULTS_VIEW_ID } from './resultsPanel';
 import { startBridge, consumeStagedSession, SessionConnect } from './bridge';
 import { MentorClient } from './mentorClient';
 import { MentorPanel, MENTOR_VIEW_ID } from './mentorPanel';
+import { detectSetup, installPlanFor, SetupReport, ToolId } from './environmentSetup';
 
 const viewId = 'buildMyLogic.sidebar';
 type Connection = { sessionId: string };
-type Message = { command: 'ready' | 'connect' | 'hint' | 'stuck' | 'runTests' | 'submit' | 'failed' | 'disconnect' | 'reassess' | 'openMentor'; sessionId?: string };
+type Message = { command: 'ready' | 'connect' | 'hint' | 'stuck' | 'runTests' | 'submit' | 'failed' | 'disconnect' | 'reassess' | 'openMentor' | 'checkSetup' | 'installTool'; sessionId?: string; tool?: string };
 
 class Sidebar implements vscode.WebviewViewProvider {
   private running = false;
   private connectEpoch = 0;
   private conquestQueue:Promise<void> = Promise.resolve();
-  private view?: vscode.WebviewView; private session?: RemoteSession; private connection?: Connection; private live = false; private loopToken = 0; private lastHeartbeatAt = 0; private evidenceSubscriptions: vscode.Disposable[] = []; private diagnosticTimer?: NodeJS.Timeout; private pendingUriSession?: { sessionId: string };
+  private view?: vscode.WebviewView; private session?: RemoteSession; private connection?: Connection; private live = false; private loopToken = 0; private lastHeartbeatAt = 0; private evidenceSubscriptions: vscode.Disposable[] = []; private diagnosticTimer?: NodeJS.Timeout; private pendingUriSession?: { sessionId: string }; private setupReport?: SetupReport;
   constructor(private readonly api: SessionClient, private readonly results: ResultsPanel, private readonly context: vscode.ExtensionContext) {}
   resolveWebviewView(view: vscode.WebviewView) {
     this.view = view; view.webview.options = { enableScripts: true }; view.webview.html = sidebarHtml(view.webview.cspSource);
@@ -49,8 +50,10 @@ class Sidebar implements vscode.WebviewViewProvider {
   }
   private async handle(m: Message) {
     try {
-      if (m.command === 'ready') { if (this.session) this.post({type:'session',session:this.session}); return; }
+      if (m.command === 'ready') { if (this.session) this.post({type:'session',session:this.session}); void this.checkSetup(false); return; }
       if (m.command === 'openMentor') { await vscode.commands.executeCommand('buildmylogic.openMentor'); return; }
+      if (m.command === 'checkSetup') { void this.checkSetup(false); return; }
+      if (m.command === 'installTool') { await this.installTool(String(m.tool || '')); return; }
       if (m.command === 'connect') return void this.connect(m.sessionId || '', false);
       if (m.command === 'disconnect') { this.connectEpoch++; this.stop(); this.clearEvidenceSubscriptions(); this.session = undefined; this.connection = undefined; await vscode.workspace.getConfiguration('buildMyLogic').update('session', undefined, vscode.ConfigurationTarget.Global); this.results.update(undefined, ''); return this.post({ type: 'disconnected' }); }
       if (!this.session || !this.connection) return this.status('Connect an active BuildMyLogic session first.', true);
@@ -72,7 +75,7 @@ class Sidebar implements vscode.WebviewViewProvider {
     try {
       if (!silent) this.status('Connecting to your BuildMyLogic session…');
       const r = await this.api.connect(sessionId); if (epoch !== this.connectEpoch) return; if (!r.session) throw new Error('Session has no challenge context.'); this.session = r.session; this.connection = { sessionId };
-      await vscode.workspace.getConfiguration('buildMyLogic').update('session', this.connection, vscode.ConfigurationTarget.Global); await vscode.workspace.getConfiguration('buildMyLogic').update('apiBaseUrl', this.api.getBaseUrl(), vscode.ConfigurationTarget.Global); this.post({ type: 'session', session: this.session }); void this.notifyConquests(this.session); this.status('Connected. Your challenge is ready.', false); this.installEvidenceSubscriptions(); this.startLiveSync();
+      await vscode.workspace.getConfiguration('buildMyLogic').update('session', this.connection, vscode.ConfigurationTarget.Global); await vscode.workspace.getConfiguration('buildMyLogic').update('apiBaseUrl', this.api.getBaseUrl(), vscode.ConfigurationTarget.Global); this.post({ type: 'session', session: this.session }); void this.notifyConquests(this.session); this.status('Connected. Your challenge is ready.', false); this.installEvidenceSubscriptions(); this.startLiveSync(); void this.checkSetup(true);
     } catch (error) {
       if (epoch !== this.connectEpoch) return;
       this.session = undefined; this.connection = undefined; this.stop(); this.clearEvidenceSubscriptions();
@@ -86,6 +89,42 @@ class Sidebar implements vscode.WebviewViewProvider {
     this.live = false;
     this.loopToken += 1;
     this.lastHeartbeatAt = 0;
+  }
+  /**
+   * Computer setup: probe Python, Git and a C compiler with read-only
+   * `--version` checks and show OS-matched install commands. Nothing is
+   * installed here; installs only happen through installTool after the
+   * learner confirms the exact command.
+   */
+  private async checkSetup(announce: boolean) {
+    this.post({ type: 'setupChecking' });
+    try {
+      const report = await detectSetup();
+      this.setupReport = report;
+      this.post({ type: 'setup', report });
+      if (!announce) return;
+      if (report.missing > 0) {
+        const names = report.tools.filter((tool) => !tool.installed).map((tool) => tool.name).join(', ');
+        this.status(`Setup needed on this computer: ${names}. Open the Setup tab to see the exact commands for your OS.`, true);
+      } else {
+        this.status('Setup OK: Python, Git and a C compiler are installed on this computer.');
+      }
+    } catch { if (announce) this.status('Could not check this computer\'s setup. Use the Setup tab to try again.', true); }
+  }
+  /** Install one missing tool, only after the learner confirms the exact command. */
+  private async installTool(toolId: string) {
+    if (!['python', 'git', 'gcc'].includes(toolId)) return;
+    const packageManager = this.setupReport?.packageManager ?? '';
+    const plan = installPlanFor(toolId as ToolId, packageManager);
+    const name = this.setupReport?.tools.find((tool) => tool.id === toolId)?.name || toolId;
+    if (!plan.commands.length) { this.status(plan.note || 'No automatic install command is available for this OS. Follow the note in the Setup tab.', true); return; }
+    const command = plan.commands[0];
+    const approval = await vscode.window.showWarningMessage(`Install ${name} on this computer? This changes your system. The exact command runs in a visible VS Code terminal:\n${command}`, { modal: true }, 'Run install in terminal');
+    if (approval !== 'Run install in terminal') return this.status('Install cancelled. Nothing was changed on this computer.');
+    const terminal = vscode.window.createTerminal('BuildMyLogic Setup');
+    terminal.show(true);
+    terminal.sendText(command, true);
+    this.status(`Install started in the BuildMyLogic Setup terminal. ${plan.note || 'When it finishes, click Re-check in the Setup tab.'}`);
   }
   /**
    * Live sync: long-poll the session state so anything the learner changes on
@@ -281,7 +320,7 @@ class Sidebar implements vscode.WebviewViewProvider {
   private status(text: string, error = false) { this.post({ type: 'status', text, error }); }
   private post(message: unknown) { const m = message as {session?: RemoteSession}; if (m.session) this.results.update(m.session); void this.view?.webview.postMessage(message); }
 }
-function valid(v: unknown): v is Message { return !!v && typeof v === 'object' && ['ready', 'connect', 'hint', 'stuck', 'runTests', 'submit', 'failed', 'disconnect', 'reassess', 'openMentor'].includes(String((v as Message).command)); }
+function valid(v: unknown): v is Message { return !!v && typeof v === 'object' && ['ready', 'connect', 'hint', 'stuck', 'runTests', 'submit', 'failed', 'disconnect', 'reassess', 'openMentor', 'checkSetup', 'installTool'].includes(String((v as Message).command)); }
 export function activate(context: vscode.ExtensionContext) {
   const config = loadAppConfig();
   const results = new ResultsPanel();
