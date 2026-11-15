@@ -50,25 +50,23 @@ function probe(command: string, timeoutMs = 8000): Promise<{ ok: boolean; output
   });
 }
 
-async function detectPackageManager(): Promise<string> {
-  if (process.platform === 'win32') return (await probe('winget --version')).ok ? 'winget' : '';
-  if (process.platform === 'darwin') return (await probe('brew --version')).ok ? 'brew' : '';
+async function detectPackageManager(platform: NodeJS.Platform = process.platform): Promise<string> {
+  if (platform === 'win32') return (await probe('winget --version')).ok ? 'winget' : '';
+  if (platform === 'darwin') return (await probe('brew --version')).ok ? 'brew' : '';
   for (const manager of ['apt-get', 'dnf', 'pacman', 'zypper']) {
     if ((await probe(`command -v ${manager}`)).ok) return manager;
   }
   return '';
 }
 
-const OS_LABEL = process.platform === 'win32' ? 'Windows' : process.platform === 'darwin' ? 'macOS' : 'Linux';
-
-function installCommands(tool: ToolId, packageManager: string): { commands: string[]; note: string } {
-  if (process.platform === 'win32') {
+function installCommands(tool: ToolId, packageManager: string, platform: NodeJS.Platform = process.platform): { commands: string[]; note: string } {
+  if (platform === 'win32') {
     const agreements = '--accept-package-agreements --accept-source-agreements';
     if (tool === 'python') return { commands: [`winget install -e --id Python.Python.3.12 ${agreements}`], note: 'After installing, restart VS Code so the new Python is found.' };
     if (tool === 'git') return { commands: [`winget install -e --id Git.Git ${agreements}`], note: 'After installing, restart VS Code so Git is found.' };
-    return { commands: [`winget install -e --id MSYS2.MSYS2 ${agreements}`], note: 'Windows needs a C compiler for C missions. This installs MSYS2; when it finishes open the MSYS2 UCRT64 shell and run: pacman -S --needed mingw-w64-ucrt-x86_64-gcc' };
+    return { commands: [`winget install -e --id MSYS2.MSYS2 ${agreements}`], note: 'Windows needs a C compiler for C missions. This installs MSYS2; when it finishes open the MSYS2 UCRT64 shell and run: pacman -S --needed mingw-w64-ucrt-x86_64-gcc. MSYS2 does not put gcc on the Windows PATH by itself, so VS Code will still report the C compiler missing until you add C:\\msys64\\ucrt64\\bin to your PATH and restart VS Code.' };
   }
-  if (process.platform === 'darwin') {
+  if (platform === 'darwin') {
     if (tool === 'python') {
       return packageManager === 'brew'
         ? { commands: ['brew install python@3.12'], note: 'After installing, restart VS Code so the new Python is found.' }
@@ -99,8 +97,8 @@ function installCommands(tool: ToolId, packageManager: string): { commands: stri
   }
 }
 
-async function checkPython(): Promise<{ installed: boolean; version: string; checkCommand: string }> {
-  const candidates = process.platform === 'win32'
+async function checkPython(platform: NodeJS.Platform = process.platform): Promise<{ installed: boolean; version: string; checkCommand: string }> {
+  const candidates = platform === 'win32'
     ? ['py -3 --version', 'python --version']
     : ['python3 --version', 'python --version'];
   for (const command of candidates) {
@@ -110,15 +108,15 @@ async function checkPython(): Promise<{ installed: boolean; version: string; che
   return { installed: false, version: '', checkCommand: candidates[0] };
 }
 
-async function checkTool(tool: ToolId): Promise<{ installed: boolean; version: string; checkCommand: string }> {
-  if (tool === 'python') return checkPython();
+async function checkTool(tool: ToolId, platform: NodeJS.Platform = process.platform): Promise<{ installed: boolean; version: string; checkCommand: string }> {
+  if (tool === 'python') return checkPython(platform);
   if (tool === 'git') {
     const result = await probe('git --version');
     return { installed: result.ok, version: result.ok ? result.output : '', checkCommand: 'git --version' };
   }
   const gcc = await probe('gcc --version');
   if (gcc.ok) return { installed: true, version: gcc.output, checkCommand: 'gcc --version' };
-  if (process.platform === 'darwin') {
+  if (platform === 'darwin') {
     const clang = await probe('clang --version');
     if (clang.ok) return { installed: true, version: clang.output, checkCommand: 'clang --version' };
   }
@@ -127,17 +125,18 @@ async function checkTool(tool: ToolId): Promise<{ installed: boolean; version: s
 
 const TOOL_NAMES: Record<ToolId, string> = { python: 'Python 3', git: 'Git', gcc: 'C compiler (gcc)' };
 
-export async function detectSetup(): Promise<SetupReport> {
-  const packageManager = await detectPackageManager();
+export async function detectSetup(platform: NodeJS.Platform = process.platform): Promise<SetupReport> {
+  const packageManager = await detectPackageManager(platform);
   const tools: ToolStatus[] = [];
   for (const id of ['python', 'git', 'gcc'] as ToolId[]) {
-    const status = await checkTool(id);
-    const install = status.installed ? { commands: [], note: '' } : installCommands(id, packageManager);
+    const status = await checkTool(id, platform);
+    const install = status.installed ? { commands: [], note: '' } : installCommands(id, packageManager, platform);
     tools.push({ id, name: TOOL_NAMES[id], installed: status.installed, version: status.version, checkCommand: status.checkCommand, installCommands: install.commands, note: install.note });
   }
-  return { os: OS_LABEL, packageManager, tools, missing: tools.filter((tool) => !tool.installed).length };
+  const os = platform === 'win32' ? 'Windows' : platform === 'darwin' ? 'macOS' : 'Linux';
+  return { os, packageManager, tools, missing: tools.filter((tool) => !tool.installed).length };
 }
 
-export function installPlanFor(toolId: ToolId, packageManager: string): { commands: string[]; note: string } {
-  return installCommands(toolId, packageManager);
+export function installPlanFor(toolId: ToolId, packageManager: string, platform: NodeJS.Platform = process.platform): { commands: string[]; note: string } {
+  return installCommands(toolId, packageManager, platform);
 }

@@ -1,3 +1,9 @@
+# 0.3.5
+
+- Setup install commands and probes are platform-parameterised and covered by tests: Windows winget/Python/Git/MSYS2, macOS Xcode tools with and without Homebrew, apt/dnf/pacman/zypper, and a manual note fallback for unknown Linux package managers.
+- The MSYS2 note now says gcc is not on the Windows PATH until C:\msys64\ucrt64\bin is added, so the C compiler can still show missing after MSYS2 installs.
+- Tests prove Python 2 is never accepted as Python 3 through the real probe path.
+
 # 0.3.4
 
 - OS-aware computer setup: the sidebar detects Windows, macOS or Linux (and the Linux package manager) and checks Python 3, Git and a C compiler with read-only version probes when the sidebar opens and after each session connect.
