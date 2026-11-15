@@ -345,6 +345,10 @@ function Learn() {
       quote="Learn by doing, not just by watching."
       wide
     >
+      <a href="/challenge-ai" className="card-surface mb-5 flex items-center justify-between gap-4 border-primary/25 bg-primary-soft/40 p-5">
+        <div><p className="text-xs font-bold uppercase tracking-widest text-primary">New: AI code-review lab</p><h2 className="mt-1 text-lg font-extrabold">Challenge the AI</h2><p className="mt-1 text-sm text-muted-foreground">The example passes. Write the edge-case test that proves the code wrong.</p></div>
+        <ArrowRight className="h-5 w-5 shrink-0 text-primary" />
+      </a>
       {/* Tabs */}
       <div className="inline-flex flex-wrap gap-1 rounded-2xl border border-border bg-card p-1.5">
         {(

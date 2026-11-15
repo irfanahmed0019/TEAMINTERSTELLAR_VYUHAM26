@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ChallengeAiRouteImport } from './routes/challenge-ai'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as DemoRouteImport } from './routes/demo'
 import { Route as LearnRouteImport } from './routes/learn'
@@ -27,6 +28,11 @@ import { Route as AuthDashboardRouteImport } from './routes/auth/dashboard'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChallengeAiRoute = ChallengeAiRouteImport.update({
+  id: '/challenge-ai',
+  path: '/challenge-ai',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -97,6 +103,7 @@ const AuthDashboardRoute = AuthDashboardRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/challenge-ai': typeof ChallengeAiRoute
   '/dashboard': typeof DashboardRoute
   '/demo': typeof DemoRoute
   '/learn': typeof LearnRoute
@@ -113,6 +120,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/challenge-ai': typeof ChallengeAiRoute
   '/dashboard': typeof DashboardRoute
   '/demo': typeof DemoRoute
   '/learn': typeof LearnRoute
@@ -130,6 +138,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/challenge-ai': typeof ChallengeAiRoute
   '/dashboard': typeof DashboardRoute
   '/demo': typeof DemoRoute
   '/learn': typeof LearnRoute
@@ -148,6 +157,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/challenge-ai'
     | '/dashboard'
     | '/demo'
     | '/learn'
@@ -164,6 +174,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/challenge-ai'
     | '/dashboard'
     | '/demo'
     | '/learn'
@@ -180,6 +191,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/challenge-ai'
     | '/dashboard'
     | '/demo'
     | '/learn'
@@ -197,6 +209,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ChallengeAiRoute: typeof ChallengeAiRoute
   DashboardRoute: typeof DashboardRoute
   DemoRoute: typeof DemoRoute
   LearnRoute: typeof LearnRoute
@@ -219,6 +232,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/challenge-ai': {
+      id: '/challenge-ai'
+      path: '/challenge-ai'
+      fullPath: '/challenge-ai'
+      preLoaderRoute: typeof ChallengeAiRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -317,6 +337,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ChallengeAiRoute: ChallengeAiRoute,
   DashboardRoute: DashboardRoute,
   DemoRoute: DemoRoute,
   LearnRoute: LearnRoute,
