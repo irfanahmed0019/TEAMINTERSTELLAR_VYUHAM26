@@ -579,9 +579,11 @@ function Sessions() {
         {pickingProject && <p role="status" className="mt-2 text-[11px] font-semibold text-muted-foreground">Waiting for VS Code. If Chrome asks for local-network access, choose Allow. Then choose your folder in VS Code.</p>}
         {pickerError && <div role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-[11px] font-bold text-red-700">
           <p>{pickerError}</p>
+          {(pickerError.startsWith("This browser could not connect") || pickerError.startsWith("The connection check timed out")) && <>
           <a href={`${BRIDGE_URL}/health`} target="_blank" rel="noopener noreferrer" className="mt-2 block underline">Check VS Code connection</a>
           <p className="mt-1 font-normal">If the check shows ok: true, return here and allow local-network access. If it cannot open, follow the setup guide.</p>
           <a href="/extension.html" target="_blank" rel="noopener noreferrer" className="mt-2 block underline">Open step-by-step setup</a>
+          </>}
         </div>}
       </section>
       <section className="card-surface p-5">
