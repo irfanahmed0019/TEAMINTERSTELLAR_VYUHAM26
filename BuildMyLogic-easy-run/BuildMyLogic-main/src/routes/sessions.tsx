@@ -230,11 +230,16 @@ function Sessions() {
     setPickingProject(true);
     setPickerError("");
     try {
-      // 1. Try the desktop bridge hosted by the VS Code extension.
+      // Allow time for Chrome's local-network permission prompt. A short
+      // transport timeout also aborts while the learner is reading it.
+      let healthTimedOut = false;
       const health = await fetch(`${BRIDGE_URL}/health`, {
         cache: "no-store",
-        signal: AbortSignal.timeout(1500),
-      }).catch(() => null);
+        signal: AbortSignal.timeout(30000),
+      }).catch((error: unknown) => {
+        healthTimedOut = error instanceof Error && error.name === "TimeoutError";
+        return null;
+      });
 
       if (health && health.ok) {
         // The bridge answered, so VS Code and the extension are running. A
@@ -264,13 +269,12 @@ function Sessions() {
           return "";
         }
       }
-      // Bridge truly unreachable. Chrome's Local Network Access prompt makes
-      // the health probe time out while it is pending, so call that case out
-      // explicitly instead of silently falling back.
+      // A failed browser request does not establish whether the extension
+      // is missing, stopped, or blocked by local-network permissions.
       setPickerError(
-        forOpening
-          ? "Could not reach the BuildMyLogic desktop bridge, so nothing started. Install or update the BuildMyLogic VS Code extension (v0.0.8 or newer), keep VS Code open, and try again - a folder must be selected first. If Chrome asked to access devices on your local network, choose Allow there. Without VS Code, use Select Folder to attach a folder to the session first."
-          : "Could not reach the BuildMyLogic desktop bridge. If Chrome asked to access devices on your local network, choose Allow there and pick the folder again. Otherwise install or update the BuildMyLogic VS Code extension (v0.0.8 or newer) and keep VS Code open, then pick the folder again. You can still pick the folder below without the bridge - your session will work, but VS Code cannot open it directly.",
+        healthTimedOut
+          ? "The connection check timed out. Nothing started. If Chrome is asking for local-network access, choose Allow, then try again. Keep VS Code open."
+          : "This browser could not connect to VS Code. Nothing started. Keep VS Code open with BuildMyLogic installed. If Chrome blocked local-network access, allow it in this site's permissions, then try again.",
       );
       // The browser picker fallback opens only from the standalone Select
       // Folder buttons (an explicit choice), never inside the gated flows.
@@ -572,7 +576,13 @@ function Sessions() {
         <button type="button" onClick={() => { void pickProjectFolder(true); }} disabled={pickingProject} className="btn-base btn-outline mt-2.5 w-full py-1.5 text-[11.5px] disabled:cursor-wait disabled:opacity-60">
           <FolderOpen className="h-3.5 w-3.5" />{pickingProject ? "Selecting…" : workspacePath || projectFolder ? "Change Folder" : "Select Folder"}
         </button>
-        {pickerError && <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-[11px] font-bold text-red-700">{pickerError}</p>}
+        {pickingProject && <p role="status" className="mt-2 text-[11px] font-semibold text-muted-foreground">Waiting for VS Code. If Chrome asks for local-network access, choose Allow. Then choose your folder in VS Code.</p>}
+        {pickerError && <div role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-[11px] font-bold text-red-700">
+          <p>{pickerError}</p>
+          <a href={`${BRIDGE_URL}/health`} target="_blank" rel="noopener noreferrer" className="mt-2 block underline">Check VS Code connection</a>
+          <p className="mt-1 font-normal">If the check shows ok: true, return here and allow local-network access. If it cannot open, follow the setup guide.</p>
+          <a href="/extension.html" target="_blank" rel="noopener noreferrer" className="mt-2 block underline">Open step-by-step setup</a>
+        </div>}
       </section>
       <section className="card-surface p-5">
         <div className="flex items-center justify-between gap-2">

@@ -50,3 +50,28 @@ for (const action of ['startSession', 'openAndConnectVsCode']) {
     assert.deepEqual(effects, [], 'cancel must not start, create, launch or open fallback');
   });
 }
+
+for (const action of ['startSession', 'openAndConnectVsCode']) {
+  test(`${action}: unavailable bridge never starts, launches or reuses saved folder`, async () => {
+    const effects = [];
+    const timeouts = [];
+    const context = vm.createContext({
+      BRIDGE_URL: 'http://127.0.0.1:8091', Date, Error,
+      AbortSignal: { timeout: ms => { timeouts.push(ms); return undefined; } },
+      running: false, workspacePath: '/old/project',
+      setPickingProject: () => {}, setPickerError: text => effects.push(['error', text]),
+      fetch: async () => { throw new TypeError('Failed to fetch'); },
+      folderInputRef: { current: { click: () => effects.push('fallback') } },
+      createVscodeSession: async () => effects.push('create'),
+      openVsCode: async () => effects.push('launch'),
+      setRunning: () => effects.push('run'),
+    });
+    vm.runInContext(js, context);
+    await vm.runInContext(`${action}()`, context);
+    assert.deepEqual(timeouts, [30000], 'permission prompt gets 30 seconds, not 1.5');
+    assert.equal(effects.length, 2);
+    assert.equal(effects[1][0], 'error');
+    assert.match(effects[1][1], /Nothing started/);
+    assert.ok(!effects.some(item => ['fallback','create','launch','run'].includes(item)));
+  });
+}
