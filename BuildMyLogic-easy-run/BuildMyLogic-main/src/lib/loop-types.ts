@@ -6,6 +6,7 @@ export type TechItem = {
 };
 export type FollowUpAnswer = { question: string; answer: string };
 export type Profile = {
+  resumeClaims?: import("./resume-intake").ResumeClaims;
   name: string;
   resumeText: string;
   resumeSummary: string;

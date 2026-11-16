@@ -1,3 +1,4 @@
+import { ResumeIntake } from "@/components/ResumeIntake";
 import { isPublicDemo } from "@/lib/demo-mode";
 import { EmailPasswordSignIn } from "@/components/EmailPasswordSignIn";
 import { useEffect, useRef, useState } from "react";
@@ -87,13 +88,13 @@ export function ConversationalOnboarding() {
     const techMatch = goal.match(/\b(python|javascript|typescript|java|c\+\+|c|react|django|html|css|machine learning|data science)\b/i);
     const tech = techMatch?.[0] ?? "Python";
     const nextProfile: Profile = {
-      ...initialProfile,
-      name: auth?.displayName ?? "",
+      ...profile,
+      name: auth?.displayName || profile.name || "",
       goal: goal.toLowerCase().includes("job") ? "Prepare for a job" : "Build a real product",
       goalDetail: goal,
       experience: isBeginner ? "First time building" : "Yes, but got stuck",
       experienceDetail: experienceText,
-      technologies: [{ name: tech, level: isBeginner ? "beginner" : "intermediate" }],
+      technologies: [{ name: tech, level: isBeginner ? "beginner" as const : "intermediate" as const }, ...profile.technologies.filter(item => item.name.toLowerCase() !== tech.toLowerCase())].slice(0, 10),
       projectIdea: goal,
       followUps: [
         { question: prompts[1] ?? "", answer: experienceText },
@@ -208,6 +209,8 @@ export function ConversationalOnboarding() {
         </div>
         <h1 className="display max-w-3xl px-2 text-center text-[1.6rem] font-black leading-tight tracking-[-0.05em] sm:text-6xl">{firstName ? `Hi ${firstName}, what do you want to ` : "What do you want to "}<span className="text-primary">build?</span></h1>
         <p className="mt-2 hidden max-w-2xl text-center text-base text-muted-foreground sm:mt-4 sm:block sm:text-lg">Tell us where you are. We'll understand your goals, create your learning path, and get you building real projects.</p>
+
+        {stage === "chat" && <ResumeIntake onAnalyzed={(text, analysis) => setProfile(prev => ({ ...prev, name: prev.name || analysis.name, resumeText: text, resumeSummary: analysis.summary, resumeClaims: analysis.claims, technologies: analysis.technologies }))} />}
 
         <div className="mt-3 flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-3xl border border-primary/15 bg-surface/90 shadow-[0_18px_70px_rgba(91,33,182,0.08)] backdrop-blur sm:mt-9 sm:flex-none">
           <div className="flex items-center gap-3 border-b border-border px-4 py-3 sm:px-5 sm:py-4">
