@@ -65,7 +65,8 @@ export function TopicPractice({
         )) &&
       (patternId
         ? m.id === patternId
-        : m.topicId === topicId && m.language === language),
+        : (m.transferTopicId ?? m.topicId) === topicId &&
+          m.language.toLowerCase() === language),
   );
   const [mode, setMode] = useState<"practice" | "reassess">("practice");
   const [preparing, setPreparing] = useState(false);

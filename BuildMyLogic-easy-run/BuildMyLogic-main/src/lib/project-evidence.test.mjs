@@ -86,3 +86,114 @@ test("invalid finite scores are not ingested", () => {
     prev,
   );
 });
+
+test("repeated source-task failures map to exact Learn topic and owner-scoped recovery, not broad Python", async () => {
+  const { priorityLearningTopics } = await import("./adaptive-learning.ts");
+  const { diagnosticProbe, newReassessment } =
+    await import("./struggle-engine.ts");
+  let state = prev;
+  for (let attempt = 1; attempt <= 3; attempt++)
+    state = ingestProjectEvidence(state, {
+      ...remote,
+      attempts: attempt,
+      test_score: { passed: 0, total: 1 },
+      checkpoints: [
+        {
+          ...remote.checkpoints[0],
+          title: "Validate parse input contract",
+          status: "failed",
+        },
+      ],
+    });
+  const m = state.struggle.misconceptions[0];
+  assert.equal(m.status, "locked");
+  assert.equal(m.transferTopicId, "input-validation");
+  assert.equal(m.language, "python");
+  assert.equal(m.recoveryOwnerId, remote.verified_owner_id);
+  assert.equal(priorityLearningTopics(state).has("input-validation"), true);
+  assert.equal(priorityLearningTopics(state).has("Python"), false);
+  assert.ok(diagnosticProbe(m.transferTopicId, m.language));
+  const a = newReassessment(m.transferTopicId, m.language, 10000);
+  const b = newReassessment(m.transferTopicId, m.language, 10000, true);
+  assert.notEqual(a.task, b.task);
+  assert.notDeepEqual(a.tests, b.tests);
+});
+
+test("executed fresh diagnostic transfer can create only matching owner/source challenge receipt", async () => {
+  const {
+    recordDiagnosticPrediction,
+    newReassessment,
+    attachReassessment,
+    recordReassessmentAttempt,
+  } = await import("./struggle-engine.ts");
+  const { savedConquestReceipt } = await import("./shared-conquest.ts");
+  const { spawnSync } = await import("node:child_process");
+  const { readFileSync } = await import("node:fs");
+  let state = prev;
+  for (let attempt = 1; attempt <= 3; attempt++)
+    state = ingestProjectEvidence(state, {
+      ...remote,
+      attempts: attempt,
+      test_score: { passed: 0, total: 1 },
+      checkpoints: [
+        {
+          ...remote.checkpoints[0],
+          title: "Validate parse input contract",
+          status: "failed",
+        },
+      ],
+    });
+  let s = state.struggle;
+  const m = s.misconceptions[0],
+    at = m.lockedAt + 100;
+  assert.equal(m.sourceMissionId, remote.challenge_id);
+  s = recordDiagnosticPrediction(s, m.id, 0, true, at);
+  const task = newReassessment("input-validation", "python", at + 100, true);
+  s = attachReassessment(s, m.id, task);
+  const ref = JSON.parse(
+    readFileSync(
+      new URL("./diagnostic-reference.json", import.meta.url),
+      "utf8",
+    ),
+  )["input-validation"].python;
+  const graded = task.tests.map((t) => {
+    const r = spawnSync("python3", ["-c", ref], {
+      input: t.stdin,
+      encoding: "utf8",
+      timeout: 3000,
+    });
+    assert.equal(r.status, 0, r.stderr);
+    return {
+      name: t.name,
+      expected: t.expected,
+      actual: r.stdout.trim(),
+      passed: r.stdout.trim() === t.expected,
+      hidden: false,
+      status: "Accepted",
+      stderr: r.stderr,
+    };
+  });
+  const input = {
+    misconceptionId: m.id,
+    ownerId: remote.verified_owner_id,
+    at: at + 200,
+    constructOk: true,
+    graded,
+  };
+  assert.equal(
+    recordReassessmentAttempt(s, { ...input, ownerId: "other" }).outcome,
+    null,
+  );
+  s = recordReassessmentAttempt(s, input).state;
+  assert.equal(s.misconceptions[0].status, "conquered");
+  const session = {
+    sessionId: remote.session_id,
+    userId: remote.verified_owner_id,
+    challengeId: remote.challenge_id,
+  };
+  assert.ok(savedConquestReceipt(s, m.id, session));
+  assert.equal(
+    savedConquestReceipt(s, m.id, { ...session, challengeId: "original" }),
+    null,
+  );
+});

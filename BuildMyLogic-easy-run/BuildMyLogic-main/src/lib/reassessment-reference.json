@@ -38,5 +38,9 @@
   "strings": {
     "python": "text=input(); print(sum(1 for ch in text if ch in \"aeiou\"))",
     "c": "#include <stdio.h>\n#include <string.h>\nint main(void){ char text[1000]; int count=0; if(!fgets(text,sizeof(text),stdin)) text[0]=0; for(int i=0;text[i];i++) if(strchr(\"aeiou\",text[i])) count++; printf(\"%d\\n\",count); return 0; }"
+  },
+  "input-validation": {
+    "python": "import re\ns=input()\nprint(\"ACCEPT\" if re.fullmatch(r\"[+-]?[0-9]+\",s) and -100 <= int(s) <= 100 else \"REJECT\")",
+    "c": "#include <stdio.h>\n#include <string.h>\nint main(void){char s[128];if(!fgets(s,sizeof s,stdin))return 1;s[strcspn(s,\"\\r\\n\")]=0;int i=0;if(s[0]=='+'||s[0]=='-')i=1;int ok=s[i]!=0,n=0;for(;s[i];i++){if(s[i]<'0'||s[i]>'9')ok=0;else if(n<=100)n=n*10+s[i]-'0';}puts(ok&&n<=100?\"ACCEPT\":\"REJECT\");return 0;}"
   }
 }

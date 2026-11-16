@@ -21,6 +21,11 @@ const aliasGroups = [
   ["functions", "function", "function basics"],
   ["variables", "variables & data types"],
   ["user input", "input"],
+  [
+    "python input validation",
+    "input validation & edge cases",
+    "input validation",
+  ],
   ["math & operators", "arithmetic operators"],
   ["if / else conditions", "conditional statements", "conditions"],
   ["arrays & lists", "arrays-lists"],

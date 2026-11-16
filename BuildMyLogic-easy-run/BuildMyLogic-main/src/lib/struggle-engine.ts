@@ -560,6 +560,21 @@ export function newReassessment(
     string,
     { title: string; task: string; cases: [string, string][] }
   > = {
+    "input-validation": {
+      title: "Validate a bounded decimal count",
+      task: "Read one line. Accept an optional sign followed by ASCII digits, no whitespace. Accept only values from -100 through 100 inclusive. Print ACCEPT for accepted values, otherwise REJECT. Inputs are shorter than 100 characters. This changed range contract differs from the original conversion task.",
+      cases: [
+        ["+18\n", "ACCEPT"],
+        ["-100\n", "ACCEPT"],
+        ["100\n", "ACCEPT"],
+        ["101\n", "REJECT"],
+        ["-101\n", "REJECT"],
+        ["8.0\n", "REJECT"],
+        ["+\n", "REJECT"],
+        [" 4\n", "REJECT"],
+        ["abc\n", "REJECT"],
+      ],
+    },
     "first-program": {
       title: "Two-line greeting",
       task: "Print Build on the first line and Logic on the second. Match capitalization exactly. This differs from the original Hello, world task.",
@@ -651,6 +666,21 @@ export function newReassessment(
     },
   };
   if (diagnostic) {
+    catalog["input-validation"] = {
+      title: "Validate an unsigned count",
+      task: "Read one line. Accept only one or more ASCII digits, with no sign or whitespace, whose value is from 0 through 50 inclusive. Print COUNT for accepted values, otherwise INVALID. Inputs are shorter than 100 characters. This is a different signedness, range and output contract from the earlier task.",
+      cases: [
+        ["0\n", "COUNT"],
+        ["50\n", "COUNT"],
+        ["003\n", "COUNT"],
+        ["51\n", "INVALID"],
+        ["-1\n", "INVALID"],
+        ["+2\n", "INVALID"],
+        ["2.0\n", "INVALID"],
+        ["\n", "INVALID"],
+        [" 2\n", "INVALID"],
+      ],
+    };
     catalog["variables"] = {
       title: "Save, then change",
       task: "Read an integer n. Set saved = n, then increase n by 5. Print saved and then n on separate lines. Changing n must not change saved.",
@@ -882,6 +912,7 @@ export function recordBuildSessionOutcome(
     performance?: PerformanceEvidence | undefined;
     topicId: string;
     baseTopicId?: string | undefined;
+    sourceChallengeId?: string | undefined;
     concept?: string | undefined;
     sessionId?: string | undefined;
     verifiedOwnerId?: string | undefined;
@@ -972,7 +1003,13 @@ export function recordBuildSessionOutcome(
     concept &&
     input.checkpoints
       ?.filter((c) => c.status === "failed")
-      .every((c) => supportedTransferConcept(c.title) === concept) &&
+      .every(
+        (c) =>
+          supportedTransferConcept(c.title) === concept ||
+          (input.baseTopicId === "input-validation" &&
+            input.topicId === "input-validation" &&
+            concept === "input-validation"),
+      ) &&
     input.checkpoints?.some((c) => c.status === "failed");
   const language = supportedTransferLanguage(input.language);
   const misconceptions = recorded.misconceptions.map((m) =>
@@ -984,7 +1021,7 @@ export function recordBuildSessionOutcome(
           ...m,
           sourceSessionId: input.sessionId ?? m.sourceSessionId,
           recoveryOwnerId: owner,
-          sourceMissionId: input.topicId,
+          sourceMissionId: input.sourceChallengeId ?? input.topicId,
           transferTopicId:
             concept && language && exactFailure ? concept : undefined,
         }
@@ -1257,6 +1294,8 @@ export function supportedTransferConcept(concept: string): string | null {
     variables: "variables",
     input: "input",
     "input/output": "input",
+    "input validation": "input-validation",
+    "input-validation": "input-validation",
     math: "math",
     arithmetic: "math",
     conditions: "conditions",
@@ -1289,6 +1328,22 @@ export function diagnosticProbe(
 ): DiagnosticProbe | null {
   const c = language === "c";
   const data: Record<string, Omit<DiagnosticProbe, "id">> = {
+    "input-validation": {
+      question:
+        "A strict decimal-text contract rejects decimal points. What should happen for the input 3.0?",
+      options: [
+        "Accept it because it has the same numeric value as 3",
+        "Reject it because its format violates the contract",
+        "Not sure",
+      ],
+      correct: 1,
+      hypothesis:
+        "I treated numeric equivalence as proof that an input format was allowed.",
+      model:
+        "The contract determines accepted types and text formats. A numeric value can be representable and still be invalid input.",
+      transferFocus:
+        "Apply a changed signedness and range contract, checking the complete input before conversion.",
+    },
     "first-program": {
       question:
         'Predict the output of two print calls, one for "Build" and one for "Logic", each ending in a newline.',

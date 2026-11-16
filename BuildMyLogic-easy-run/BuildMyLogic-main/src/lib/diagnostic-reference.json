@@ -38,5 +38,9 @@
   "strings": {
     "python": "s=input(); print(s.count(\" \"))",
     "c": "#include <stdio.h>\n#include <string.h>\nint main(void){char s[2000];if(!fgets(s,sizeof(s),stdin))s[0]=0;int n=0;for(int i=0;s[i];i++)if(s[i]==32)n++;printf(\"%d\\n\",n);return 0;}"
+  },
+  "input-validation": {
+    "python": "import re\ns=input()\nprint(\"COUNT\" if re.fullmatch(r\"[0-9]+\",s) and 0 <= int(s) <= 50 else \"INVALID\")",
+    "c": "#include <stdio.h>\n#include <string.h>\nint main(void){char s[128];if(!fgets(s,sizeof s,stdin))return 1;s[strcspn(s,\"\\r\\n\")]=0;int i=0;int ok=s[i]!=0,n=0;for(;s[i];i++){if(s[i]<'0'||s[i]>'9')ok=0;else if(n<=50)n=n*10+s[i]-'0';}puts(ok&&n<=50?\"COUNT\":\"INVALID\");return 0;}"
   }
 }

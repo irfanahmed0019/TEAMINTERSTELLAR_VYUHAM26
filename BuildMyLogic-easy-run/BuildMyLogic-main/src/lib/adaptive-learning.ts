@@ -5,7 +5,8 @@ export function priorityLearningTopics(state: LoopState): Map<string, string> {
   if (state.sampleProvenance) return result;
   for (const m of state.struggle?.misconceptions ?? []) {
     if (m.synthetic || m.status === "conquered") continue;
-    const id = m.transferTopicId || m.topicId;
+    const id =
+      m.transferTopicId || m.topicId.replace(/:owner:[0-9a-f-]+$/i, "");
     if (m.status === "locked")
       result.set(
         id,
@@ -17,15 +18,17 @@ export function priorityLearningTopics(state: LoopState): Map<string, string> {
     (a, b) => a.at - b.at,
   )) {
     if (a.synthetic || a.total <= 0) continue;
-    const list = histories.get(a.topicId) ?? [];
+    const list =
+      histories.get(a.topicId.replace(/:owner:[0-9a-f-]+$/i, "")) ?? [];
     list.push(a.passed === a.total);
-    histories.set(a.topicId, list);
+    histories.set(a.topicId.replace(/:owner:[0-9a-f-]+$/i, ""), list);
   }
   for (const a of state.assessmentEvidence ?? []) {
     if (!a.topicId || a.total <= 0) continue;
-    const list = histories.get(a.topicId) ?? [];
+    const list =
+      histories.get(a.topicId.replace(/:owner:[0-9a-f-]+$/i, "")) ?? [];
     list.push(a.passed === a.total);
-    histories.set(a.topicId, list);
+    histories.set(a.topicId.replace(/:owner:[0-9a-f-]+$/i, ""), list);
   }
   for (const [id, list] of histories)
     if (list.slice(-3).filter((pass) => !pass).length >= 2 && !result.has(id))
