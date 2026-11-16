@@ -591,6 +591,12 @@ export const STUDY_TOPICS: StudyTopic[] = [
             expected: "not positive",
             hidden: true,
           },
+          {
+            name: "Zero is not positive",
+            stdin: "0\n",
+            expected: "not positive",
+            hidden: true,
+          },
         ],
         solution: `#include <stdio.h>\n\nint main(void) {\n    int n;\n    scanf("%d", &n);\n    if (n > 0) {\n        printf("positive\\n");\n    } else {\n        printf("not positive\\n");\n    }\n    return 0;\n}`,
         reassessConstruct: {
@@ -620,6 +626,12 @@ export const STUDY_TOPICS: StudyTopic[] = [
           {
             name: "Typing -3 prints not positive",
             stdin: "-3\n",
+            expected: "not positive",
+            hidden: true,
+          },
+          {
+            name: "Zero is not positive",
+            stdin: "0\n",
             expected: "not positive",
             hidden: true,
           },

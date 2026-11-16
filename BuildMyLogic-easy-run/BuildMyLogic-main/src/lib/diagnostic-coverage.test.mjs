@@ -66,3 +66,66 @@ test("legacy single-format saved bank stays readable without invented formats or
   assert.ok(nextDiagnostic(legacy));
   assert.equal(legacy.answers.length, 0);
 });
+
+test("known live Python stem contradiction is excluded without destroying raw saved history", async () => {
+  const { diagnosticQuestionIssue } = await import("./initial-diagnostic.ts");
+  const { competencyView, competencyContext } = await import("./competency.ts");
+  const q = {
+    ...bank[0],
+    id: "live-q6",
+    skill: "Debugging string vs number comparison",
+    kind: "debugging",
+    prompt:
+      "This check always says 'too expensive' even for small amounts. Why?\n\nprice = input('Price: ')\nif price > 100:\n    print('too expensive')",
+    explanation:
+      "input returns a string; comparing it with 100 raises TypeError in Python 3.",
+  };
+  assert.match(diagnosticQuestionIssue(q), /raises TypeError/);
+  const raw = { question: q, choice: 0, correct: true, at: 1 };
+  const state = {
+    profile: { initialDiagnostic: { answers: [raw] } },
+    plan: { skills: [] },
+    struggle: { attempts: [] },
+  };
+  assert.equal(competencyView(state).length, 0);
+  assert.equal(state.profile.initialDiagnostic.answers[0], raw);
+  const allowed = {
+    ...q,
+    id: "ok",
+    prompt: q.prompt.replace(
+      "This check always says 'too expensive' even for small amounts. Why?",
+      "What happens when this runs?",
+    ),
+  };
+  assert.equal(diagnosticQuestionIssue(allowed), null);
+  assert.equal(
+    diagnosticQuestionIssue({
+      ...q,
+      prompt:
+        q.prompt +
+        '\ntry:\n    pass\nexcept TypeError:\n    print("too expensive")',
+    }),
+    null,
+  );
+  assert.equal(
+    diagnosticQuestionIssue({
+      ...q,
+      prompt: q.prompt.replace(
+        "price = input('Price: ')",
+        "price = int(input('Price: '))",
+      ),
+    }),
+    null,
+  );
+  const parsed = diagnosticQuestions({ questions: [...bank, q] });
+  assert.equal(parsed.length, 12);
+  assert.equal(state.profile.initialDiagnostic.answers.length, 1);
+  const ctx = competencyContext({
+    ...state,
+    profile: {
+      initialDiagnostic: { answers: [{ ...raw, question: allowed }] },
+    },
+  });
+  assert.match(ctx, /AI-keyed client diagnostic/);
+  assert.match(ctx, /provisional multiple-choice/);
+});

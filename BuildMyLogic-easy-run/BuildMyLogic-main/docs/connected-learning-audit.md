@@ -151,3 +151,53 @@ Independent actual-component review found a real end-of-video stall: at one-seco
 The correction uses the exact same elapsed allowance as ordinary observed playback (capped at two seconds per sample, allowing up to 2x playback), with a required prior sample and finite current time. It does not add a fixed end-credit bonus. The component reads position/player state once per sample. Absence and checkpoint-answer rules are unchanged. Tests reject absent, paused, zero-elapsed, missing-sample, invalid-time and large unwatched-end jumps.
 
 Reproduce the actual component with `python scripts/verify-video-end-browser.py` and `BML_QA_SAMPLE_MS=333` or `2000`. The synthetic 250-second player restores two completed sections, reaches the final partial section's question, and persists `[1,2,3]` only after the correct answer. Player, camera frames, face model, identity and cloud are explicit fixtures; this is not real camera/YouTube/cloud acceptance.
+
+## Production QA, 16 November 2026, isolated synthetic learner
+
+At deployed `5719942`, normal browser UI completed: synthetic PDF extraction,
+resume analysis, six keyed MCQ answers, Smart Budget Tracker plan generation,
+Dashboard/Learn navigation, and one real Mentor reply. Four AI actions ran once
+within the finite approved budget. This records working integration, not a
+claim that generated content was correct. No extra AI calls verified the later
+prompt changes. Actual token usage and rupee cost were not exposed by the app.
+
+Save/logout/relogin via normal forms restored the project, six raw answers,
+unverified-resume provenance and four-hours-per-week text from cloud memory
+(HTTP 200 read). No daily time window was invented. No previous user recovery
+copy was cleared or reset.
+
+The initial authenticated three-way-sign coding submission returned HTTP 502
+at about 40 seconds. Its response body/headers were not captured. No failed
+learner evidence was saved. Root cause remains unknown; runner fail-closed
+changes are not a demonstrated fix for that transient failure.
+
+One subsequent normal Learn submission returned HTTP 200 in 1.97 seconds.
+It exposed a genuine coverage defect: `n >= 0` passed the old positive/negative
+checks for "Positive or not" because zero was missing. The synthetic QA event
+remains a pass of the old finite two-case set, not proof of a correct algorithm.
+Zero is now an authored hidden case in C and Python. Local executable reference
+and boundary-mutant regressions verify positive, negative and zero. Post-fix
+production UI wrong/fixed checks remain pending at this entry.
+
+The generated Q6 stem said:
+
+```
+This check always says 'too expensive' even for small amounts. Why?
+
+price = input('Price: ')
+if price > 100:
+    print('too expensive')
+```
+
+Its keyed explanation correctly identified a Python 3 `TypeError`, contradicting
+the claimed output. A narrow structural/phrase check excludes this known class
+from new banks and derived competency while retaining raw saved history. It is
+not a general semantic validator or code execution. Caught exceptions, explicit
+conversion, and neutral "what happens" questions are not treated as this defect.
+
+Generated plan prose also claimed the learner's gap was writing practice, "not
+understanding", without successful coding evidence. Mentor's sidebar no longer
+uses generated plan insights as assessment facts, including for existing saved
+plans. New plan insights are source-grounded summaries. Mentor context names
+its sources, and the prompt distinguishes provisional AI-keyed MCQ from actual
+finite execution. No new real-model run has verified that prompt change.

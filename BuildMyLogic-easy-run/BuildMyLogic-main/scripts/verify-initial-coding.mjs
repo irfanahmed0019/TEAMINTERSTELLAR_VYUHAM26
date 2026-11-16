@@ -13,7 +13,8 @@ const vite = await createServer({
 });
 let jobs = [],
   sandboxCalls = 0,
-  unavailable = false;
+  unavailable = false,
+  internalError = false;
 const owner = "12345678-1234-1234-1234-123456789012";
 const oldFetch = global.fetch;
 const oldUrl = process.env.VITE_SUPABASE_URL,
@@ -72,7 +73,14 @@ global.fetch = async (url, options = {}) => {
       });
       return Response.json(jobs.map((j) => ({ token: j.token })));
     }
-    return Response.json({ submissions: jobs });
+    return Response.json({
+      submissions: internalError
+        ? jobs.map((j) => ({
+            ...j,
+            status: { id: 13, description: "Internal Error" },
+          }))
+        : jobs,
+    });
   }
   throw Error("Unexpected network " + url);
 };
@@ -194,6 +202,14 @@ try {
   assert.equal(data.evidence.hintsUsed, 1);
   assert.equal(data.evidence.performance.timingQuality, "unavailable");
   console.log("PASS actual Python wrong boundary program 1/3");
+  internalError = true;
+  response = await handleMentorApi(request(body));
+  data = await response.json();
+  assert.equal(data.ok, false);
+  assert.equal(data.evidence, undefined);
+  assert.match(data.error, /not graded/);
+  console.log("PASS Judge0 Internal Error returns no failed learner evidence");
+  internalError = false;
   unavailable = true;
   response = await handleMentorApi(request(body));
   data = await response.json();

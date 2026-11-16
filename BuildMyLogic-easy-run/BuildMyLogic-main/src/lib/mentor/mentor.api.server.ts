@@ -1,3 +1,4 @@
+import { validateJudge0Results } from "./judge0-results.ts";
 import { initialCodingTask } from "../initial-coding-diagnostic";
 import { COMPUTATIONAL_THINKING_GUIDANCE } from "../computational-thinking";
 import { isSampleAccount, SAMPLE_AI_UNAVAILABLE } from "../sample-account";
@@ -129,7 +130,11 @@ export async function runCode(
   const tokens = ((await create.json()) as { token?: string }[])
     .map((x) => x.token)
     .filter(Boolean) as string[];
-  if (tokens.length !== stdins.length)
+  if (
+    tokens.length !== stdins.length ||
+    new Set(tokens).size !== tokens.length ||
+    tokens.some((t) => typeof t !== "string" || !/^[a-zA-Z0-9-]{1,80}$/.test(t))
+  )
     throw new Error(
       "The code execution service returned an unexpected response. Your code was not run.",
     );
@@ -157,6 +162,7 @@ export async function runCode(
     throw new Error(
       "The code execution service timed out. Your code was not graded.",
     );
+  validateJudge0Results(tokens, rows);
   const by = new Map(rows.map((r) => [r.token, r]));
   return tokens.map((tk) => {
     const r = by.get(tk)!;

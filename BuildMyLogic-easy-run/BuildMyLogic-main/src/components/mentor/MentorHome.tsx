@@ -1,4 +1,4 @@
-import { competencyContext, competencyPlan } from "@/lib/competency";
+import { competencyContext, competencyPlan, competencyView } from "@/lib/competency";
 import { getLoopState as competencyState } from "@/lib/loop-store";
 import { learnerStorage, isPublicDemo } from "@/lib/demo-mode";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -73,14 +73,16 @@ export function MentorHome() {
   }, [missions, state.selectedLearningMissionId, activeMission, plan]);
 
   const suggestion = useMemo(() => {
-    if (plan?.progress?.insights?.[0]) return plan.progress.insights[0];
+    // Generated plan prose is not assessment evidence, including saved plans.
+    const observed = competencyView(state).filter((c) => c.observations > 0);
+    if (observed.length) return `Collect fresh checked practice on ${observed[0]!.skill}. Sources: ${observed[0]!.evidenceSources.join(", ")}. These finite checks do not prove independent understanding.`;
     const skills = [...(plan?.skills ?? [])].sort((a, b) => a.level - b.level);
     if (skills.length >= 2) {
       return `Collect more evidence on ${skills[0]!.name} and then move to ${skills[1]!.name} with fresh checked exercises.`;
     }
     if (skills.length === 1) return `Keep practicing ${skills[0]!.name} with fresh checked exercises.`;
     return "Finish onboarding and your mentor will personalize suggestions from your real progress.";
-  }, [plan]);
+  }, [plan, state]);
 
   const { state: availability, reason: availabilityReason } = useMentorAvailability();
   const [messages, setMessages] = useState<ChatMessage[]>([]);

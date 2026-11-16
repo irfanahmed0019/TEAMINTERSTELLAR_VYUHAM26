@@ -23,6 +23,26 @@ export type InitialDiagnostic = {
   completedAt?: number;
   evidence: "client_graded_prediction_not_code_execution";
 };
+/** Narrow contradiction check, not a semantic or execution verifier.
+ * Preserve old raw questions, but do not count a known impossible-output stem. */
+export function diagnosticQuestionIssue(
+  q: Pick<DiagnosticQuestion, "prompt" | "explanation">,
+): string | null {
+  const assigned = q.prompt.match(
+    /(?:^|\n)\s*([a-zA-Z_]\w*)\s*=\s*input\([^\n]*\)/,
+  );
+  if (!assigned || /\b(?:try|except)\b/.test(q.prompt)) return null;
+  const numericComparison = new RegExp(
+    `^\\s*if\\s+${assigned[1]}\\s*(?:>|<|>=|<=)\\s*-?\\d+(?:\\.\\d+)?\\s*:`,
+  );
+  return /\balways\s+(?:says|prints|outputs)\b/i.test(q.prompt) &&
+    /\bTypeError\b/i.test(q.explanation) &&
+    numericComparison.test(
+      q.prompt.slice((assigned.index ?? 0) + assigned[0].length),
+    )
+    ? "The stem claims printed output, but its direct string-input/numeric comparison raises TypeError before that output. This item is excluded from evidence."
+    : null;
+}
 export function diagnosticQuestions(raw: unknown): DiagnosticQuestion[] {
   const list =
     raw && typeof raw === "object"
@@ -54,7 +74,8 @@ export function diagnosticQuestions(raw: unknown): DiagnosticQuestion[] {
         ![1, 2, 3].includes(q.difficulty) ||
         !kinds.includes(q.kind) ||
         typeof q.explanation !== "string" ||
-        !q.explanation.trim()
+        !q.explanation.trim() ||
+        diagnosticQuestionIssue(q)
       )
         return [];
       return [
@@ -138,5 +159,8 @@ export function answerDiagnostic(
 export function diagnosticSummary(d?: InitialDiagnostic): string {
   if (!d)
     return "No diagnostic evidence. Resume and experience are unverified claims.";
-  return `Initial diagnostic ${d.status}; ${d.answers.length} prediction/concept checks. AI-authored answer keys, client-graded; not code execution or independent-work proof. ${d.answers.map((a) => `${a.question.skill}: ${a.correct ? "correct" : "incorrect"} ${a.question.kind} at difficulty ${a.question.difficulty}`).join("; ")}`;
+  const eligible = d.answers.filter(
+    (a) => !diagnosticQuestionIssue(a.question),
+  );
+  return `Initial diagnostic ${d.status}; ${eligible.length} eligible prediction/concept checks; ${d.answers.length - eligible.length} contradictory items excluded (raw history retained). AI-authored answer keys, client-graded; not code execution or independent-work proof. ${eligible.map((a) => `${a.question.skill}: ${a.correct ? "correct" : "incorrect"} ${a.question.kind} at difficulty ${a.question.difficulty}`).join("; ")}`;
 }

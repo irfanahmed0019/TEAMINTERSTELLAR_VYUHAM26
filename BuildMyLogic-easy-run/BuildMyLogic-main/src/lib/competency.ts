@@ -1,3 +1,4 @@
+import { diagnosticQuestionIssue } from "./initial-diagnostic.ts";
 import type { LoopState, Plan } from "./loop-types";
 export type CompetencyView = {
   skill: string;
@@ -86,13 +87,15 @@ export function competencyView(state: LoopState): CompetencyView[] {
               ? " (hint-assisted)"
               : " (hints not recorded as used; independence unverified)"),
         });
-    for (const a of state.profile?.initialDiagnostic?.answers ?? [])
+    for (const a of state.profile?.initialDiagnostic?.answers ?? []) {
+      if (diagnosticQuestionIssue(a.question)) continue;
       add(a.question.skill, {
         id: a.question.id + ":" + a.at,
         at: a.at,
         score: a.correct ? 100 : 0,
         source: "AI-keyed client diagnostic",
       });
+    }
   }
   return [...names].map(([key, skill]) => {
     const history = (histories.get(key) ?? [])
@@ -188,11 +191,12 @@ export function competencyContext(state: LoopState): string {
   if (state.sampleProvenance)
     return "SAMPLE DATA: not genuine learner evidence.";
   return (
-    competencyView(state)
+    "Evidence limits: AI-keyed client diagnostics are provisional multiple-choice results, not executed code or proof of understanding. Finite sandbox or client-reported tests do not prove independence or general mastery.\n" +
+    (competencyView(state)
       .map(
         (c) =>
-          `${c.skill}: ${c.estimate === null ? "unassessed" : c.estimate + "/100 estimate"}, confidence ${c.confidence}, n=${c.observations}; ${c.recentPerformance}; ${c.reason}`,
+          `${c.skill}: ${c.estimate === null ? "unassessed" : c.estimate + "/100 estimate"}, confidence ${c.confidence}, n=${c.observations}; ${c.recentPerformance}; sources: ${c.evidenceSources.join(", ") || "none"}; ${c.reason}`,
       )
-      .join("\n") || "No competency evidence yet."
+      .join("\n") || "No competency evidence yet.")
   );
 }
