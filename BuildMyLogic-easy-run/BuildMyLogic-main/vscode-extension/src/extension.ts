@@ -47,6 +47,8 @@ class Sidebar implements vscode.WebviewViewProvider {
   private activitySequence = Date.now();
   private activityTimer?: NodeJS.Timeout;
   private connectEpoch = 0;
+  private credentialWrites: Promise<void> = Promise.resolve();
+  private connectionSettings: Promise<void> = Promise.resolve();
   private conquestQueue: Promise<void> = Promise.resolve();
   private view?: vscode.WebviewView;
   private session?: RemoteSession;
@@ -175,9 +177,11 @@ class Sidebar implements vscode.WebviewViewProvider {
         this.clearEvidenceSubscriptions();
         this.session = undefined;
         this.connection = undefined;
-        await vscode.workspace
-          .getConfiguration("buildMyLogic")
-          .update("session", undefined, vscode.ConfigurationTarget.Global);
+        this.api.setSessionToken(undefined);
+        const epoch = this.connectEpoch,
+          base = this.api.getBaseUrl();
+        await this.saveConnectionSettings(epoch, base);
+        if (epoch !== this.connectEpoch) return;
         this.results.update(undefined, "");
         return this.post({ type: "disconnected" });
       }
@@ -248,6 +252,49 @@ class Sidebar implements vscode.WebviewViewProvider {
       );
     }
   }
+  /** Serialize settings transitions; a late old write is reconciled before the next writer. */
+  private async saveConnectionSettings(epoch: number, base: string) {
+    const current = () =>
+      epoch === this.connectEpoch && base === this.api.getBaseUrl();
+    const write = this.connectionSettings.then(async () => {
+      if (!current()) return;
+      const config = vscode.workspace.getConfiguration("buildMyLogic");
+      await config.update(
+        "session",
+        this.connection,
+        vscode.ConfigurationTarget.Global,
+      );
+      if (!current()) {
+        await config.update(
+          "session",
+          this.connection,
+          vscode.ConfigurationTarget.Global,
+        );
+        return;
+      }
+      if (this.connection) {
+        await config.update(
+          "apiBaseUrl",
+          base,
+          vscode.ConfigurationTarget.Global,
+        );
+        if (!current()) {
+          await config.update(
+            "session",
+            this.connection,
+            vscode.ConfigurationTarget.Global,
+          );
+          await config.update(
+            "apiBaseUrl",
+            this.api.getBaseUrl(),
+            vscode.ConfigurationTarget.Global,
+          );
+        }
+      }
+    });
+    this.connectionSettings = write.catch(() => {});
+    await write;
+  }
   private async pair(value: string) {
     if (!normalizePairingCode(value))
       return this.status(
@@ -267,17 +314,33 @@ class Sidebar implements vscode.WebviewViewProvider {
       this.status("Claiming your one-use pairing code…");
       const claim = await claimPairingCode(base, value);
       if (epoch !== this.connectEpoch || this.api.getBaseUrl() !== base) return;
-      try {
-        await this.context.secrets.store(
-          "bml.session." + base + ":" + claim.session_id,
-          claim.connection_token,
-        );
-      } catch {
-        throw new Error(
-          "VS Code could not save the secure session credential. Generate a new pairing code after SecretStorage is available.",
-        );
-      }
-      if (epoch !== this.connectEpoch || this.api.getBaseUrl() !== base) return;
+      const key = "bml.session." + base + ":" + claim.session_id;
+      const current = () =>
+        epoch === this.connectEpoch && this.api.getBaseUrl() === base;
+      const store = this.credentialWrites.then(async () => {
+        if (!current()) return;
+        const previous = await this.context.secrets.get(key);
+        if (!current()) return;
+        try {
+          await this.context.secrets.store(key, claim.connection_token);
+          if (!current()) {
+            // Writes from this Sidebar are serialized, so rollback cannot erase a newer pairing.
+            const saved = await this.context.secrets.get(key);
+            if (saved === claim.connection_token) {
+              if (previous !== undefined)
+                await this.context.secrets.store(key, previous);
+              else await this.context.secrets.delete(key);
+            }
+          }
+        } catch {
+          throw new Error(
+            "VS Code could not safely save the secure session credential. Check SecretStorage before generating a new pairing code.",
+          );
+        }
+      });
+      this.credentialWrites = store.catch(() => {});
+      await store;
+      if (!current()) return;
       // Existing connect reads the token from SecretStorage and keeps normal evidence consent.
       await this.connect(claim.session_id, false);
     } catch (error) {
@@ -300,7 +363,10 @@ class Sidebar implements vscode.WebviewViewProvider {
         );
       return;
     }
-    const epoch = ++this.connectEpoch;
+    const epoch = ++this.connectEpoch,
+      base = this.api.getBaseUrl();
+    const current = () =>
+      epoch === this.connectEpoch && this.api.getBaseUrl() === base;
     this.stop();
     this.clearEvidenceSubscriptions();
     this.session = undefined;
@@ -310,43 +376,35 @@ class Sidebar implements vscode.WebviewViewProvider {
     try {
       if (!silent) this.status("Connecting to your BuildMyLogic session…");
       const savedToken = await this.context.secrets.get(
-        "bml.session." + this.api.getBaseUrl() + ":" + sessionId,
+        "bml.session." + base + ":" + sessionId,
       );
-      if (epoch !== this.connectEpoch) return;
+      if (!current()) return;
       this.api.setSessionToken(savedToken);
       const r = await this.api.connect(sessionId);
-      if (epoch !== this.connectEpoch) return;
+      if (!current()) return;
       if (!r.session || r.session.session_id !== sessionId)
         throw new Error(
           "The returned session does not match this connection. Generate a new pairing code.",
         );
       this.session = r.session;
       this.connection = { sessionId };
-      await vscode.workspace
-        .getConfiguration("buildMyLogic")
-        .update("session", this.connection, vscode.ConfigurationTarget.Global);
-      await vscode.workspace
-        .getConfiguration("buildMyLogic")
-        .update(
-          "apiBaseUrl",
-          this.api.getBaseUrl(),
-          vscode.ConfigurationTarget.Global,
-        );
+      await this.saveConnectionSettings(epoch, base);
+      if (!current()) return;
       this.post({ type: "session", session: this.session });
       void this.notifyConquests(this.session);
       this.status("Connected. Your challenge is ready.", false);
       this.startLiveSync();
       await this.consentEvidence();
+      if (!current()) return;
       void this.checkSetup(true);
     } catch (error) {
-      if (epoch !== this.connectEpoch) return;
+      if (!current()) return;
       this.session = undefined;
       this.connection = undefined;
       this.stop();
       this.clearEvidenceSubscriptions();
-      await vscode.workspace
-        .getConfiguration("buildMyLogic")
-        .update("session", undefined, vscode.ConfigurationTarget.Global);
+      await this.saveConnectionSettings(epoch, base);
+      if (!current()) return;
       const message =
         error instanceof Error
           ? error.message
@@ -557,7 +615,9 @@ class Sidebar implements vscode.WebviewViewProvider {
     this.evidenceSubscriptions.push(
       vscode.window.onDidChangeWindowState((event) => {
         if (!event.focused) {
-          void this.flushActivity();
+          // The window state has already become false. Count only the foreground
+          // interval ending NOW, then clear it so background time cannot accrue.
+          void this.flushActivity(true);
           this.activityAt = 0;
         }
       }),
@@ -681,13 +741,13 @@ class Sidebar implements vscode.WebviewViewProvider {
       this.activityAt = now;
     }
   }
-  private async flushActivity() {
+  private async flushActivity(foregroundUntilNow = false) {
     const connection = this.connection,
       now = Date.now();
     if (!connection || !this.evidenceConsent) return;
     const end = Math.min(now, this.activityAt + 30000);
     const active =
-      vscode.window.state.focused && this.activityAt
+      (vscode.window.state.focused || foregroundUntilNow) && this.activityAt
         ? Math.max(0, end - this.activityFlushAt)
         : 0;
     this.activityFlushAt = now;

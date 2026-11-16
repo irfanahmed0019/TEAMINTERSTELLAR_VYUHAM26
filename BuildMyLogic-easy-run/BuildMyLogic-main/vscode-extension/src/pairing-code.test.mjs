@@ -144,9 +144,27 @@ async function sidebarFixture() {
   const mod = { exports: {} },
     settings = [],
     stored = new Map();
+  const events = {};
+  const listen = (name) => (fn) => {
+    events[name] = fn;
+    return {
+      dispose() {
+        delete events[name];
+      },
+    };
+  };
   const vscode = {
     ConfigurationTarget: { Global: 1 },
+    window: {
+      state: { focused: true },
+      onDidChangeWindowState: listen("focus"),
+    },
+    languages: { onDidChangeDiagnostics: listen("diagnostics") },
     workspace: {
+      workspaceFolders: [{ uri: { fsPath: "/project" } }],
+      onDidChangeTextDocument: listen("edit"),
+      onDidSaveTextDocument: listen("save"),
+      asRelativePath: (uri) => uri.fsPath.replace("/project/", ""),
       getConfiguration: () => ({
         update: async (...args) => {
           settings.push(args);
@@ -179,18 +197,33 @@ async function sidebarFixture() {
         stored.set(k, v);
       },
       get: async (k) => stored.get(k),
+      delete: async (k) => stored.delete(k),
     },
   };
   const sidebar = new mod.exports.TestSidebar(api, { update() {} }, context);
   const posts = [];
   sidebar.post = (m) => posts.push(m);
-  sidebar.startLiveSync = () => {};
+  const syncs = [];
+  sidebar.startLiveSync = () => {
+    syncs.push(true);
+  };
   sidebar.consentEvidence = async () => {
     calls.push("consent");
   };
   sidebar.checkSetup = async () => {};
   sidebar.notifyConquests = async () => {};
-  return { sidebar, api, stored, settings, calls, posts };
+  return {
+    sidebar,
+    api,
+    stored,
+    settings,
+    calls,
+    posts,
+    events,
+    context,
+    vscode,
+    syncs,
+  };
 }
 test("actual sidebar claims -> SecretStorage -> existing authenticated connect, no secret in settings/messages", async () => {
   const f = await sidebarFixture(),
@@ -247,5 +280,234 @@ test("actual sidebar drops late consumed claim after disconnect or changed websi
     }
   } finally {
     globalThis.fetch = old;
+  }
+});
+function deferred() {
+  let resolve;
+  const promise = new Promise((r) => (resolve = r));
+  return { promise, resolve };
+}
+const settle = () => new Promise((r) => setImmediate(r));
+test("race: website changes while SecretStorage read waits must never send old credential to new host", async () => {
+  const f = await sidebarFixture(),
+    read = deferred();
+  f.context.secrets.get = () => read.promise;
+  const work = f.sidebar.connect("BML-ABCDE", false);
+  await settle();
+  f.api.base = "https://evil.invalid";
+  read.resolve("x".repeat(43));
+  await work;
+  assert.equal(
+    f.calls.length,
+    0,
+    "no connect or consent may follow a changed website",
+  );
+});
+test("race: disconnect during saved session settings write must not resurrect sync or consent", async () => {
+  const f = await sidebarFixture(),
+    write = deferred();
+  f.vscode.workspace.getConfiguration = () => ({
+    update: async () => write.promise,
+  });
+  const work = f.sidebar.connect("BML-ABCDE", false);
+  await settle();
+  f.sidebar.connectEpoch++;
+  f.sidebar.connection = undefined;
+  f.sidebar.session = undefined;
+  write.resolve();
+  await work;
+  assert.equal(
+    f.calls.filter((x) => x === "consent").length,
+    0,
+    "disconnected flow must not ask consent",
+  );
+  assert.equal(f.syncs.length, 0, "disconnected flow must not restart sync");
+});
+test("race: delayed credential write after disconnect must restore prior SecretStorage credential", async () => {
+  const f = await sidebarFixture(),
+    write = deferred(),
+    key = "bml.session.https://buildmylogicxyz.vercel.app:BML-ABCDE";
+  f.stored.set(key, "p".repeat(43));
+  f.context.secrets.store = async (k, v) => {
+    await write.promise;
+    f.stored.set(k, v);
+  };
+  const old = globalThis.fetch;
+  globalThis.fetch = async () =>
+    Response.json({
+      ok: true,
+      session_id: "BML-ABCDE",
+      connection_token: "x".repeat(43),
+    });
+  try {
+    const work = f.sidebar.pair("ABCD2345");
+    await settle();
+    f.sidebar.connectEpoch++;
+    write.resolve();
+    await work;
+    assert.equal(f.stored.get(key), "p".repeat(43));
+    assert.equal(f.calls.length, 0);
+  } finally {
+    globalThis.fetch = old;
+  }
+});
+test("serialized same-session pairings keep newest credential even if old write completes late", async () => {
+  const f = await sidebarFixture(),
+    first = deferred(),
+    key = "bml.session.https://buildmylogicxyz.vercel.app:BML-ABCDE";
+  let stores = 0;
+  f.context.secrets.store = async (k, v) => {
+    if (++stores === 1) await first.promise;
+    f.stored.set(k, v);
+  };
+  const old = globalThis.fetch;
+  let claims = 0;
+  globalThis.fetch = async () =>
+    Response.json({
+      ok: true,
+      session_id: "BML-ABCDE",
+      connection_token: (++claims === 1 ? "x" : "y").repeat(43),
+    });
+  try {
+    const a = f.sidebar.pair("ABCD2345");
+    await settle();
+    const b = f.sidebar.pair("EFGH2345");
+    await settle();
+    first.resolve();
+    await Promise.all([a, b]);
+    assert.equal(f.stored.get(key), "y".repeat(43));
+    assert.deepEqual(f.calls, [
+      { id: "BML-ABCDE", token: "y".repeat(43) },
+      "consent",
+    ]);
+  } finally {
+    globalThis.fetch = old;
+  }
+});
+test("actual disconnect during pending settings update leaves no persisted session and never restarts sync", async () => {
+  const f = await sidebarFixture(),
+    first = deferred(),
+    persisted = new Map();
+  let writes = 0;
+  f.vscode.workspace.getConfiguration = () => ({
+    update: async (k, v) => {
+      if (++writes === 1) await first.promise;
+      persisted.set(k, v);
+    },
+  });
+  const connecting = f.sidebar.connect("BML-ABCDE", false);
+  await settle();
+  const disconnect = f.sidebar.handle({ command: "disconnect" });
+  first.resolve();
+  await Promise.all([connecting, disconnect]);
+  assert.equal(persisted.get("session"), undefined);
+  assert.equal(f.syncs.length, 0);
+  assert.equal(f.calls.filter((x) => x === "consent").length, 0);
+});
+test("claim storage rejection never connects and cannot expose secrets in error text", async () => {
+  const f = await sidebarFixture();
+  f.context.secrets.store = async () => {
+    throw Error("fixture-private-value");
+  };
+  const old = globalThis.fetch;
+  globalThis.fetch = async () =>
+    Response.json({
+      ok: true,
+      session_id: "BML-ABCDE",
+      connection_token: "x".repeat(43),
+    });
+  try {
+    await f.sidebar.pair("ABCD2345");
+    assert.equal(f.calls.length, 0);
+    assert.ok(!JSON.stringify(f.posts).includes("fixture-private-value"));
+    assert.ok(!JSON.stringify(f.posts).includes("x".repeat(43)));
+  } finally {
+    globalThis.fetch = old;
+  }
+});
+test("actual desktop event flow: only connected consented safe-workspace edits count; focus loss flushes final active interval, idle capped", async () => {
+  const f = await sidebarFixture(),
+    oldNow = Date.now;
+  let now = 100000;
+  Date.now = () => now;
+  const activity = [],
+    saved = [];
+  f.api.event = async (id, type, payload) => {
+    activity.push({ id, type, payload });
+    return {};
+  };
+  f.sidebar.recordFileEvidence = async (doc) => saved.push(doc.uri.fsPath);
+  const doc = (fsPath) => ({
+    uri: { fsPath, scheme: "file" },
+    languageId: "python",
+  });
+  try {
+    f.sidebar.installEvidenceSubscriptions();
+    assert.equal(
+      Object.keys(f.events).length,
+      0,
+      "no watchers before authenticated connection/consent",
+    );
+    f.sidebar.connection = { sessionId: "BML-ABCDE" };
+    f.sidebar.session = { session_id: "BML-ABCDE" };
+    f.sidebar.evidenceConsent = true;
+    f.sidebar.installEvidenceSubscriptions();
+    assert.equal(
+      f.sidebar.activityAt,
+      0,
+      "file merely open is not evidence of active coding",
+    );
+    f.events.edit({ document: doc("/outside/file.py") });
+    assert.equal(f.sidebar.activityAt, 0);
+    f.events.edit({ document: doc("/project/.env") });
+    assert.equal(f.sidebar.activityAt, 0);
+    f.events.edit({ document: doc("/project/main.py") });
+    now += 5000;
+    await f.sidebar.flushActivity();
+    assert.equal(activity.at(-1).payload.active_ms, 5000);
+    now += 2000;
+    f.vscode.window.state.focused = false;
+    f.events.focus({ focused: false });
+    await settle();
+    assert.equal(
+      activity.at(-1).payload.active_ms,
+      2000,
+      "final foreground edit interval must not be lost on blur",
+    );
+    now += 10000;
+    f.events.edit({ document: doc("/project/main.py") });
+    assert.equal(f.sidebar.activityAt, 0, "programmatic hidden edit cannot start clock");
+    f.events.focus({ focused: false });
+    await settle();
+    assert.equal(activity.at(-1).payload.active_ms, 0, "repeated blur cannot credit hidden edit");
+    await f.sidebar.flushActivity();
+    assert.equal(activity.at(-1).payload.active_ms, 0, "hidden time excluded");
+    f.vscode.window.state.focused = true;
+    f.events.focus({ focused: true });
+    now += 1000;
+    await f.sidebar.flushActivity();
+    assert.equal(
+      activity.at(-1).payload.active_ms,
+      0,
+      "focus without new activity must not restart clock",
+    );
+    f.events.save(doc("/project/main.py"));
+    await settle();
+    assert.deepEqual(saved, ["/project/main.py"]);
+    now += 60000;
+    await f.sidebar.flushActivity();
+    assert.equal(
+      activity.at(-1).payload.active_ms,
+      30000,
+      "idle edit window capped at30s",
+    );
+    f.sidebar.clearEvidenceSubscriptions();
+    assert.equal(Object.keys(f.events).length, 0);
+    const count = activity.length;
+    await f.sidebar.flushActivity();
+    assert.equal(activity.length, count, "disconnect/no consent stops timing");
+  } finally {
+    f.sidebar.clearEvidenceSubscriptions();
+    Date.now = oldNow;
   }
 });

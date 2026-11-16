@@ -1,3 +1,10 @@
+## 0.3.12
+
+- Stop stale connects after disconnect or website changes at every asynchronous boundary.
+- Serialize settings and pairing credential writes; roll back only this instance's cancelled credential write.
+- Keep the final foreground coding interval when the editor loses focus, without crediting hidden time.
+- Preserve normal consent and project evidence boundaries.
+
 ## 0.3.11
 
 - Pair a session by typing the signed-in website's 8-character, 5-minute, one-use code. Open VS Code links and loopback access are not required for this flow.

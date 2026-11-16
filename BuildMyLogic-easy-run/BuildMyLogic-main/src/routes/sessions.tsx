@@ -365,9 +365,18 @@ function Sessions() {
     (running || seconds < startRef.current ? elapsed : 0);
 
   async function createVscodeSession() {
+    const epoch = getAuthEpoch();
     if (!activeMission) throw new Error("No active mission is selected.");
     const auth = await getAuthSessionForApi();
-    const userId = auth?.uid || "local-user";
+    if (
+      !auth?.idToken ||
+      getAuthEpoch() !== epoch ||
+      getAuthSession()?.uid !== auth.uid
+    )
+      throw new Error(
+        "Account changed or signed out. Start again while signed in.",
+      );
+    const userId = auth.uid;
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
@@ -400,6 +409,10 @@ function Sessions() {
       state?: RemoteSessionState;
       error?: string;
     };
+    if (getAuthEpoch() !== epoch || getAuthSession()?.uid !== auth.uid)
+      throw new Error(
+        "Account changed or signed out. The old session was not attached.",
+      );
     if (!response.ok || !result.ok || !result.session_id)
       throw new Error(
         result.error || "Could not create the BuildMyLogic VS Code session.",
@@ -693,7 +706,7 @@ function Sessions() {
         input.remove();
       }
       setCopyNotice(
-        "Session ID copied. Paste it into the BuildMyLogic extension in VS Code.",
+        "Session ID copied for reference only. Use Create pairing code to connect VS Code.",
       );
     } catch {
       setCopyNotice("Copy failed. Select the Session ID and copy it manually.");
