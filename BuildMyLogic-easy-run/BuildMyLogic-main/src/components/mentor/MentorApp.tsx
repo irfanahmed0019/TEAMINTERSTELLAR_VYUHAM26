@@ -1,3 +1,4 @@
+import { PythonMentorLessons } from "./PythonMentorLessons";
 import { CompetencySummary } from "@/components/CompetencySummary";
 import { mentorAssessmentEvidence, mergeAssessmentEvidence } from "@/lib/assessment-evidence";
 import { useCloudHydrated } from "@/lib/cloud-sync";
@@ -35,6 +36,7 @@ function Pill({ children, tone = "gray" }: { children: React.ReactNode; tone?: "
 }
 
 export function MentorApp() {
+  const [technology, setTechnology] = useState<"C" | "Python">("C");
   const auth = useAuth();
   const signedIn = !!auth;
   const hydrated = useCloudHydrated(auth?.uid);
@@ -81,23 +83,94 @@ export function MentorApp() {
   }, [signedIn, auth?.uid]);
 
   return (
-    <AppShell crumb="AI Mentor" title="AI Mentor" subtitle="Learn C by building a real calculator. The mentor teaches, watches your code run, checks real test results and adapts what comes next." wide>
-      {!ready ? (
-        <div className="flex items-center gap-2 py-16 text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading your learning session...</div>
-      ) : state && !roadmapDraft ? (
-        <Workspace state={state} commit={commit} persist={persist} signedIn={signedIn} onReset={() => { setRoadmapDraft(null); void commit(null); }} />
-      ) : roadmapDraft ? (
-        <RoadmapView draft={roadmapDraft} onBack={() => { setRoadmapDraft(null); void commit(null); }} onStart={() => { const d = roadmapDraft; setRoadmapDraft(null); if (!d.verified) void commit(newState(d.level, d.roadmap)); }} />
-      ) : (
-        <Setup signedIn={signedIn} onRoadmap={(level, roadmap, st) => { if (st) setState(st); setRoadmapDraft({ level, roadmap, verified: !!st }); }} />
-      )}
+    <AppShell
+      crumb="AI Mentor"
+      title="AI Mentor"
+      subtitle="Choose the C calculator journey or Python topic lessons with real code checks."
+      wide
+    >
+      <section
+        className="mb-5 rounded-2xl border border-border bg-background p-5"
+        aria-label="Mentor technology choices"
+      >
+        <h2 className="text-sm font-bold">
+          Which technology would you like to use?
+        </h2>
+        <div className="mt-3 flex gap-2">
+          {(["C", "Python"] as const).map((name) => (
+            <button
+              key={name}
+              type="button"
+              aria-pressed={technology === name}
+              onClick={() => setTechnology(name)}
+              className={`rounded-xl border px-4 py-2 text-sm font-semibold ${technology === name ? "border-primary bg-primary-soft text-primary" : "border-border"}`}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          C: full calculator journey. Python: guided topics with checked
+          exercises. Switching views does not reset your C journey.
+        </p>
+      </section>
+      {technology === "Python" && <PythonMentorLessons />}
+      <div hidden={technology !== "C"}>
+        {!ready ? (
+          <div className="flex items-center gap-2 py-16 text-gray-500">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading your learning
+            session...
+          </div>
+        ) : state && !roadmapDraft ? (
+          <Workspace
+            state={state}
+            commit={commit}
+            persist={persist}
+            signedIn={signedIn}
+            onReset={() => {
+              setRoadmapDraft(null);
+              void commit(null);
+            }}
+          />
+        ) : roadmapDraft ? (
+          <RoadmapView
+            draft={roadmapDraft}
+            onBack={() => {
+              setRoadmapDraft(null);
+              void commit(null);
+            }}
+            onStart={() => {
+              const d = roadmapDraft;
+              setRoadmapDraft(null);
+              if (!d.verified) void commit(newState(d.level, d.roadmap));
+            }}
+          />
+        ) : (
+          <Setup
+            onPython={() => setTechnology("Python")}
+            signedIn={signedIn}
+            onRoadmap={(level, roadmap, st) => {
+              if (st) setState(st);
+              setRoadmapDraft({ level, roadmap, verified: !!st });
+            }}
+          />
+        )}
+      </div>
     </AppShell>
   );
 }
 
 /* ------------------------------ Steps A-D ------------------------------ */
 
-function Setup({ onRoadmap, signedIn }: { onRoadmap: (l: Level, r: Roadmap, st?: MentorState) => void; signedIn: boolean }) {
+function Setup({
+  onRoadmap,
+  signedIn,
+  onPython,
+}: {
+  onPython: () => void;
+  onRoadmap: (l: Level, r: Roadmap, st?: MentorState) => void;
+  signedIn: boolean;
+}) {
   const [category, setCategory] = useState<string>("Programming Fundamentals");
   const [projectId, setProjectId] = useState<string>("arithmetic-c");
   const [custom, setCustom] = useState("");
@@ -158,8 +231,22 @@ function Setup({ onRoadmap, signedIn }: { onRoadmap: (l: Level, r: Roadmap, st?:
         <Card className="mt-4 p-5">
           <h2 className="text-[15px] font-bold">Which technology would you like to use?</h2>
           <div className="mt-3 flex flex-wrap gap-2">
-            {project.languages.map((l) => (
-              <button key={l} type="button" onClick={() => setLanguage(l)} className={`rounded-lg border px-4 py-2 text-[13px] font-semibold ${language === l ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>{l}</button>
+            {(project.id === "arithmetic-c"
+              ? ["C", "Python"]
+              : project.languages
+            ).map((l) => (
+              <button
+                key={l}
+                type="button"
+                onClick={() =>
+                  l === "Python" && project.id === "arithmetic-c"
+                    ? onPython()
+                    : setLanguage(l)
+                }
+                className={`rounded-lg border px-4 py-2 text-[13px] font-semibold ${language === l ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}
+              >
+                {l}
+              </button>
             ))}
           </div>
           {project.available && language !== "C" && <p className="mt-2 text-[12.5px] text-amber-700">Only C is available for this journey right now.</p>}

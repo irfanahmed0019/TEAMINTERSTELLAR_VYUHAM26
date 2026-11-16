@@ -35,7 +35,11 @@ const NEXT: Record<
   MentorView,
   { view: MentorView; label: string; icon: typeof Sparkles }
 > = {
-  chat: { view: "workspace", label: "Practice workspace (C)", icon: Code2 },
+  chat: {
+    view: "workspace",
+    label: "Practice workspace (C / Python)",
+    icon: Code2,
+  },
   workspace: {
     view: "classic",
     label: "Classic mentor chat & Zoom",
