@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import {
   absenceAction,
+  canCreditEnded,
   initialVideoProgress,
   sampleVideo,
 } from "@/lib/video-checkpoint";
@@ -262,7 +263,13 @@ export function CameraVideo({
             progressRef.current,
             player.getCurrentTime(),
             now,
-            player.getPlayerState() === 1,
+            player.getPlayerState() === 1 ||
+              canCreditEnded(
+                progressRef.current,
+                player.getCurrentTime(),
+                duration,
+                player.getPlayerState(),
+              ),
             true,
           );
           progressRef.current = result.state;
@@ -464,6 +471,15 @@ export function CameraVideo({
           aria-label="Your camera, processed locally"
           className={`h-16 w-20 rounded-lg bg-black object-cover -scale-x-100 ${active && mode === "camera" ? "" : "hidden"}`}
         />
+        {active && mode === "camera" && (
+          <button
+            type="button"
+            onClick={() => void start("self_reported")}
+            className="btn-base btn-outline text-xs"
+          >
+            Switch to camera-free learning
+          </button>
+        )}
         {active && (
           <button
             type="button"

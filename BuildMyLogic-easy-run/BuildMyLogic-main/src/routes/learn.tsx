@@ -1,3 +1,4 @@
+import { priorityLearningTopics } from "@/lib/adaptive-learning";
 import { learnerStorage } from "@/lib/demo-mode";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
@@ -93,13 +94,15 @@ function Learn() {
     return [...new Set([...fromPlan, ...fromMissions])];
   }, [state.plan, missions]);
 
+  const priorities = useMemo(()=>priorityLearningTopics(state),[state]);
   const { syllabusTopics, otherTopics } = useMemo(() => {
     const inSyllabus = STUDY_TOPICS.filter((t) =>
-      topicMatchesSkills(t, allSkills),
+      topicMatchesSkills(t, allSkills) || priorities.has(t.id),
     );
-    const rest = STUDY_TOPICS.filter((t) => !topicMatchesSkills(t, allSkills));
+    inSyllabus.sort((a,b)=>Number(priorities.has(b.id))-Number(priorities.has(a.id)));
+    const rest = STUDY_TOPICS.filter((t) => !inSyllabus.some(topic=>topic.id===t.id));
     return { syllabusTopics: inSyllabus, otherTopics: rest };
-  }, [allSkills]);
+  }, [allSkills,priorities]);
 
   if (!state.plan || !activeMission) {
     return (
@@ -533,14 +536,14 @@ function Learn() {
                       <span className="flex items-center justify-between gap-2">
                         <span className="text-xl">{topic.emoji}</span>
                         <span className="pill bg-primary-soft text-[10px] font-bold text-accent-foreground">
-                          In your syllabus
+                          {priorities.has(topic.id) ? "Priority: recent difficulty" : "In your syllabus"}
                         </span>
                       </span>
                       <p className="mt-2 text-[14px] font-bold">
                         {topic.title}
                       </p>
                       <p className="mt-1 text-[12.5px] leading-5 text-muted-foreground">
-                        {topic.summary}
+                        {priorities.get(topic.id) || topic.summary}
                       </p>
                     </button>
                   ))}

@@ -27,7 +27,7 @@ export function buildCompressedMemory(
   learnerName: string,
   mission: Mission,
   state: LearningState,
-  latestAnswer?: string
+  latestAnswer?: string,
 ): CompressedMemorySummary {
   const known = [...(state.demonstratedSkills || [])];
   if (state.understood && state.concept && !known.includes(state.concept)) {
@@ -42,27 +42,53 @@ export function buildCompressedMemory(
     currentObjective: `Master ${state.concept} for ${mission.title}`,
     knownConcepts: known,
     weakConcepts: weak,
-    recentActivity: latestAnswer ? [`Latest response: "${latestAnswer.slice(0, 80)}"`] : [],
-    teachingApproach: state.hintsUsed > 1 ? "Scaffold with tiny examples and simpler questions" : "Socratic, 1 concept at a time",
+    recentActivity: latestAnswer
+      ? [`Latest response: "${latestAnswer.slice(0, 80)}"`]
+      : [],
+    teachingApproach:
+      state.hintsUsed > 1
+        ? "Scaffold with tiny examples and simpler questions"
+        : "Socratic, 1 concept at a time",
     currentTeachingState: `Concept: ${state.concept}, Step: ${state.stepId}, Attempts: ${state.attempts}, Status: ${state.status}`,
-    nextGoal: state.understood ? `Advance beyond ${state.concept}` : `Clarify and verify ${state.concept}`,
+    nextGoal: state.understood
+      ? `Advance beyond ${state.concept}`
+      : `Clarify and verify ${state.concept}`,
   };
 }
 
-export function buildAiContext(input: ContextInput, systemPrompt: string): BuiltContext {
+export function buildAiContext(
+  input: ContextInput,
+  systemPrompt: string,
+): BuiltContext {
   const name = input.profile?.name?.trim() || "Learner";
-  const memory = buildCompressedMemory(name, input.mission, input.learningState, input.latestAnswer);
+  const memory = buildCompressedMemory(
+    name,
+    input.mission,
+    input.learningState,
+    input.latestAnswer,
+  );
 
-  const skillsList = Object.entries(input.skillMemory || {})
-    .map(([skill, item]) => `${skill}: ${item.level}% (${item.evidence.length} evidence pts)`)
-    .join(", ") || (input.learningState.demonstratedSkills.length > 0 ? input.learningState.demonstratedSkills.join(", ") : "None demonstrated yet");
+  // skillMemory levels are an ever-increasing activity counter, not a
+  // competency estimate (even failed attempts add points). Never show them to
+  // the model as percentages; describe the recorded practice events instead.
+  const skillsList =
+    Object.entries(input.skillMemory || {})
+      .map(([skill, item]) => {
+        const latest = item.evidence[0]?.description;
+        return `${skill} (${item.evidence.length} recorded practice event${item.evidence.length === 1 ? "" : "s"}${latest ? `; latest: ${latest}` : ""})`;
+      })
+      .join("\n") ||
+    (input.learningState.demonstratedSkills.length > 0
+      ? input.learningState.demonstratedSkills.join(", ")
+      : "No practice events recorded yet");
 
-  const recentChatStr = (input.recentHistory || [])
-    .slice(-6)
-    .map((m) => `${m.role.toUpperCase()}: ${m.text}`)
-    .join("\n") || "No prior messages";
+  const recentChatStr =
+    (input.recentHistory || [])
+      .slice(-6)
+      .map((m) => `${m.role.toUpperCase()}: ${m.text}`)
+      .join("\n") || "No prior messages";
 
-  const userPrompt = `AUTHORITATIVE LEARNER STATE:
+  const userPrompt = `LEARNER STATE (client-reported context, not certified competency):
 Learner: ${name}
 Goal: ${input.profile?.goal || "Learn practical programming"}
 Experience level: ${input.profile?.experience || "beginner"}
@@ -79,7 +105,7 @@ COMPRESSED LEARNING MEMORY (Layer 3):
 - Step Status: ${input.learningState.status} (Understood: ${input.learningState.understood})
 - Attempts on this step: ${input.learningState.attempts}
 - Hints used: ${input.learningState.hintsUsed}
-- Known/Demonstrated Skills: ${skillsList}
+- Practice events by skill (an event log, not competency scores):\n${skillsList}
 - Weak Concepts: ${memory.weakConcepts.join(", ") || "None"}
 - Last Question Asked: "${input.learningState.lastQuestion || "none"}"
 - Teaching Approach: ${memory.teachingApproach}
@@ -93,7 +119,7 @@ RECENT CONVERSATION:
 ${recentChatStr}
 
 INSTRUCTIONS FOR THIS RESPONSE:
-1. Act as BuildMyLogic Mentor, strictly obeying the authoritative learner state.
+1. Act as BuildMyLogic Mentor, using the learner state above as context.
 2. If the learner answered correctly, acknowledge briefly, mark concept complete, advance to the NEXT concept in the progression, and ask the next question.
 3. If the learner said "I don't know" or is struggling, DO NOT repeat the question or reset to Hello World. Provide a SCAFFOLD (1-2 sentences explanation + tiny example + simpler question).
 4. Return JSON only with:

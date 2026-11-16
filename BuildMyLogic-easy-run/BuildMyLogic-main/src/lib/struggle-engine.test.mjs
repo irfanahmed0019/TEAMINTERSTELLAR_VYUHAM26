@@ -470,3 +470,6 @@ test("cloud key ordering does not invalidate exact reassessment checks", async (
   extra.misconceptions[0].reassessment.tests.push(spec.tests[0]);
   assert.equal(recordReassessmentAttempt(extra, args).outcome, null);
 });
+
+test('bare session completion without test outcomes does not invent a graded observation',()=>{const r=recordBuildSessionOutcome(emptyStruggleState,{sessionKey:'no-tests',topicId:'m',topicTitle:'M',language:'python',exerciseTitle:'Build',completed:true,failed:false,passed:0,total:0});assert.equal(r.outcome,null);assert.equal(r.state.attempts.length,0);});
+test('extension observed timing and hints are retained without time-only competency judgment',()=>{const r=recordBuildSessionOutcome(emptyStruggleState,{sessionKey:'timed',topicId:'m',topicTitle:'M',language:'python',exerciseTitle:'Build',completed:true,failed:false,passed:1,total:1,performance:{expectedMs:300000,activeMs:480000,timingQuality:'extension-observed',hintsUsed:2,attemptNumber:3}});assert.equal(r.outcome.attempt.fullPass,true);assert.equal(r.outcome.attempt.performance.activeMs,480000);assert.equal(r.outcome.attempt.performance.hintsUsed,2);assert.equal(r.state.misconceptions.length,0);});

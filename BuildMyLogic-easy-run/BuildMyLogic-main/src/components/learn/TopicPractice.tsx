@@ -174,6 +174,7 @@ export function TopicPractice({
         language,
         exerciseTitle: exercise.title,
         exerciseHint: exercise.hint,
+        performance:{timingQuality:'unavailable',hintsUsed:hintShown?1:0},
         graded,
       });
     } catch (e) {

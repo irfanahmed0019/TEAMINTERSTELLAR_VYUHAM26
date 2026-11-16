@@ -24,7 +24,9 @@ export type FailureKind =
   "syntax" | "runtime" | "edge_case" | "logic" | "formatting";
 export type MisconceptionDepth = "slip" | "deep";
 
+export type PerformanceEvidence = { expectedMs?:number|undefined;activeMs?:number|undefined;timingQuality:'extension-observed'|'unavailable';hintsUsed?:number|undefined;attemptNumber?:number|undefined };
 export type PracticeAttempt = {
+  performance?: PerformanceEvidence | undefined;
   synthetic?: true;
   id: string;
   topicId: string;
@@ -316,6 +318,7 @@ export function recordPracticeAttempt(
     exerciseTitle: string;
     exerciseHint: string;
     graded: GradedResult[];
+    performance?: PerformanceEvidence | undefined;
     at?: number;
     source?: "practice" | "vscode" | "reassessment";
   },
@@ -351,6 +354,7 @@ export function recordPracticeAttempt(
         }
       : undefined,
     source: input.source ?? "practice",
+    performance: input.performance,
   };
 
   let misconceptions = [...prev.misconceptions];
@@ -869,6 +873,7 @@ export function recordBuildSessionOutcome(
   prev: StruggleState,
   input: {
     sessionKey: string;
+    performance?: PerformanceEvidence | undefined;
     topicId: string;
     baseTopicId?: string | undefined;
     concept?: string | undefined;
@@ -935,17 +940,8 @@ export function recordBuildSessionOutcome(
       },
     ];
   } else {
-    graded = [
-      {
-        name: "challenge completion",
-        hidden: true,
-        passed: input.completed,
-        expected: "",
-        actual: "",
-        status: input.completed ? "Accepted" : "Wrong Answer",
-        stderr: "",
-      },
-    ];
+    // A status label, compile, server start or bare completion is not a test result.
+    return {state:prev,outcome:null};
   }
 
   const { state: recorded, outcome } = recordPracticeAttempt(
@@ -959,6 +955,7 @@ export function recordBuildSessionOutcome(
       graded,
       at,
       source: "vscode",
+      performance: input.performance,
     },
   );
 

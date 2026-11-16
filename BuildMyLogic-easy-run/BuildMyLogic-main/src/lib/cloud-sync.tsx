@@ -1,5 +1,9 @@
 import { publishSavedConquests } from "./publish-conquest";
-import { isPublicDemo } from "./demo-mode";
+import { isPublicDemo, learnerStorage } from "./demo-mode";
+import {
+  localStateBelongsToOtherAccount,
+  LOOP_STATE_UID_KEY,
+} from "./cloud-sync-uid";
 import { useLocation } from "@tanstack/react-router";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { LoopState } from "./loop-types";
@@ -13,6 +17,7 @@ import { restoreCloudState } from "./cloud-restore";
 import {
   getLoopState,
   normalizeLoopState,
+  resetLoop,
   setLoopState,
   useLoop,
 } from "./loop-store";
@@ -60,6 +65,25 @@ function AccountCloudSync() {
     setFailure(null);
     lastSaved.current = "";
     if (!uid) return;
+    // A different account signing in on this browser without signing out must
+    // never inherit the previous account's local state as its baseline; that
+    // state would otherwise autosave into the new account's cloud row.
+    if (
+      localStateBelongsToOtherAccount(
+        learnerStorage.getItem(LOOP_STATE_UID_KEY),
+        uid,
+      )
+    ) {
+      // Preserve old local records without attributing them to the incoming account.
+      // No cloud upload is attempted until the incoming owner's hydration completes.
+      const previousOwner =
+        learnerStorage.getItem(LOOP_STATE_UID_KEY) || "unbound";
+      const prior = JSON.stringify(getLoopState());
+      learnerStorage.setItem(`loop.state.retained.${previousOwner}`, prior);
+      resetLoop();
+    }
+    // From here the local cache is dedicated to this uid.
+    learnerStorage.setItem(LOOP_STATE_UID_KEY, uid);
     const current = () => !cancelled && getAuthSession()?.uid === uid;
     void restoreCloudState<LoopState>({
       read: async () => (await loadLoopStateFromCloud(uid)) as LoopState | null,

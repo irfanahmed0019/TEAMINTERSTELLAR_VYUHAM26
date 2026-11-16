@@ -204,6 +204,7 @@ export function recordPracticeOutcome(input: {
   exerciseTitle: string;
   exerciseHint: string;
   graded: GradedResult[];
+  performance?: import("./struggle-engine").PerformanceEvidence | undefined;
 }): PracticeOutcomeEvents {
   const events: PracticeOutcomeEvents = { locked: null, conquered: null };
   setLoopState((prev) => {
@@ -342,16 +343,8 @@ export function recordMissionEvidence(missionId: string, amount = 2) {
     const mission = prev.plan.missions.find((item) => item.id === missionId);
     if (!mission) return prev;
     const missionSkills = mission.skills.map((skill) => skill.toLowerCase());
-    const skills = prev.plan.skills.map((skill) => {
-      const name = skill.name.toLowerCase();
-      const matches = missionSkills.some(
-        (missionSkill) =>
-          name.includes(missionSkill) || missionSkill.includes(name),
-      );
-      return matches
-        ? { ...skill, level: Math.min(100, skill.level + amount) }
-        : skill;
-    });
+    // Preserve legacy stored scores; milestone activity is not graded competency.
+    const skills = prev.plan.skills;
     return { ...prev, plan: { ...prev.plan, skills } };
   });
 }
@@ -413,22 +406,8 @@ export function applyBuildSessionEvidence(remote: BuildSessionState) {
       return prev;
 
     const missionProgress = { ...prev.missionProgress };
-    const skills = plan.skills.map((skill) => {
-      const matches = mission.skills.some(
-        (name) =>
-          skill.name.toLowerCase().includes(name.toLowerCase()) ||
-          name.toLowerCase().includes(skill.name.toLowerCase()),
-      );
-      if (!matches) return skill;
-      const delta = completed ? 10 : failed ? -4 : -2;
-      return {
-        ...skill,
-        level: Math.max(0, Math.min(100, skill.level + delta)),
-        note: completed
-          ? "Proven through a passing VS Code challenge."
-          : "Needs a smaller follow-up before returning to the full challenge.",
-      };
-    });
+    // Competency is derived centrally from retained graded history, not additive points.
+    const skills = plan.skills;
 
     // Objective test outcomes are the app's demonstrated-performance signal:
     // record them in skillMemory so Progress can label stronger vs weaker
@@ -541,6 +520,7 @@ export function applyBuildSessionEvidence(remote: BuildSessionState) {
       prev.struggle ?? emptyStruggleState,
       {
         sessionKey: signature,
+        performance:{expectedMs:remote.expected_duration_ms,activeMs:remote.timing?.active_ms,timingQuality:remote.timing?.quality??'unavailable',hintsUsed:remote.hints_used,attemptNumber:remote.attempts},
         verifiedOwnerId: remote.verified_owner_id,
         concept: remote.concept,
         sessionId: remote.session_id,
@@ -634,7 +614,7 @@ export function applySarvamDashboardPlan(suggested: Plan) {
       return proposal
         ? {
             ...skill,
-            level: Math.max(0, Math.min(100, proposal.level)),
+            level: skill.level, // AI plan suggestions never establish competency.
             note: proposal.note || skill.note,
           }
         : skill;

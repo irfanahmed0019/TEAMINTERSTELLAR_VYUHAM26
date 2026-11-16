@@ -1,3 +1,4 @@
+import { competencyView } from "@/lib/competency";
 import { learnerStorage } from "@/lib/demo-mode";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
@@ -14,7 +15,7 @@ function Missions() {
   const [filter, setFilter] = useState("All Missions"); const [query, setQuery] = useState("");
   const currentIndex = Math.max(0, missions.findIndex((m) => state.missionProgress[m.id]?.status === "active"));
   const completedIds = missions.filter((m) => state.missionProgress[m.id]?.status === "done").map((m) => m.id);
-  const demonstratedSkills = Object.keys(state.skillMemory ?? {});
+  const demonstratedSkills = competencyView(state).filter(c=>c.history.some(h=>h.score===100 && h.source!=='AI-keyed client diagnostic')).map(c=>c.skill);
 
   const filtered = useMemo(() => missions.filter((m, index) => {
     const p = state.missionProgress[m.id]?.status;

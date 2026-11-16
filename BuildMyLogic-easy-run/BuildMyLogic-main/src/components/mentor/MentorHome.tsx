@@ -1,4 +1,4 @@
-import { competencyContext } from "@/lib/competency";
+import { competencyContext, competencyPlan } from "@/lib/competency";
 import { getLoopState as competencyState } from "@/lib/loop-store";
 import { learnerStorage, isPublicDemo } from "@/lib/demo-mode";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -62,7 +62,7 @@ function renderBubble(text: string) {
 
 export function MentorHome() {
   const state = useLoop();
-  const plan = state.plan;
+  const plan = competencyPlan(state);
   const name = state.profile?.name?.trim() || "Builder";
   const missions = plan?.missions ?? [];
   const activeMission = missions.find((m) => state.missionProgress[m.id]?.status === "active") ?? missions[0];
@@ -76,9 +76,9 @@ export function MentorHome() {
     if (plan?.progress?.insights?.[0]) return plan.progress.insights[0];
     const skills = [...(plan?.skills ?? [])].sort((a, b) => a.level - b.level);
     if (skills.length >= 2) {
-      return `You're making progress. Practice more on ${skills[0]!.name} and then move to ${skills[1]!.name} for better mastery.`;
+      return `Collect more evidence on ${skills[0]!.name} and then move to ${skills[1]!.name} with fresh checked exercises.`;
     }
-    if (skills.length === 1) return `Keep practicing ${skills[0]!.name} to raise your mastery.`;
+    if (skills.length === 1) return `Keep practicing ${skills[0]!.name} with fresh checked exercises.`;
     return "Finish onboarding and your mentor will personalize suggestions from your real progress.";
   }, [plan]);
 

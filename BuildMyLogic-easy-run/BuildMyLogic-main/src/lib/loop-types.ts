@@ -233,6 +233,7 @@ export type LearningChat = {
 };
 
 export type LoopState = {
+  assessmentEvidence?: import("./assessment-evidence").AssessmentEvidence[];
   videoProgress?: Record<string, import("./video-learning").SavedVideoProgress>;
   sampleProvenance?: { version: 1; importedAt: number; label: string };
   onboarded: boolean;

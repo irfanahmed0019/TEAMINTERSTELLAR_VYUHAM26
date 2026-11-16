@@ -70,3 +70,20 @@ export function rewindSection(
   const seek = scope === "video" ? 0 : sectionStart(s.watched, duration);
   return { state: { ...s, position: seek, sampledAt: null }, seek };
 }
+
+/** Ended state may arrive between presence samples. Credit at most the final 0.75s
+ * only when the preceding watched range was already adjacent to the actual end. */
+export function canCreditEnded(
+  state: VideoProgress,
+  position: number,
+  duration: number,
+  playerState: number,
+): boolean {
+  return (
+    playerState === 0 &&
+    duration > 0 &&
+    position >= duration - 0.2 &&
+    position <= duration + 0.2 &&
+    state.watched >= duration - 0.75
+  );
+}

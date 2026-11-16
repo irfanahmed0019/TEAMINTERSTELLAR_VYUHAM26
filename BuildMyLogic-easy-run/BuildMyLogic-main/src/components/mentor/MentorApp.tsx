@@ -1,3 +1,7 @@
+import { CompetencySummary } from "@/components/CompetencySummary";
+import { mentorAssessmentEvidence } from "@/lib/assessment-evidence";
+import { useCloudHydrated } from "@/lib/cloud-sync";
+import { setLoopState } from "@/lib/loop-store";
 import { competencyContext } from "@/lib/competency";
 import { getLoopState as competencyState } from "@/lib/loop-store";
 import { ThinkingScaffold } from "@/components/learn/ThinkingScaffold";
@@ -17,7 +21,7 @@ import {
 } from "@/lib/mentor/engine";
 import { mentorAsk, type MentorAsk } from "@/lib/mentor/mentor.functions";
 import { loadLocal, mentorApi, saveLocal } from "@/lib/mentor/persistence";
-import { useAuth } from "@/lib/auth";
+import { useAuth, getAuthSession } from "@/lib/auth";
 
 const BLUE = "#2563eb";
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong.");
@@ -33,6 +37,8 @@ function Pill({ children, tone = "gray" }: { children: React.ReactNode; tone?: "
 export function MentorApp() {
   const auth = useAuth();
   const signedIn = !!auth;
+  const hydrated = useCloudHydrated(auth?.uid);
+  const stateOwner = useRef<string|null>(null);
   const [state, setState] = useState<MentorState | null>(null);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -44,9 +50,18 @@ export function MentorApp() {
 
   /** Applies a state change. Account sessions are authoritative from the server. */
   const commit = useCallback(async (next: MentorState | null) => {
+    if (auth && getAuthSession()?.uid !== auth.uid) return;
+    stateOwner.current = next?.verified ? auth?.uid ?? null : null;
     setState(next);
     if (!next || !next.verified) saveLocal(next);
-  }, []);
+  }, [auth?.uid]);
+
+  useEffect(() => {
+    if (!hydrated || !auth || stateOwner.current !== auth.uid || !state?.verified) return;
+    const evidence = mentorAssessmentEvidence(state, auth.uid);
+    if (!evidence.length) return;
+    setLoopState(prev => {const old=prev.assessmentEvidence ?? [];const ids=new Set(old.map(e=>e.id));const fresh=evidence.filter(e=>!ids.has(e.id));return fresh.length?{...prev,assessmentEvidence:[...old,...fresh].sort((a,b)=>a.at-b.at).slice(-180)}:prev;});
+  }, [state, hydrated, auth?.uid]);
 
   useEffect(() => {
     let alive = true;
@@ -60,7 +75,7 @@ export function MentorApp() {
           setLoadError(null);
         } catch (e) { setLoadError(`Could not load your saved session (${errMsg(e)}).`); }
       } else chosen = loadLocal();
-      if (alive) { setState(chosen); setReady(true); }
+      if (alive) { stateOwner.current=chosen?.verified ? auth?.uid ?? null : null; setState(chosen); setReady(true); }
     })();
     return () => { alive = false; };
   }, [signedIn, auth?.uid]);
@@ -599,25 +614,14 @@ const LEVEL_LABEL: Record<string, string> = { not_started: "Not started", beginn
 function ProgressPanel({ state, onRevision }: { state: MentorState; onRevision: (id: string) => void }) {
   const o = masteryOverview(state);
   const revs = dueRevisions(state);
-  const stats = [["Lessons completed", o.lessonsCompleted], ["Exercises attempted", o.exercisesAttempted], ["Submissions", o.submissions], ["Tests passed", o.testsPassed], ["Skills confirmed mastered", o.mastered], ["Skills needing work", o.needsWork]] as const;
+  const stats = [["Lessons completed", o.lessonsCompleted], ["Exercises attempted", o.exercisesAttempted], ["Submissions", o.submissions], ["Tests passed", o.testsPassed], ["Delayed lesson checks passed", o.mastered], ["Skills needing work", o.needsWork]] as const;
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
         {stats.map(([k, v]) => <Card key={k} className="p-3"><p className="text-[11px] text-gray-400">{k}</p><p className="mt-1 text-[22px] font-extrabold">{v}</p></Card>)}
       </div>
-      <Card className="p-5">
-        <h2 className="text-[14px] font-bold">Competency evidence</h2>
-        <p className="text-[12px] text-gray-400">Mastery is estimated from practical passes. It is only confirmed after you pass a delayed reassessment.</p>
-        <ul className="mt-3 space-y-2">
-          {Object.values(state.competencies).map((c) => (
-            <li key={c.skill} className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-100 p-2.5 text-[12.5px]">
-              <span className="min-w-[180px] flex-1 font-semibold">{SKILLS[c.skill]}</span>
-              <Pill tone={c.level === "mastered" ? "green" : c.level === "proficient" ? "blue" : c.level === "not_started" ? "gray" : "amber"}>{LEVEL_LABEL[c.level]}{c.level !== "not_started" ? (c.confirmed && state.verified ? " (confirmed)" : " (estimated)") : ""}</Pill>
-              <span className="text-gray-500">{c.practicePasses} passes, {c.independentPasses} without hints, {c.failures} failed, {c.revisionPasses} revision passes</span>
-            </li>
-          ))}
-        </ul>
-      </Card>
+      <CompetencySummary />
+      <p className="text-xs text-gray-500">Lesson unlocks and revision schedules are course rules, not a separate claim of general competency. The shared evidence view above uses actual retained checks.</p>
       <Card className="p-5">
         <h2 className="text-[14px] font-bold">Recurring mistakes</h2>
         {Object.values(state.misconceptions).length === 0 ? <p className="mt-2 text-[12.5px] text-gray-500">None recorded yet. Misconceptions only appear when real test evidence shows one.</p> : (

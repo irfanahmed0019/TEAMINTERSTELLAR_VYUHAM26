@@ -5,7 +5,11 @@ import {
   checkpointEnd,
   videoQuestion,
 } from "./video-learning.ts";
-import { absenceAction, sampleVideo } from "./video-checkpoint.ts";
+import {
+  absenceAction,
+  sampleVideo,
+  canCreditEnded,
+} from "./video-checkpoint.ts";
 test("contiguous completed question checkpoints only, final partial bounded", () => {
   assert.equal(completedCheckpoint({ completed: [3, 1, 2, 2, 5] }), 3);
   assert.equal(completedCheckpoint({ completed: [2, 3] }), 0);
@@ -34,4 +38,17 @@ test("authored questions keep correct answer after rotation and never claim exec
     videoQuestion("loops", 0).options[videoQuestion("loops", 0).answer],
     "3",
   );
+});
+
+test("ended playback grants only a bounded final fraction, never an unwatched jump", () => {
+  const s = { watched: 249.5, position: 249.5, sampledAt: 1000 };
+  assert.equal(canCreditEnded(s, 250, 250, 0), true);
+  assert.equal(
+    sampleVideo(s, 250, 1333, canCreditEnded(s, 250, 250, 0), true).state
+      .watched,
+    250,
+  );
+  assert.equal(canCreditEnded({ ...s, watched: 240 }, 250, 250, 0), false);
+  assert.equal(canCreditEnded({ ...s, watched: 0 }, 0.5, 0.5, 0), true);
+  assert.equal(canCreditEnded(s, 250, 250, 2), false);
 });
