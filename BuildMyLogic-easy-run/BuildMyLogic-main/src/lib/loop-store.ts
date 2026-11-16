@@ -278,13 +278,15 @@ export function recordPracticeOutcome(input: {
         lastPracticedAt: Date.now(),
       };
     }
-    const activityText = outcome.conquered
-      ? `Misconception Conquered: ${outcome.conquered.summary} - beaten after ${outcome.conquered.failuresToConquer} failing attempt${outcome.conquered.failuresToConquer === 1 ? "" : "s"}.`
-      : events.locked
-        ? `Pattern spotted: ${events.locked.summary}. A targeted fix was added to your practice.`
-        : outcome.attempt.fullPass
-          ? `Practice passed: ${input.topicTitle} (${passed}/${total} tests).`
-          : `Practice attempt on ${input.topicTitle}: ${passed}/${total} tests passing.`;
+    const activityText = outcome.conquered?.practiceCheckpoint?.masteredAt
+      ? `Practice checkpoint mastered: 2/2 distinct changed tasks for ${outcome.conquered.topicTitle}. Finite client-graded checks, not whole-skill mastery or independence.`
+      : outcome.conquered
+        ? `Misconception Conquered: ${outcome.conquered.summary} - beaten after ${outcome.conquered.failuresToConquer} failing attempt${outcome.conquered.failuresToConquer === 1 ? "" : "s"}.`
+        : events.locked
+          ? `Pattern spotted: ${events.locked.summary}. A targeted fix was added to your practice.`
+          : outcome.attempt.fullPass
+            ? `Practice passed: ${input.topicTitle} (${passed}/${total} tests).`
+            : `Practice attempt on ${input.topicTitle}: ${passed}/${total} tests passing.`;
     return {
       ...prev,
       struggle: state,
@@ -319,6 +321,8 @@ export function saveTargetedReassessment(
  * construct is genuinely used, after the lock.
  */
 export function recordReassessmentOutcome(input: {
+  practiceStage?: 1 | 2 | undefined;
+  reassessmentCreatedAt?: number | undefined;
   misconceptionId: string;
   ownerId?: string | undefined;
   graded: GradedResult[];
@@ -335,9 +339,11 @@ export function recordReassessmentOutcome(input: {
     const m = prev.struggle?.misconceptions.find(
       (x) => x.id === input.misconceptionId,
     );
-    const activityText = outcome.conquered
-      ? `Misconception Conquered: ${outcome.conquered.summary} - verified by a targeted reassessment with fresh checks after ${outcome.conquered.failuresToConquer} recorded failures.`
-      : `Targeted reassessment for "${m?.summary ?? "locked pattern"}": ${outcome.attempt.passed}/${outcome.attempt.total} checks passing${input.constructOk ? "" : " (required construct missing)"}.`;
+    const activityText = outcome.conquered?.practiceCheckpoint?.masteredAt
+      ? `Practice checkpoint mastered: 2/2 distinct changed tasks for ${outcome.conquered.topicTitle}. Finite client-graded checks, not whole-skill mastery or independence.`
+      : outcome.conquered
+        ? `Misconception Conquered: ${outcome.conquered.summary} - verified by a targeted reassessment with fresh checks after ${outcome.conquered.failuresToConquer} recorded failures.`
+        : `Targeted reassessment for "${m?.summary ?? "locked pattern"}": ${outcome.attempt.passed}/${outcome.attempt.total} checks passing${input.constructOk ? "" : " (required construct missing)"}.`;
     return {
       ...prev,
       struggle: state,

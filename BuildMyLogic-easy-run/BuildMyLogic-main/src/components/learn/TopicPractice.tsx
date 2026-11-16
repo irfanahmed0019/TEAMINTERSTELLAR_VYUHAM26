@@ -1,3 +1,4 @@
+import { newPracticeReassessment } from "@/lib/practice-reassessment";
 import { ThinkingScaffold } from "./ThinkingScaffold";
 import { learnerStorage } from "@/lib/demo-mode";
 import { useEffect, useState } from "react";
@@ -200,16 +201,29 @@ export function TopicPractice({
     setPreparing(true);
     setError("");
     try {
-      const reassessment = ["transfer-v1", "diagnostic-v1"].includes(
-        activeMisconception.reassessment?.version ?? "",
-      )
-        ? activeMisconception.reassessment
-        : newReassessment(
-            topicId,
-            language,
-            Date.now(),
-            Boolean(activeMisconception.diagnosis?.confirmed),
-          );
+      const practiceSpec = newPracticeReassessment(
+        activeMisconception.sourceMissionId,
+        ((activeMisconception.practiceCheckpoint?.passedStages.length ?? 0) +
+          1) as 1 | 2,
+        Date.now(),
+      );
+      const previous = activeMisconception.reassessment;
+      const reuse = practiceSpec
+        ? previous?.version === "practice-transfer-v1" &&
+          previous.practiceStage === practiceSpec.practiceStage
+        : true;
+      const reassessment =
+        ["transfer-v1", "diagnostic-v1", "practice-transfer-v1"].includes(
+          activeMisconception.reassessment?.version ?? "",
+        ) && reuse
+          ? activeMisconception.reassessment
+          : (practiceSpec ??
+            newReassessment(
+              topicId,
+              language,
+              Date.now(),
+              Boolean(activeMisconception.diagnosis?.confirmed),
+            ));
       if (!reassessment)
         throw new Error(
           "No transfer task is available for this topic yet. Your pattern stays locked.",
@@ -264,8 +278,27 @@ export function TopicPractice({
         ownerId: getAuthSession()?.uid,
         graded,
         constructOk,
+        practiceStage: reassessment.practiceStage,
+        reassessmentCreatedAt: reassessment.createdAt,
       });
-      if (graded.every((g) => g.passed) && constructOk && !recorded.conquered) {
+      if (
+        graded.every((g) => g.passed) &&
+        constructOk &&
+        reassessment.practiceStage === 1
+      ) {
+        setPassed(false);
+        setResults(null);
+        setReassessCode(freshStarter(language));
+        setReassessNote(
+          "Checkpoint 1/2 passed. Solve this second, different task. The pattern stays locked until both finite contracts pass; this is not whole-skill mastery.",
+        );
+      }
+      if (
+        graded.every((g) => g.passed) &&
+        constructOk &&
+        !recorded.conquered &&
+        reassessment.practiceStage !== 1
+      ) {
         setPassed(false);
         setError(
           "The output checks passed, but this recovery evidence was not accepted for the current owner. The pattern stays locked.",
@@ -306,6 +339,10 @@ export function TopicPractice({
               failing exercise.
             </p>
             <p className="mt-2 text-[11.5px] font-semibold text-amber-700">
+              {activeMisconception.sourceMissionId?.startsWith("python-") &&
+              newPracticeReassessment(activeMisconception.sourceMissionId, 1, 1)
+                ? `Practice checkpoint: ${activeMisconception.practiceCheckpoint?.passedStages.length ?? 0}/2 distinct fresh tasks passed. Two full passes master this bounded checkpoint, not the whole skill. `
+                : ""}
               Re-passing the same exercise no longer clears this pattern - it
               conquers when you pass a targeted reassessment: a changed task
               graded on new transfer checks.

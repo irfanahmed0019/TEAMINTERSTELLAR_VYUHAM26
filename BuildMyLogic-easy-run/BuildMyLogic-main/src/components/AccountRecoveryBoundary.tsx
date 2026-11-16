@@ -1,5 +1,5 @@
 import { EmailPasswordSignIn } from "./EmailPasswordSignIn";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   getAuthSession,
   signInWithGoogle,
@@ -18,13 +18,17 @@ import {
   canDiscardRecovery,
 } from "@/lib/local-recovery";
 export function AccountRecoveryBoundary({ children }: { children: ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const auth = useAuth();
   const cacheBlocked = useLocalCacheBlocked();
   const state = useLoop();
   const [revision, setRevision] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  if (typeof window === "undefined") return <main>Loading account...</main>;
+  // Match the server HTML on the first client render. Recovery/account checks
+  // run only after mount, before any protected child is rendered.
+  if (!mounted) return <main>Loading account...</main>;
   const cached = localStorage.getItem(LOOP_STATE_UID_KEY);
   const pending = localStorage.getItem(RECOVERY_OWNER_KEY);
   if (cacheBlocked) {

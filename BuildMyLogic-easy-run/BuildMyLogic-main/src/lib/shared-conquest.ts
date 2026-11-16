@@ -1,3 +1,4 @@
+import { newPracticeReassessment } from "./practice-reassessment.ts";
 import {
   recordReassessmentAttempt,
   type StruggleState,
@@ -24,9 +25,40 @@ export function savedConquestReceipt(
     m.sourceMissionId !== session.challengeId ||
     !m.conqueredAt ||
     !m.reassessment ||
-    m.reassessment.version !== "diagnostic-v1"
+    !["diagnostic-v1", "practice-transfer-v1"].includes(
+      m.reassessment.version ?? "",
+    )
   )
     return null;
+  const practice = m.reassessment.version === "practice-transfer-v1";
+  if (practice) {
+    const stages = m.practiceCheckpoint?.passedStages;
+    if (
+      stages?.length !== 2 ||
+      stages[0]?.stage !== 1 ||
+      stages[1]?.stage !== 2 ||
+      stages[0].at <= (m.lockedAt ?? 0) ||
+      stages[1].at <= stages[0].at ||
+      m.practiceCheckpoint?.masteredAt !== m.conqueredAt
+    )
+      return null;
+    const one = newPracticeReassessment(m.sourceMissionId, 1, stages[0].at);
+    if (
+      !one ||
+      !state.attempts.some(
+        (a) =>
+          a.source === "reassessment" &&
+          a.topicId === m.topicId &&
+          a.language === m.language &&
+          a.at === stages[0]!.at &&
+          a.fullPass &&
+          a.passed === one!.tests.length &&
+          a.total === one!.tests.length &&
+          a.exerciseTitle === `Practice checkpoint 1/2: ${one.title}`,
+      )
+    )
+      return null;
+  }
   const attempt = state.attempts?.find(
     (a) =>
       a.source === "reassessment" &&
@@ -41,7 +73,22 @@ export function savedConquestReceipt(
   const before = {
     ...state,
     misconceptions: state.misconceptions.map((x) =>
-      x.id === m.id ? { ...x, status: "locked" as const } : x,
+      x.id === m.id
+        ? {
+            ...x,
+            status: "locked" as const,
+            ...(practice
+              ? {
+                  practiceCheckpoint: {
+                    passedStages: x.practiceCheckpoint!.passedStages.slice(
+                      0,
+                      1,
+                    ),
+                  },
+                }
+              : {}),
+          }
+        : x,
     ),
   };
   const checked = recordReassessmentAttempt(before, {
@@ -49,6 +96,8 @@ export function savedConquestReceipt(
     ownerId: session.userId,
     at: m.conqueredAt,
     constructOk: true,
+    practiceStage: m.reassessment.practiceStage,
+    reassessmentCreatedAt: m.reassessment.createdAt,
     graded: m.reassessment.tests.map((t) => ({
       name: t.name,
       expected: t.expected,

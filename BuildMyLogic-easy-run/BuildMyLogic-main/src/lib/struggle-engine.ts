@@ -1,3 +1,4 @@
+import { newPracticeReassessment } from "./practice-reassessment.ts";
 /**
  * BuildMyLogic — Struggle Engine (deterministic core)
  *
@@ -76,6 +77,8 @@ export type ReassessmentTest = {
  * code must genuinely use so pasting the expected output cannot pass.
  */
 export type Reassessment = {
+  practiceStage?: 1 | 2;
+  practiceSource?: string | undefined;
   title?: string | undefined;
   task?: string | undefined;
   version?: string | undefined;
@@ -88,6 +91,10 @@ export type Reassessment = {
 };
 
 export type Misconception = {
+  practiceCheckpoint?: {
+    passedStages: Array<{ stage: 1 | 2; at: number }>;
+    masteredAt?: number | undefined;
+  };
   projectRecheckReceiptId?: string;
   synthetic?: true;
   id: string;
@@ -770,6 +777,8 @@ export function recordReassessmentAttempt(
     graded: GradedResult[];
     constructOk: boolean;
     at?: number;
+    practiceStage?: 1 | 2 | undefined;
+    reassessmentCreatedAt?: number | undefined;
   },
 ): { state: StruggleState; outcome: RecordOutcome | null } {
   const at = input.at ?? Date.now();
@@ -789,17 +798,63 @@ export function recordReassessmentAttempt(
   const spec = target.reassessment;
   if (
     !spec ||
-    !["transfer-v1", "diagnostic-v1"].includes(spec.version ?? "") ||
+    !["transfer-v1", "diagnostic-v1", "practice-transfer-v1"].includes(
+      spec.version ?? "",
+    ) ||
     spec.createdAt <= (target.lockedAt ?? 0) ||
     spec.createdAt > at
   )
     return { state: prev, outcome: null };
-  const canonical = newReassessment(
-    target.transferTopicId ?? target.topicId,
-    supportedTransferLanguage(target.language) ?? target.language,
+  const practiceCanonical = newPracticeReassessment(
+    target.sourceMissionId,
+    ((target.practiceCheckpoint?.passedStages.length ?? 0) + 1) as 1 | 2,
     spec.createdAt,
-    spec.version === "diagnostic-v1",
   );
+  const isPractice = Boolean(practiceCanonical);
+  if (isPractice && practiceCanonical?.practiceStage === 2) {
+    const first = target.practiceCheckpoint?.passedStages[0],
+      firstSpec = newPracticeReassessment(
+        target.sourceMissionId,
+        1,
+        spec.createdAt,
+      );
+    if (
+      !first ||
+      first.stage !== 1 ||
+      first.at <= (target.lockedAt ?? 0) ||
+      first.at > spec.createdAt ||
+      !firstSpec ||
+      !prev.attempts.some(
+        (a) =>
+          a.source === "reassessment" &&
+          a.topicId === target.topicId &&
+          a.language === target.language &&
+          a.at === first.at &&
+          a.fullPass &&
+          a.passed === firstSpec.tests.length &&
+          a.total === firstSpec.tests.length &&
+          a.exerciseTitle === `Practice checkpoint 1/2: ${firstSpec.title}`,
+      )
+    )
+      return { state: prev, outcome: null };
+  }
+  if (
+    isPractice &&
+    (spec.version !== "practice-transfer-v1" ||
+      spec.practiceStage !== practiceCanonical!.practiceStage ||
+      spec.practiceSource !== target.sourceMissionId ||
+      input.practiceStage !== spec.practiceStage ||
+      input.reassessmentCreatedAt !== spec.createdAt)
+  )
+    return { state: prev, outcome: null };
+  const canonical = isPractice
+    ? practiceCanonical
+    : newReassessment(
+        target.transferTopicId ?? target.topicId,
+        supportedTransferLanguage(target.language) ?? target.language,
+        spec.createdAt,
+        spec.version === "diagnostic-v1",
+      );
   if (
     spec.version === "diagnostic-v1" &&
     (!target.diagnosis?.confirmed ||
@@ -816,6 +871,9 @@ export function recordReassessmentAttempt(
     return { state: prev, outcome: null };
   if (
     !canonical ||
+    (isPractice &&
+      (spec.constructRegex !== canonical.constructRegex ||
+        spec.constructSelfCall !== canonical.constructSelfCall)) ||
     spec.tests.length !== canonical.tests.length ||
     !spec.tests.every((test, index) => {
       const expected = canonical.tests[index];
@@ -853,7 +911,9 @@ export function recordReassessmentAttempt(
     topicId: target.topicId,
     topicTitle: target.topicTitle,
     language: target.language,
-    exerciseTitle: "Targeted reassessment",
+    exerciseTitle: isPractice
+      ? `Practice checkpoint ${spec.practiceStage}/2: ${canonical.title}`
+      : "Targeted reassessment",
     at,
     passed: input.constructOk ? total - failing.length : 0,
     total,
@@ -873,6 +933,28 @@ export function recordReassessmentAttempt(
         ? { ...m.reassessment, attempts: m.reassessment.attempts + 1 }
         : m.reassessment,
     };
+    if (fullPass && isPractice) {
+      const stage = spec.practiceStage!,
+        passedStages = [
+          ...(m.practiceCheckpoint?.passedStages ?? []),
+          { stage, at },
+        ];
+      if (stage === 1)
+        return {
+          ...bumped,
+          practiceCheckpoint: { passedStages },
+          reassessment: newPracticeReassessment(m.sourceMissionId, 2, at)!,
+        };
+      return {
+        ...bumped,
+        practiceCheckpoint: { passedStages, masteredAt: at },
+        status: "conquered" as const,
+        conqueredAt: at,
+        failuresToConquer: m.occurrences,
+        timeToConquerMs: at - m.firstSeenAt,
+        reassessed: true,
+      };
+    }
     if (fullPass) {
       return {
         ...bumped,
@@ -1251,11 +1333,13 @@ export function failureReplay(m: Misconception): {
       : mins < 60
         ? ` Elapsed time from the first recorded failure: ${mins} min.`
         : ` Elapsed time from the first recorded failure: about ${Math.round(mins / 60)} h.`;
-  let after = m.reassessed
-    ? m.projectRecheckReceiptId
-      ? `You then passed two changed-input checks from the reviewed existing project tests (extension-reported). They were not secret or independent tests.${took}`
-      : `You then passed this pattern's targeted reassessment - a changed task with new transfer checks.${took}`
-    : `A later recorded attempt passed every check on ${m.topicTitle}.${took}`;
+  let after = m.practiceCheckpoint?.masteredAt
+    ? `You then passed two distinct changed-task practice contracts. This bounded checkpoint is mastered; whole-skill mastery and independence are not established.${took}`
+    : m.reassessed
+      ? m.projectRecheckReceiptId
+        ? `You then passed two changed-input checks from the reviewed existing project tests (extension-reported). They were not secret or independent tests.${took}`
+        : `You then passed this pattern's targeted reassessment - a changed task with new transfer checks.${took}`
+      : `A later recorded attempt passed every check on ${m.topicTitle}.${took}`;
   const diagnosis = m.diagnosis;
   const probe = diagnosticProbe(
     m.transferTopicId ?? m.topicId,

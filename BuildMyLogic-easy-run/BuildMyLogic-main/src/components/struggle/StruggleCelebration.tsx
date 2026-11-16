@@ -112,7 +112,9 @@ function CelebrationModal({ misconception }: { misconception: Misconception }) {
               <PartyPopper className="h-8 w-8" />
             </span>
             <h2 className="display mt-4 text-[30px] font-black leading-tight tracking-[-0.03em] sm:text-[36px]">
-              Misconception Conquered!
+              {misconception.practiceCheckpoint?.masteredAt
+                ? "Practice checkpoint mastered"
+                : "Misconception Conquered!"}
             </h2>
             <p className="mt-2 text-[15px] font-semibold text-muted-foreground">
               {misconception.topicTitle}
@@ -122,7 +124,10 @@ function CelebrationModal({ misconception }: { misconception: Misconception }) {
             </p>
             <p className="mt-4 text-[13px] font-medium text-muted-foreground">
               This pattern recorded {misconception.failuresToConquer} failing
-              submissions. You then passed a changed-task reassessment. Those
+              submissions. You then passed{" "}
+              {misconception.practiceCheckpoint?.masteredAt
+                ? "two distinct changed-task contracts (2/2). These"
+                : "a changed-task reassessment. Those"}
               output checks are the evidence, not a claim of general mastery.
             </p>
             <button

@@ -376,6 +376,13 @@ function ConqueredCard({ misconception: m }: { misconception: Misconception }) {
   const replay = failureReplay(m);
   return (
     <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
+      {m.practiceCheckpoint?.masteredAt && (
+        <p className="mb-3 rounded-xl bg-primary/10 p-3 text-sm font-bold">
+          Practice checkpoint mastered: 2/2 distinct changed tasks passed.
+          Finite client-graded checks, not whole-skill mastery or proof of
+          independent work.
+        </p>
+      )}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
