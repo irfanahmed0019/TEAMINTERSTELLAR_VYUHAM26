@@ -1,3 +1,4 @@
+import { newPracticeReassessment } from "./practice-reassessment.ts";
 import { competencyView } from "./competency.ts";
 import { PRACTICE_TASKS } from "./practice-task.ts";
 import { savedConquestReceipt } from "./shared-conquest.ts";
@@ -43,12 +44,61 @@ export function progressEvidenceSummary(state: LoopState) {
       !m.sourceMissionId
     )
       continue;
+    // Stage one is already a passed distinct question even while the
+    // two-stage topic checkpoint remains locked. Derive from retained records.
+    const stages = m.practiceCheckpoint?.passedStages;
+    const first = stages?.[0];
+    const firstSpec =
+      first && newPracticeReassessment(m.sourceMissionId, 1, first.at);
+    const firstPass =
+      !state.sampleProvenance &&
+      !m.synthetic &&
+      firstSpec &&
+      first?.stage === 1 &&
+      stages &&
+      stages.length <= 2 &&
+      Number.isFinite(first.at) &&
+      first.at > (m.lockedAt ?? 0) &&
+      m.reassessment.practiceSource === m.sourceMissionId &&
+      state.struggle!.attempts.some(
+        (a) =>
+          !a.synthetic &&
+          a.source === "reassessment" &&
+          a.topicId === m.topicId &&
+          a.language === m.language &&
+          a.at === first.at &&
+          a.fullPass &&
+          a.passed === firstSpec.tests.length &&
+          a.total === firstSpec.tests.length &&
+          a.exerciseTitle === `Practice checkpoint 1/2: ${firstSpec.title}`,
+      );
+    const questionKey = (spec: NonNullable<typeof firstSpec>) =>
+      "recheck:" +
+      m.recoveryOwnerId +
+      ":" +
+      m.language +
+      ":" +
+      JSON.stringify([
+        spec.task,
+        spec.tests.map((t) => [t.stdin, t.expected]),
+        spec.constructRegex,
+        spec.constructSelfCall,
+      ]);
+    if (firstPass) questions.add(questionKey(firstSpec));
     const receipt = savedConquestReceipt(state.struggle!, m.id, {
       sessionId: m.sourceSessionId,
       userId: m.recoveryOwnerId,
       challengeId: m.sourceMissionId,
     });
-    if (receipt) checkpoints.add(receipt.id);
+    if (receipt) {
+      checkpoints.add(receipt.id);
+      const second = newPracticeReassessment(
+        m.sourceMissionId,
+        2,
+        m.conqueredAt!,
+      );
+      if (firstPass && second) questions.add(questionKey(second));
+    }
   }
   return {
     assessed,

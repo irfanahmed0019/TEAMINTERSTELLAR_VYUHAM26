@@ -381,7 +381,10 @@ function Progress() {
               <p className="mt-2 text-xs text-muted-foreground">
                 Updates after checked results. Counts use retained records;
                 retries of the same question do not add another completed
-                question. Projects stay separate.
+                question. Passed distinct VS Code questions and validated topic
+                recheck questions count here. One recheck pass counts as a
+                question; both stages are needed for a topic checkpoint.
+                Projects stay separate.
               </p>
               <Link
                 to="/debugging"
