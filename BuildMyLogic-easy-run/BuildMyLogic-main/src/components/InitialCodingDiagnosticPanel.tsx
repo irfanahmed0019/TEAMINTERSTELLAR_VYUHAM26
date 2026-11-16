@@ -1,3 +1,11 @@
+import {
+  newInteractionClock,
+  sampleInteractionClock,
+  interactClock,
+  startInteractionClock,
+  pauseInteractionClock,
+} from "@/lib/interaction-clock";
+import { performanceSummary } from "@/lib/performance-evidence";
 import { useEffect, useRef, useState } from "react";
 import type { Profile } from "@/lib/loop-types";
 import type { AssessmentEvidence } from "@/lib/assessment-evidence";
@@ -48,6 +56,60 @@ export function InitialCodingDiagnosticPanel({
   const [code, setCode] = useState("");
   const [hint, setHint] = useState(false);
   const [busy, setBusy] = useState(false);
+  const clock = useRef(newInteractionClock());
+  const timingEnabled = useRef(false);
+  const [clockView, setClockView] = useState({
+    activeMs: 0,
+    running: false,
+    enabled: false,
+  });
+  const draftWriter = useRef(() => {});
+  draftWriter.current = () => saveDraft(code, hint);
+  function refreshClock() {
+    setClockView({
+      activeMs: clock.current.activeMs,
+      running: clock.current.running,
+      enabled: timingEnabled.current,
+    });
+  }
+  function eligible() {
+    return document.visibilityState === "visible" && document.hasFocus();
+  }
+  useEffect(() => {
+    let ticks = 0;
+    const timer = window.setInterval(() => {
+      clock.current = sampleInteractionClock(
+        clock.current,
+        performance.now(),
+        eligible(),
+      );
+      refreshClock();
+      if (clock.current.running && ++ticks % 10 === 0) draftWriter.current();
+    }, 1000);
+    const suspend = () => {
+      clock.current = {
+        ...sampleInteractionClock(clock.current, performance.now(), false),
+        activityAt: null,
+      };
+      refreshClock();
+      if (timingEnabled.current) draftWriter.current();
+    };
+    window.addEventListener("blur", suspend);
+    document.addEventListener("visibilitychange", suspend);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("blur", suspend);
+      document.removeEventListener("visibilitychange", suspend);
+    };
+  }, []);
+  function toggleClock() {
+    timingEnabled.current = true;
+    clock.current = clock.current.running
+      ? pauseInteractionClock(clock.current, performance.now(), eligible())
+      : startInteractionClock(clock.current, performance.now());
+    refreshClock();
+    draftWriter.current();
+  }
   const [error, setError] = useState("");
   const [result, setResult] = useState<Response | null>(null);
   const currentTask = useRef(task?.id);
@@ -62,6 +124,13 @@ export function InitialCodingDiagnosticPanel({
   useEffect(() => {
     if (!taskId || !taskLanguage || starterCode === undefined || !uid) return;
     const saved = d?.draft;
+    const savedMs =
+      saved?.taskId === taskId && saved.language === taskLanguage
+        ? saved.observedMs
+        : undefined;
+    clock.current = newInteractionClock(savedMs ?? 0);
+    timingEnabled.current = savedMs !== undefined;
+    refreshClock();
     setCode(
       saved?.taskId === taskId && saved.language === taskLanguage
         ? saved.code
@@ -89,6 +158,9 @@ export function InitialCodingDiagnosticPanel({
         language: task.language,
         code: nextCode,
         hintUsed: nextHint,
+        observedMs: timingEnabled.current
+          ? Math.round(clock.current.activeMs)
+          : undefined,
       },
     });
   }
@@ -97,12 +169,21 @@ export function InitialCodingDiagnosticPanel({
     saveDraft(code, true);
   }
   function updateCode(next: string) {
+    clock.current = interactClock(clock.current, performance.now(), eligible());
+    refreshClock();
     setCode(next);
     saveDraft(next, hint);
   }
   async function submit() {
     if (!d || !task || busy || !auth || getAuthSession()?.uid !== auth.uid)
       return;
+    clock.current = pauseInteractionClock(
+      clock.current,
+      performance.now(),
+      eligible(),
+    );
+    refreshClock();
+    draftWriter.current();
     const owner = auth.uid;
     const selected = task;
     setBusy(true);
@@ -115,6 +196,9 @@ export function InitialCodingDiagnosticPanel({
           language: selected.language,
           code,
           hintUsed: hint,
+          ...(timingEnabled.current
+            ? { observedMs: Math.round(clock.current.activeMs) }
+            : {}),
         },
       });
       if (
@@ -233,6 +317,31 @@ export function InitialCodingDiagnosticPanel({
           </p>
           <p>{result.sandbox}</p>
           <p>{result.scope}</p>
+          <p>
+            {
+              performanceSummary({
+                passed: result.evidence.passed,
+                total: result.evidence.total,
+                performance: result.evidence.performance,
+              }).text
+            }
+          </p>
+          {result.evidence.performance?.timingQuality ===
+            "browser-interaction-observed" && (
+            <p>
+              Authored benchmark:{" "}
+              {(result.evidence.performance.expectedMs ?? 0) / 60000} min.
+              Browser-reported observed interaction:{" "}
+              {Math.round((result.evidence.performance.activeMs ?? 0) / 1000)}{" "}
+              sec. Difference:{" "}
+              {(
+                ((result.evidence.performance.activeMs ?? 0) -
+                  (result.evidence.performance.expectedMs ?? 0)) /
+                60000
+              ).toFixed(1)}{" "}
+              min.
+            </p>
+          )}
           <details>
             <summary>Check results</summary>
             {result.results.map((r, i) => (
@@ -261,9 +370,28 @@ export function InitialCodingDiagnosticPanel({
           <p className="text-xs text-muted-foreground">{task.difficultyNote}</p>
           <p className="text-xs text-muted-foreground">
             Authored benchmark: {task.expectedMinutes} minutes, not a measured
-            population average. Active solving time is not measured here; no
-            timing-based skill penalty.
+            population average. Optional clock estimates visible, focused
+            interaction windows, not active thinking time. Hidden, blurred,
+            paused, runner-wait and idle time beyond 30 seconds since editing
+            are excluded. No timing-based skill penalty.
           </p>
+          <div className="rounded-xl bg-muted p-3 text-xs leading-5">
+            <p>
+              {clockView.enabled
+                ? `${Math.round(clockView.activeMs / 1000)} sec browser-reported interaction (${clockView.running ? "running with 30-second idle limit" : "paused"})`
+                : "Interaction timing is off. Starting it is optional."}
+            </p>
+            <button
+              type="button"
+              className="btn-base btn-outline mt-2"
+              disabled={busy}
+              onClick={toggleClock}
+            >
+              {clockView.running
+                ? "Pause interaction clock"
+                : "Start / resume interaction clock"}
+            </button>
+          </div>
           <label className="block text-sm">
             Your program
             <textarea

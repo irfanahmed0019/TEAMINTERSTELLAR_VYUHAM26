@@ -27,7 +27,7 @@ export type MisconceptionDepth = "slip" | "deep";
 export type PerformanceEvidence = {
   expectedMs?: number | undefined;
   activeMs?: number | undefined;
-  timingQuality: "extension-observed" | "unavailable";
+  timingQuality: "extension-observed" | "browser-interaction-observed" | "unavailable";
   hintsUsed?: number | undefined;
   attemptNumber?: number | undefined;
 };

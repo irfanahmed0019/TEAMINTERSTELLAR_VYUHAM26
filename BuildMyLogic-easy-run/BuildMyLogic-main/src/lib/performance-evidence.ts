@@ -6,7 +6,8 @@ export function performanceSummary(
   const expected = p?.expectedMs;
   const active = p?.activeMs;
   const usable =
-    p?.timingQuality === "extension-observed" &&
+    (p?.timingQuality === "extension-observed" ||
+      p?.timingQuality === "browser-interaction-observed") &&
     Number.isFinite(active) &&
     active! >= 0 &&
     Number.isFinite(expected) &&
@@ -19,16 +20,18 @@ export function performanceSummary(
       ? "Checks pass with recorded hints. Try a fresh check with less help."
       : "Checks pass. Independence still needs fresh evidence."
     : "Some requirements are not passing. Inspect the failing tests before judging speed.";
+  const ratioLabel =
+    ratio !== null && ratio > 0 && ratio < 0.01 ? "<0.01" : ratio?.toFixed(2);
   const time =
     ratio === null
       ? "Active solving time is unavailable."
       : ratio > 1
-        ? `Observed work took ${ratio.toFixed(2)}× the expected time. Correct but slower work is not automatically weak.`
-        : `Observed work took ${ratio.toFixed(2)}× the expected time. Speed does not establish correctness.`;
+        ? `Observed work took ${ratioLabel}× the expected time. Correct but slower work is not automatically weak.`
+        : `Observed work took ${ratioLabel}× the expected time. Speed does not establish correctness.`;
   return {
     ratio,
     deltaMs: usable ? active! - expected! : null,
-    text: `${result} ${time}`,
+    text: `${result} ${time}${p?.timingQuality === "browser-interaction-observed" ? " Browser-reported interaction windows only, not certified active thinking time." : ""}`,
     correct,
     hinted,
   };

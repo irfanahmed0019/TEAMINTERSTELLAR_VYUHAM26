@@ -606,6 +606,19 @@ export async function handleMentorApi(
           total: results.length,
           hintsUsed: b["hintUsed"] === true ? 1 : 0,
           source: "server-graded initial coding tests",
+          performance: {
+            expectedMs: task.expectedMinutes * 60_000,
+            ...(typeof b["observedMs"] === "number" &&
+            Number.isFinite(b["observedMs"]) &&
+            b["observedMs"] >= 0 &&
+            b["observedMs"] <= 86_400_000
+              ? {
+                  activeMs: Math.round(b["observedMs"]),
+                  timingQuality: "browser-interaction-observed",
+                }
+              : { timingQuality: "unavailable" }),
+            hintsUsed: b["hintUsed"] === true ? 1 : 0,
+          },
         },
         results,
         sandbox: `Judge0 CE public sandbox (ce.judge0.com), ${JUDGE0_LANGS[task.language].label}`,

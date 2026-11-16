@@ -159,6 +159,7 @@ try {
       expected: "attacker",
       ownerId: "attacker",
       tests: [{ expected: "attacker" }],
+      observedMs: 480000,
     }),
   );
   let data = await response.json();
@@ -166,6 +167,12 @@ try {
   assert.equal(data.evidence.ownerId, owner);
   assert.equal(data.evidence.taskId, body.taskId);
   assert.equal(data.evidence.language, "python");
+  assert.equal(data.evidence.performance.activeMs, 480000);
+  assert.equal(data.evidence.performance.expectedMs, 480000);
+  assert.equal(
+    data.evidence.performance.timingQuality,
+    "browser-interaction-observed",
+  );
   assert.equal(data.evidence.passed, 3);
   assert.equal(data.evidence.total, 3);
   assert.equal(data.evidence.source, "server-graded initial coding tests");
@@ -174,12 +181,18 @@ try {
     "PASS auth, origin, task allowlist, server expected outputs, actual Python good 3/3",
   );
   response = await handleMentorApi(
-    request({ ...body, code: 'print("positive")', hintUsed: true }),
+    request({
+      ...body,
+      code: 'print("positive")',
+      observedMs: Infinity,
+      hintUsed: true,
+    }),
   );
   data = await response.json();
   assert.equal(data.evidence.passed, 1);
   assert.equal(data.evidence.total, 3);
   assert.equal(data.evidence.hintsUsed, 1);
+  assert.equal(data.evidence.performance.timingQuality, "unavailable");
   console.log("PASS actual Python wrong boundary program 1/3");
   unavailable = true;
   response = await handleMentorApi(request(body));

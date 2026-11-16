@@ -11,6 +11,7 @@ export type AssessmentEvidence = {
   passed: number;
   total: number;
   hintsUsed: number;
+  performance?: import("./struggle-engine").PerformanceEvidence | undefined;
   source: "server-graded Mentor tests" | "server-graded initial coding tests";
 };
 const topicBySkill: Record<string, { id: string; title: string }> = {

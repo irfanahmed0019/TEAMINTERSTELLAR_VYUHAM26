@@ -12,6 +12,7 @@ export type InitialCodingSubmission = {
   at: number;
   hintsUsed: number;
   evidenceId: string;
+  performance?: import("./struggle-engine").PerformanceEvidence | undefined;
 };
 export type InitialCodingDiagnostic = {
   draft?:
@@ -20,6 +21,7 @@ export type InitialCodingDiagnostic = {
         language: CodingLanguage;
         code: string;
         hintUsed: boolean;
+        observedMs?: number | undefined;
       }
     | undefined;
   version: 1;
@@ -167,6 +169,15 @@ export function acceptInitialCodingResult(
   currentOwner: string,
 ): InitialCodingDiagnostic {
   if (
+    (e.performance !== undefined &&
+      (e.performance.expectedMs !== task.expectedMinutes * 60000 ||
+        !["browser-interaction-observed", "unavailable"].includes(
+          e.performance.timingQuality,
+        ) ||
+        (e.performance.timingQuality === "browser-interaction-observed" &&
+          (!Number.isFinite(e.performance.activeMs) ||
+            e.performance.activeMs! < 0 ||
+            e.performance.activeMs! > 86400000)))) ||
     e.ownerId !== currentOwner ||
     e.source !== "server-graded initial coding tests" ||
     e.topicId !== task.topicId ||
@@ -201,6 +212,7 @@ export function acceptInitialCodingResult(
         at: e.at,
         hintsUsed: e.hintsUsed,
         evidenceId: e.id,
+        performance: e.performance,
       },
     ],
   };
