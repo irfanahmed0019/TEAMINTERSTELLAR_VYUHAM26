@@ -1,3 +1,4 @@
+import { learningStreak } from "@/lib/learning-streak";
 import { progressEvidenceSummary } from "@/lib/progress-evidence";
 import { CompetencySummary } from "@/components/CompetencySummary";
 import { competencyPlan, competencyView } from "@/lib/competency";
@@ -15,7 +16,7 @@ import {
   Trophy,
   X,
 } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   PolarAngleAxis,
   PolarGrid,
@@ -33,26 +34,10 @@ export const Route = createFileRoute("/progress")({
   component: Progress,
 });
 
-function dayKey(value: number) {
-  const d = new Date(value);
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-}
-
 function levelLabel(level: number) {
   if (level >= 70) return "Advanced";
   if (level >= 40) return "Intermediate";
   return "Developing";
-}
-
-function computeStreak(sessions: { at: number }[]) {
-  const days = new Set(sessions.map((s) => new Date(s.at).toDateString()));
-  const cursor = new Date();
-  let count = 0;
-  while (days.has(cursor.toDateString())) {
-    count += 1;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-  return count;
 }
 
 const COMPETENCY_AXES: { axis: string; keywords: string[] }[] = [
@@ -143,7 +128,13 @@ function Progress() {
     ? missions[missions.findIndex((m) => m.id === activeMission.id) + 1]
     : undefined;
   const averageSkill = evidence.average;
-  const streakDays = computeStreak(state.sessions);
+  const [streakNow, setStreakNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setStreakNow(Date.now()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+  const streak = learningStreak(state, streakNow);
+  const streakDays = streak.count;
   const selected = missions.find((m) => m.id === selectedMission);
   const selectedSessions = selected
     ? state.sessions
@@ -177,18 +168,7 @@ function Progress() {
   }, [evidence.assessed]);
   const hasCompetency = competency.some((c) => c.value > 0);
 
-  const week = useMemo(() => {
-    const activeDays = new Set(state.sessions.map((s) => dayKey(s.at)));
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
-      d.setDate(d.getDate() - (6 - i));
-      return {
-        label: d.toLocaleDateString(undefined, { weekday: "short" }),
-        active: activeDays.has(dayKey(d.getTime())),
-        today: i === 6,
-      };
-    });
-  }, [state.sessions]);
+  const week = streak.week;
 
   const topSkill = skills.length
     ? [...skills].sort((a, b) => b.level - a.level)[0]!
@@ -467,8 +447,15 @@ function Progress() {
                   {sample
                     ? "Synthetic sample dates, not a genuine learning streak."
                     : streakDays > 0
-                      ? `You've learned for ${streakDays} consecutive day${streakDays === 1 ? "" : "s"}!`
-                      : "Log a session today to start your streak."}
+                      ? streak.activeToday
+                        ? `You've learned for ${streakDays} consecutive day${streakDays === 1 ? "" : "s"}!`
+                        : `Your ${streakDays}-day streak is active through yesterday. Practise today to keep it going.`
+                      : "Complete a checked practice attempt or log learning time to start your streak."}
+                </p>
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Days use your device timezone ({streak.timeZone}). Checked
+                  attempts count even when they fail. Repeated checks on one day
+                  count once; visits alone do not count.
                 </p>
                 <div className="mt-4 flex justify-between">
                   {week.map((day) => (
