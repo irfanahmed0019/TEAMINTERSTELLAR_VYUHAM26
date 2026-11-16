@@ -1,0 +1,672 @@
+{
+  "rfscVS0vtbw:0": {
+    "startSeconds": 34,
+    "endSeconds": 43,
+    "caption": "There's a lot of like little things that if you get wrong, the program will yell at you. Python is the complete opposite of that. You basically just type out what you want to do and Python does"
+  },
+  "rfscVS0vtbw:1": {
+    "startSeconds": 175,
+    "endSeconds": 182,
+    "caption": "the basic difference, Python two is a legacy version of Python, which basically means that"
+  },
+  "rfscVS0vtbw:2": {
+    "startSeconds": 297,
+    "endSeconds": 311,
+    "caption": "we're going to be writing a bunch of code. So we're going to need some, you know, environment or some program that we can write all that code in. And really, you can write Python in any text editor, you could write it in like notepad or text edit, it doesn't really matter."
+  },
+  "rfscVS0vtbw:3": {
+    "startSeconds": 364,
+    "endSeconds": 372,
+    "caption": "there's two versions of pie charm. One is a professional version, and that one's like paid, so you have to pay for it. But then there's this community version down here, and that's"
+  },
+  "rfscVS0vtbw:4": {
+    "startSeconds": 570,
+    "endSeconds": 579,
+    "caption": "what this is going to do is it's just going to print out hello world onto the screen. And so now what I can do is I can actually run this file and we're actually getting a little error here."
+  },
+  "rfscVS0vtbw:5": {
+    "startSeconds": 674,
+    "endSeconds": 684,
+    "caption": "programming is, it's just like we're specifying a set of instructions. And the computer is going to go off and execute those instructions that we give it. And so the more complex the instructions"
+  },
+  "rfscVS0vtbw:6": {
+    "startSeconds": 802,
+    "endSeconds": 813,
+    "caption": "triangle onto the console. So I'm going to come over here and click this play button. And you'll see down here, we're actually printing out that triangle. So mission accomplished, we were able to"
+  },
+  "rfscVS0vtbw:7": {
+    "startSeconds": 925,
+    "endSeconds": 932,
+    "caption": "And sometimes that data can be difficult to manage. So in Python, we have this thing called a variable."
+  },
+  "rfscVS0vtbw:8": {
+    "startSeconds": 1019,
+    "endSeconds": 1028,
+    "caption": "So I'm going to have to go over here and I'll say, okay, John, I'm going to have to manually change that. And then, okay, down here, we're gonna have to again, manually type in John and"
+  },
+  "rfscVS0vtbw:9": {
+    "startSeconds": 1150,
+    "endSeconds": 1162,
+    "caption": "generally, when you're creating a name for a variable in Python, you want to separate different words with an underscore. So I have two words here, and I'm separating them with an underscore."
+  },
+  "rfscVS0vtbw:10": {
+    "startSeconds": 1257,
+    "endSeconds": 1263,
+    "caption": "And I want to say another plus sign. So I basically am saying I want to print out all of this text,"
+  },
+  "rfscVS0vtbw:11": {
+    "startSeconds": 1361,
+    "endSeconds": 1371,
+    "caption": "now all I have to do is change it up here. So I could change the character's name to like Tom or something. And we could also change their age. So I could change the age to be like 50."
+  },
+  "rfscVS0vtbw:12": {
+    "startSeconds": 1507,
+    "endSeconds": 1517,
+    "caption": "we don't need these quotation marks, you only need that quotation mark when you're storing a string. So if I want to store a number, I can just write it out like this. And in addition to"
+  },
+  "rfscVS0vtbw:13": {
+    "startSeconds": 1585,
+    "endSeconds": 1595,
+    "caption": "said, there's three basic types of data that we can work with in Python. There's strings, which is just like plain text numbers, which would be like either decimal numbers or whole"
+  },
+  "rfscVS0vtbw:14": {
+    "startSeconds": 1704,
+    "endSeconds": 1715,
+    "caption": "is going to do is it's actually going to insert a new line into the string. So now it's going to say draft on one line and Academy on another line. So I'm going to click play. And you'll see down"
+  },
+  "rfscVS0vtbw:15": {
+    "startSeconds": 1887,
+    "endSeconds": 1894,
+    "caption": "the same thing for uppercase. So I could say phrase dot upper. And this will convert the entire string"
+  },
+  "rfscVS0vtbw:16": {
+    "startSeconds": 1974,
+    "endSeconds": 1986,
+    "caption": "And I'm going to make a closed parentheses. So I'm essentially saying LEN. And this is another function, it's the length function. And inside of this LEN function, I'm actually passing this"
+  },
+  "rfscVS0vtbw:17": {
+    "startSeconds": 2065,
+    "endSeconds": 2073,
+    "caption": "going to say G is zero, i is one, r is two, a is three. So we would say that G is at position zero"
+  },
+  "rfscVS0vtbw:18": {
+    "startSeconds": 2210,
+    "endSeconds": 2220,
+    "caption": "If I put something in here that wasn't in the string, so for example, if I put a Z in here, that's not in here, it's actually going to throw an error. So when I play this, you'll see that we"
+  },
+  "rfscVS0vtbw:19": {
+    "startSeconds": 2340,
+    "endSeconds": 2350,
+    "caption": "So if I want to write a number in Python, it's really easy. I basically just write the number. So I could say like print two. And this is just going to print the number two out onto the screen."
+  },
+  "rfscVS0vtbw:20": {
+    "startSeconds": 2470,
+    "endSeconds": 2475,
+    "caption": "going to say, okay, 10 divided by three, that's going to be three with a remainder of one. And so"
+  },
+  "rfscVS0vtbw:21": {
+    "startSeconds": 2521,
+    "endSeconds": 2527,
+    "caption": "to convert this number into a string, I can just say str, and I can put the number that I want to"
+  },
+  "rfscVS0vtbw:22": {
+    "startSeconds": 2722,
+    "endSeconds": 2731,
+    "caption": "called min. And this is going to do the opposite. So now instead of printing out the max number, it's going to print out the smallest number. And it's going to print out four down here, as you can"
+  },
+  "rfscVS0vtbw:23": {
+    "startSeconds": 2836,
+    "endSeconds": 2844,
+    "caption": "return the square root of a number. So I could say like 36. And now we should get six back. So"
+  },
+  "rfscVS0vtbw:24": {
+    "startSeconds": 2914,
+    "endSeconds": 2920,
+    "caption": "allow a user to input information into our program. And I'm actually going to take the"
+  },
+  "rfscVS0vtbw:25": {
+    "startSeconds": 3054,
+    "endSeconds": 3061,
+    "caption": "And then I can just hit enter. And Python's going to go ahead store this value inside of that variable."
+  },
+  "rfscVS0vtbw:26": {
+    "startSeconds": 3123,
+    "endSeconds": 3129,
+    "caption": "Hello, john, you are 25. So the program is able to get input from the user. And then it's able to"
+  },
+  "rfscVS0vtbw:27": {
+    "startSeconds": 3318,
+    "endSeconds": 3324,
+    "caption": "we're actually going to have to convert the strings that we get from the user into numbers. And so"
+  },
+  "rfscVS0vtbw:28": {
+    "startSeconds": 3362,
+    "endSeconds": 3375,
+    "caption": "two, three, four, five. So it's a, it's a whole number. In other words, it can't have a decimal point. And so what I could do is I could say, int, and I could put these inside of parentheses."
+  },
+  "rfscVS0vtbw:29": {
+    "startSeconds": 3532,
+    "endSeconds": 3542,
+    "caption": "I just have an example of a madlibs. So, you know, down here, we're basically just taking random words, like an adjective or a noun or a plural noun, and entering them in side of a story. So"
+  },
+  "rfscVS0vtbw:30": {
+    "startSeconds": 3627,
+    "endSeconds": 3633,
+    "caption": "user's inputs inside of those variables. So up here, let's create those variables. The first"
+  },
+  "rfscVS0vtbw:31": {
+    "startSeconds": 3774,
+    "endSeconds": 3783,
+    "caption": "see how you could take something like this and create a little mad libs game. So your homework for this lesson is to go off and make your own mad libs game. Hopefully one that's a little bit"
+  },
+  "rfscVS0vtbw:32": {
+    "startSeconds": 3875,
+    "endSeconds": 3881,
+    "caption": "to create a list, we can use these open and closed square brackets. So whenever you use these open"
+  },
+  "rfscVS0vtbw:33": {
+    "startSeconds": 3993,
+    "endSeconds": 4000,
+    "caption": "by their index. So each one of the elements inside of this list has a particular index. And the index"
+  },
+  "rfscVS0vtbw:34": {
+    "startSeconds": 4170,
+    "endSeconds": 4181,
+    "caption": "it grabs Karen and Jim. So you can either just put like one with a colon after it, and then it'll grab that index position and everything after it, or you can specify like a range that you want to"
+  },
+  "rfscVS0vtbw:35": {
+    "startSeconds": 4258,
+    "endSeconds": 4270,
+    "caption": "A list basically allows you to take a bunch of different values and organize them and store them inside of their own little list structure. So down here in my program, you can see I have two lists."
+  },
+  "rfscVS0vtbw:36": {
+    "startSeconds": 4400,
+    "endSeconds": 4406,
+    "caption": "example, and now I'm like adding another friend onto the end of this list. So when I run the program,"
+  },
+  "rfscVS0vtbw:37": {
+    "startSeconds": 4522,
+    "endSeconds": 4533,
+    "caption": "the list. And that's what pop does, it pops an element off of the list. So it basically removes the last element in the list. So we have our list, but let's say that we wanted to figure out if a"
+  },
+  "rfscVS0vtbw:38": {
+    "startSeconds": 4603,
+    "endSeconds": 4610,
+    "caption": "me how many times the value gym shows up inside of this list. So it should say two, which it does"
+  },
+  "rfscVS0vtbw:39": {
+    "startSeconds": 4754,
+    "endSeconds": 4761,
+    "caption": "familiar with lists in Python, a tuple is actually very similar to a list. It's basically a structure"
+  },
+  "rfscVS0vtbw:40": {
+    "startSeconds": 4835,
+    "endSeconds": 4846,
+    "caption": "you cannot change it, you can't add elements to it, you can't erase elements from it, you can't change any of the elements inside the tuple. What you see is what you get, once you create the"
+  },
+  "rfscVS0vtbw:41": {
+    "startSeconds": 4984,
+    "endSeconds": 4994,
+    "caption": "a tuple, when that data doesn't need to be mutated. That's why something like coordinates is such a good candidate for a tuple, because once you have coordinates, like, we're probably"
+  },
+  "rfscVS0vtbw:42": {
+    "startSeconds": 5067,
+    "endSeconds": 5073,
+    "caption": "which performs a specific task. So I can take a bunch of lines of code that are basically doing"
+  },
+  "rfscVS0vtbw:43": {
+    "startSeconds": 5201,
+    "endSeconds": 5207,
+    "caption": "inside the function, we actually have to indent it. So over here, you'll notice that when I clicked"
+  },
+  "rfscVS0vtbw:44": {
+    "startSeconds": 5301,
+    "endSeconds": 5307,
+    "caption": "because the code inside of a function isn't going to get executed by default. The code inside of"
+  },
+  "rfscVS0vtbw:45": {
+    "startSeconds": 5444,
+    "endSeconds": 5452,
+    "caption": "called parameters. So a parameter is a piece of information that we give to the function. So over"
+  },
+  "rfscVS0vtbw:46": {
+    "startSeconds": 5599,
+    "endSeconds": 5606,
+    "caption": "So you could pass anything you want into a function. So for example, I could pass in a integer instead"
+  },
+  "rfscVS0vtbw:47": {
+    "startSeconds": 5687,
+    "endSeconds": 5697,
+    "caption": "So when I call the function, I want it to basically execute its task, I want it to execute all the code. And then I want it to like give me some information back. So that could be like a particular"
+  },
+  "rfscVS0vtbw:48": {
+    "startSeconds": 5826,
+    "endSeconds": 5834,
+    "caption": "it says none. So when I printed out the value of this function, it told me none. But really,"
+  },
+  "rfscVS0vtbw:49": {
+    "startSeconds": 5975,
+    "endSeconds": 5984,
+    "caption": "of the function. So Python's going to go through, it's going to execute the code in the function, whenever it sees this return keyword, it's just going to break back out and we're going to be"
+  },
+  "rfscVS0vtbw:50": {
+    "startSeconds": 6028,
+    "endSeconds": 6034,
+    "caption": "execute other code when other conditions are true. So basically if statements allow our programs to"
+  },
+  "rfscVS0vtbw:51": {
+    "startSeconds": 6170,
+    "endSeconds": 6182,
+    "caption": "If I want meat, I order a steak. So if this condition's true, we order the steak. But if this condition is false, then we're going to move on, and we're actually going to check another condition."
+  },
+  "rfscVS0vtbw:52": {
+    "startSeconds": 6316,
+    "endSeconds": 6324,
+    "caption": "anything that I put below this with an indentation is actually going to be executed when that"
+  },
+  "rfscVS0vtbw:53": {
+    "startSeconds": 6379,
+    "endSeconds": 6392,
+    "caption": "otherwise. So I can say down here else. And now anything that I put below else is going to get printed out when that condition isn't true. So why don't we just put you are not a male."
+  },
+  "rfscVS0vtbw:54": {
+    "startSeconds": 6488,
+    "endSeconds": 6494,
+    "caption": "this is only going to be true when one of these values is true, when one or both of those values"
+  },
+  "rfscVS0vtbw:55": {
+    "startSeconds": 6679,
+    "endSeconds": 6685,
+    "caption": "is by saying not an open and close parentheses and saying is tall. And basically when I use this"
+  },
+  "rfscVS0vtbw:56": {
+    "startSeconds": 6770,
+    "endSeconds": 6779,
+    "caption": "tall male. If I make is male false it's going to tell us you are not a male but are tall. If I made is"
+  },
+  "rfscVS0vtbw:57": {
+    "startSeconds": 6942,
+    "endSeconds": 6948,
+    "caption": "of the three. So in order to figure out which of these numbers is the largest we're going to have to"
+  },
+  "rfscVS0vtbw:58": {
+    "startSeconds": 7008,
+    "endSeconds": 7015,
+    "caption": "false value in there. I'm just getting that true or false value by using a comparison. And you'll"
+  },
+  "rfscVS0vtbw:59": {
+    "startSeconds": 7083,
+    "endSeconds": 7089,
+    "caption": "So if num one isn't the biggest and num two isn't the biggest, then we can pretty much"
+  },
+  "rfscVS0vtbw:60": {
+    "startSeconds": 7203,
+    "endSeconds": 7211,
+    "caption": "and this exclamation point will basically mean not equal. So it's if num one is not equal"
+  },
+  "rfscVS0vtbw:61": {
+    "startSeconds": 7324,
+    "endSeconds": 7330,
+    "caption": "whatever the user enters, we're going to want to convert it into a number. So generally in"
+  },
+  "rfscVS0vtbw:62": {
+    "startSeconds": 7532,
+    "endSeconds": 7540,
+    "caption": "we just say else. And here we'll just print out like invalid operator. Alright, so this"
+  },
+  "rfscVS0vtbw:63": {
+    "startSeconds": 7646,
+    "endSeconds": 7652,
+    "caption": "structure in Python which allows us to store information in what are called key value"
+  },
+  "rfscVS0vtbw:64": {
+    "startSeconds": 7741,
+    "endSeconds": 7752,
+    "caption": "set this equal to an open and closed curly bracket. So whenever we create a dictionary in Python we're always going to want to create it inside of these open and closed curly brackets."
+  },
+  "rfscVS0vtbw:65": {
+    "startSeconds": 7820,
+    "endSeconds": 7829,
+    "caption": "come down here and change this to JAN, this is actually going to give us a little warning. So you can see down here it says dictionary contains duplicate keys."
+  },
+  "rfscVS0vtbw:66": {
+    "startSeconds": 7948,
+    "endSeconds": 7958,
+    "caption": "this get function is I can actually specify a default value that I want to use if this key is not found. So there's going to be certain cases when we're"
+  },
+  "rfscVS0vtbw:67": {
+    "startSeconds": 8064,
+    "endSeconds": 8071,
+    "caption": "allows us to loop through and execute a block of code multiple times. So I can"
+  },
+  "rfscVS0vtbw:68": {
+    "startSeconds": 8232,
+    "endSeconds": 8241,
+    "caption": "condition is false for example if I is equal to eleven then we're not going to loop through this code anymore and we're just going to move on. So down here I'm"
+  },
+  "rfscVS0vtbw:69": {
+    "startSeconds": 8309,
+    "endSeconds": 8318,
+    "caption": "So remember I checked the condition the first time and then I loop through all the code then I go back up to the top and I check it again. So I'm going to say"
+  },
+  "rfscVS0vtbw:70": {
+    "startSeconds": 8431,
+    "endSeconds": 8436,
+    "caption": "And then the user can interact with the program and try to guess the secret word."
+  },
+  "rfscVS0vtbw:71": {
+    "startSeconds": 8576,
+    "endSeconds": 8584,
+    "caption": "then what's going to happen is we're going to come back up here. We're going to check to see if the guess is equal to the secret word. If the guess isn't equal to the"
+  },
+  "rfscVS0vtbw:72": {
+    "startSeconds": 8668,
+    "endSeconds": 8676,
+    "caption": "right, they have three guesses in order to guess the word. And if they can't guess the word after three tries, then they're going to lose the game. But if they can"
+  },
+  "rfscVS0vtbw:73": {
+    "startSeconds": 8785,
+    "endSeconds": 8795,
+    "caption": "this equal to false initially. So this out of guesses variable is going to be a Boolean. And it's going to tell us whether or not the user is out of guesses. So if"
+  },
+  "rfscVS0vtbw:74": {
+    "startSeconds": 8957,
+    "endSeconds": 8967,
+    "caption": "down here that we need to account for. And so I'm going to use an if statement to figure out which is which. So I'm going to say if, and we're just going to type out"
+  },
+  "rfscVS0vtbw:75": {
+    "startSeconds": 9007,
+    "endSeconds": 9017,
+    "caption": "on my final guess. So if I don't get it here, we should actually lose the game. And you can see it says out of guesses, you lose. So we weren't able to guess it in the"
+  },
+  "rfscVS0vtbw:76": {
+    "startSeconds": 9167,
+    "endSeconds": 9177,
+    "caption": "In this tutorial, I want to talk to you guys about using for loops in Python. Now a for loop is a special type of loop in Python, which allows us to loop over"
+  },
+  "rfscVS0vtbw:77": {
+    "startSeconds": 9269,
+    "endSeconds": 9280,
+    "caption": "of draft Academy, I want to do something. And so down here inside of this for loop and again, we need to indent this. We can put what we want to do with each letter."
+  },
+  "rfscVS0vtbw:78": {
+    "startSeconds": 9438,
+    "endSeconds": 9444,
+    "caption": "here, I can pass in a number. So I could pass in like 10, for example. And down here,"
+  },
+  "rfscVS0vtbw:79": {
+    "startSeconds": 9539,
+    "endSeconds": 9546,
+    "caption": "inside of this range function, I can just type in LEN and then friends. And so what"
+  },
+  "rfscVS0vtbw:80": {
+    "startSeconds": 9664,
+    "endSeconds": 9672,
+    "caption": "this, you'll see only on the first iteration is it printing this out. And otherwise, it's printing out other stuff. So, you know, don't be afraid to put some"
+  },
+  "rfscVS0vtbw:81": {
+    "startSeconds": 9745,
+    "endSeconds": 9755,
+    "caption": "parameter is going to be the base number. And then the second parameter is going to be the power number. So we're going to take the base number and raise it to the"
+  },
+  "rfscVS0vtbw:82": {
+    "startSeconds": 9919,
+    "endSeconds": 9928,
+    "caption": "this for loop, I'm just going to return the result. So we'll be able to return whatever the result of raising the number to the power was. All right. So let's"
+  },
+  "rfscVS0vtbw:83": {
+    "startSeconds": 10012,
+    "endSeconds": 10021,
+    "caption": "multiplying result by base num. And then we're just returning results. So that's the basics of building a power function. And obviously, like if you're just trying"
+  },
+  "rfscVS0vtbw:84": {
+    "startSeconds": 10143,
+    "endSeconds": 10153,
+    "caption": "rows, three columns. And that's kind of like why these can be useful is we can create a grid like structure inside of Python using two dimensional lists. So"
+  },
+  "rfscVS0vtbw:85": {
+    "startSeconds": 10205,
+    "endSeconds": 10215,
+    "caption": "two, column three. So I'm going to put another zero, because this is at the zero index of this first array. So I just put zero zero here. Now we can"
+  },
+  "rfscVS0vtbw:86": {
+    "startSeconds": 10411,
+    "endSeconds": 10421,
+    "caption": "get mapped into C G T. So those are the basic translation rules. Obviously, this is a pretty simple language, but you get the point any vowel is going to become a G,"
+  },
+  "rfscVS0vtbw:87": {
+    "startSeconds": 10496,
+    "endSeconds": 10505,
+    "caption": "essentially going to be looping through phrase. And we're going to be adding the letters onto this translation one by one. So let me show you guys how we can do this."
+  },
+  "rfscVS0vtbw:88": {
+    "startSeconds": 10592,
+    "endSeconds": 10599,
+    "caption": "translation plus letter. So in the case where we have a vowel, I'm adding a G onto"
+  },
+  "rfscVS0vtbw:89": {
+    "startSeconds": 10680,
+    "endSeconds": 10690,
+    "caption": "before. I'm going to say dog. And so now out pops the answer, which is d g g. So that's kind of cool. And we can just keep running this as many times as we want."
+  },
+  "rfscVS0vtbw:90": {
+    "startSeconds": 10870,
+    "endSeconds": 10880,
+    "caption": "going to be just used for us humans. So a comment is used for like me or another developer to write a little comment, a little like plain text, you know, comment"
+  },
+  "rfscVS0vtbw:91": {
+    "startSeconds": 10994,
+    "endSeconds": 11003,
+    "caption": "you can really do whatever you want. But if you want to be like super Python official, then use these hashtags. Comments can also be useful for doing something"
+  },
+  "rfscVS0vtbw:92": {
+    "startSeconds": 11043,
+    "endSeconds": 11052,
+    "caption": "is going to ignore it. And those are really the two uses for comments is to write little notes, write little comments about different things or to comment out code."
+  },
+  "rfscVS0vtbw:93": {
+    "startSeconds": 11241,
+    "endSeconds": 11249,
+    "caption": "to come down here and I'm just going to type out. Except, and I'm also going to put a colon here. And down here, I'm just going to print something out. So I'll just"
+  },
+  "rfscVS0vtbw:94": {
+    "startSeconds": 11332,
+    "endSeconds": 11340,
+    "caption": "wanted to create a variable called value. And I set it equal to 10 divided by zero. Now, if you know anything about math, you'll know that you can't divide a"
+  },
+  "rfscVS0vtbw:95": {
+    "startSeconds": 11405,
+    "endSeconds": 11414,
+    "caption": "You couldn't convert the value. So I can create two different accept blocks to catch two different types of errors. So down here, I can just make a space and I"
+  },
+  "rfscVS0vtbw:96": {
+    "startSeconds": 11567,
+    "endSeconds": 11577,
+    "caption": "files in Python. Now a lot of times in Python, you're going to want to read from files that are outside of your Python file. So you might want to read information"
+  },
+  "rfscVS0vtbw:97": {
+    "startSeconds": 11670,
+    "endSeconds": 11679,
+    "caption": "files in a couple of different modes. And the first mode is called read. So I can just put an R here and that's going to stand for read. And this basically means"
+  },
+  "rfscVS0vtbw:98": {
+    "startSeconds": 11761,
+    "endSeconds": 11767,
+    "caption": "content inside of it is stored inside of this employee file variable. Now, whenever"
+  },
+  "rfscVS0vtbw:99": {
+    "startSeconds": 11911,
+    "endSeconds": 11921,
+    "caption": "to do is it's going to read an individual line inside of this file. So now when I run this program, you'll see it's just reading that first line in the file. And"
+  },
+  "rfscVS0vtbw:100": {
+    "startSeconds": 12071,
+    "endSeconds": 12079,
+    "caption": "to be our, then you can do all sorts of stuff with it. And you always want to make sure that you close it when you're done. That's just good practice. So that's the"
+  },
+  "rfscVS0vtbw:101": {
+    "startSeconds": 12179,
+    "endSeconds": 12188,
+    "caption": "going to add some text onto there. So what we can do is we can actually add another employee into the file. So instead of printing something out, I'm"
+  },
+  "rfscVS0vtbw:102": {
+    "startSeconds": 12325,
+    "endSeconds": 12335,
+    "caption": "And if I want to add this employee onto the end of the file in a new line, I'm going to have to put a new line character in front of it. So I can say backslash n,"
+  },
+  "rfscVS0vtbw:103": {
+    "startSeconds": 12361,
+    "endSeconds": 12367,
+    "caption": "also just like overwrite a file or I could write an entirely new file. So since we"
+  },
+  "rfscVS0vtbw:104": {
+    "startSeconds": 12502,
+    "endSeconds": 12508,
+    "caption": "a Python file that we can import into our current Python file. So for example, if I"
+  },
+  "rfscVS0vtbw:105": {
+    "startSeconds": 12632,
+    "endSeconds": 12640,
+    "caption": "going to go right at the top of my file. And I'm just going to say import. And then I want to type in the name of the file that I want to import. So I'm just"
+  },
+  "rfscVS0vtbw:106": {
+    "startSeconds": 12770,
+    "endSeconds": 12779,
+    "caption": "on the version 31. And over here on this page, you can see there's just a huge list of Python modules. And these are basically modules inside of Python that"
+  },
+  "rfscVS0vtbw:107": {
+    "startSeconds": 12845,
+    "endSeconds": 12855,
+    "caption": "module for doing X or Python module for doing Y, chances are somebody out there has already written a Python module to do what you're trying to do. So if you get"
+  },
+  "rfscVS0vtbw:108": {
+    "startSeconds": 12992,
+    "endSeconds": 12998,
+    "caption": "me where the source code is. So the source codes in lib forward slash base 64."
+  },
+  "rfscVS0vtbw:109": {
+    "startSeconds": 13130,
+    "endSeconds": 13136,
+    "caption": "to install Python modules. It's referred to as a package manager. And a package"
+  },
+  "rfscVS0vtbw:110": {
+    "startSeconds": 13249,
+    "endSeconds": 13254,
+    "caption": "Python module is going to be able to install using pip. So over here, I'm just"
+  },
+  "rfscVS0vtbw:111": {
+    "startSeconds": 13350,
+    "endSeconds": 13359,
+    "caption": "to be different instructions. But you can see it got stored down here in this site packages folder. If I wanted to remove this, I could use PIP to do it. So I could"
+  },
+  "rfscVS0vtbw:112": {
+    "startSeconds": 13515,
+    "endSeconds": 13525,
+    "caption": "And so what we can do with classes and objects is we can essentially create our own data types. So I can create my own data type for anything I want in Python."
+  },
+  "rfscVS0vtbw:113": {
+    "startSeconds": 13588,
+    "endSeconds": 13596,
+    "caption": "So what I can actually do is I can create a class for a student. And I'm basically creating like a student data type."
+  },
+  "rfscVS0vtbw:114": {
+    "startSeconds": 13750,
+    "endSeconds": 13761,
+    "caption": "a student is in our program. And so in this program, a student has a name, it has a major, it has a GPA, and it has a value that determines whether or not it's on probation."
+  },
+  "rfscVS0vtbw:115": {
+    "startSeconds": 13867,
+    "endSeconds": 13872,
+    "caption": "So a class is just like an overview of what the student data type is."
+  },
+  "rfscVS0vtbw:116": {
+    "startSeconds": 13978,
+    "endSeconds": 13986,
+    "caption": "So the class is like an overall template. It defines what a student is. But an object is an actual student with actual information."
+  },
+  "rfscVS0vtbw:117": {
+    "startSeconds": 14135,
+    "endSeconds": 14142,
+    "caption": "And basically what this means is the actual object's name is going to be equal to the name that they passed in."
+  },
+  "rfscVS0vtbw:118": {
+    "startSeconds": 14249,
+    "endSeconds": 14260,
+    "caption": "And so that's what's cool about classes is we can model real world objects and we can create our own data types."
+  },
+  "rfscVS0vtbw:119": {
+    "startSeconds": 14365,
+    "endSeconds": 14376,
+    "caption": "So I'm going to create a little data type for questions and inside of that question class, we'll be able to store the question prompts and we'll also be able to store the questions answer."
+  },
+  "rfscVS0vtbw:120": {
+    "startSeconds": 14505,
+    "endSeconds": 14512,
+    "caption": "So I'm going to come up in here, come up here and say from question import question."
+  },
+  "rfscVS0vtbw:121": {
+    "startSeconds": 14596,
+    "endSeconds": 14604,
+    "caption": "So I want to loop through each question. I want to ask it to the user. I want to get the user's answer and I want to check to see if it's right."
+  },
+  "rfscVS0vtbw:122": {
+    "startSeconds": 14689,
+    "endSeconds": 14696,
+    "caption": "And if this is true, then I just want to increment score. So I'm going to say score plus equals one."
+  },
+  "rfscVS0vtbw:123": {
+    "startSeconds": 14857,
+    "endSeconds": 14862,
+    "caption": "So it doesn't matter how many questions we put in here. It's just able to ask it."
+  },
+  "rfscVS0vtbw:124": {
+    "startSeconds": 14972,
+    "endSeconds": 14980,
+    "caption": "So I could actually define a function inside of this student class and then all of my student objects could access it."
+  },
+  "rfscVS0vtbw:125": {
+    "startSeconds": 15097,
+    "endSeconds": 15103,
+    "caption": "And it's putting out false down here because student one only has a GPA of 3.1."
+  },
+  "rfscVS0vtbw:126": {
+    "startSeconds": 15142,
+    "endSeconds": 15160,
+    "caption": "And if you're making a class you always want to think about what functions can I put inside of here that will essentially help the user to either figure out information about the object or modify different values in the object."
+  },
+  "rfscVS0vtbw:127": {
+    "startSeconds": 15329,
+    "endSeconds": 15338,
+    "caption": "But let's say that this Chinese chef can do everything that the normal chef can do. So the Chinese chef can make chicken, can make salad and can also make a special dish."
+  },
+  "rfscVS0vtbw:128": {
+    "startSeconds": 15458,
+    "endSeconds": 15466,
+    "caption": "I actually had to copy and physically paste all of these functions down into this file right and that's kind of a drag."
+  },
+  "rfscVS0vtbw:129": {
+    "startSeconds": 15542,
+    "endSeconds": 15555,
+    "caption": "Even though I didn't specify the make chicken function in here I didn't write it out. I can still run this program and the Chinese chef will still be able to make chicken."
+  },
+  "rfscVS0vtbw:130": {
+    "startSeconds": 15650,
+    "endSeconds": 15658,
+    "caption": "The Python interpreter is basically a little environment that we can use to execute Python commands."
+  },
+  "rfscVS0vtbw:131": {
+    "startSeconds": 15753,
+    "endSeconds": 15760,
+    "caption": "So generally all you have to do is go over to your terminal or your command prompt and type in Python 3."
+  },
+  "rfscVS0vtbw:132": {
+    "startSeconds": 15925,
+    "endSeconds": 15931,
+    "caption": "So if you're like designing and writing a Python program I would not recommend doing it inside of this interpreter."
+  },
+  "rfscVS0vtbw:133": {
+    "startSeconds": 15966,
+    "endSeconds": 15980,
+    "caption": "You know in the course I haven't really been using it at all just because I think it's a lot easier to teach when we're inside of a file than inside of here but you know don't count this guy out the Python interpreter is awesome a lot of people use it and it's great if you just"
+  }
+}

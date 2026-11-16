@@ -5,6 +5,7 @@
 // caption-start interval lies inside the section window. Caption ends are not supplied by YouTube; the next caption start is an alignment boundary, not an audio-verified end. Captions were read on 2026-11-16 from
 // https://www.youtube.com/watch?v=<videoId> (transcript panel, English auto-generated).
 // Sections with no instructional caption (outro only) or any unknown video return null.
+import { PYTHON_COURSE_ENTRIES } from "./video-section-questions-python-course.ts";
 export type CaptionKind = "auto" | "manual";
 export type SectionQuestion = {
   prompt: string;
@@ -30,6 +31,7 @@ type Entry = {
 };
 export const SECTION_SECONDS = 120;
 const ENTRIES: Record<string, Entry> = {
+  ...PYTHON_COURSE_ENTRIES,
   [`60OI5tzmkCw:0`]: {
     prompt: "What does the null terminator do in a C string?",
     options: [
