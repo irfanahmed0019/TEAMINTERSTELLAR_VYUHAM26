@@ -367,7 +367,7 @@ export async function saveLoopStateToCloud(
     return false;
   const owner = current.uid,
     serialized = JSON.stringify(state);
-  const write = cloudWriteTail.then(async () => {
+  const perform = async () => {
     if (
       authEpoch !== epoch ||
       getAuthSession()?.uid !== owner ||
@@ -378,6 +378,13 @@ export async function saveLoopStateToCloud(
       owner,
       JSON.parse(serialized) as LoopState,
     );
+  };
+  const write = cloudWriteTail.then(async () => {
+    // Web Locks coordinate request ordering across same-origin tabs, not only
+    // within this module. Recheck freshness after acquiring the shared lock.
+    if (typeof navigator !== "undefined" && navigator.locks?.request)
+      return await navigator.locks.request(`bml-cloud-write:${owner}`, perform);
+    return await perform(); // Same-tab guard remains available in older hosts.
   });
   // Failed writes release the lane too. A queued obsolete snapshot is rejected
   // at dequeue rather than written after the learner's newer current state.
@@ -391,13 +398,23 @@ export async function saveLoopStateToCloud(
 export async function loadLoopStateFromCloud(
   expectedUid?: string,
 ): Promise<unknown | null> {
-  const current = getAuthSession();
-  if (!current?.uid || (expectedUid && current.uid !== expectedUid)) {
-    throw new Error(
-      "Cloud restore requires the same signed-in learner. Saving is paused.",
-    );
-  }
-  return await loadLearnerStateFromSupabase(current.uid);
+  const owner = getAuthSession()?.uid,
+    epoch = authEpoch;
+  const read = async () => {
+    if (
+      !owner ||
+      (expectedUid && owner !== expectedUid) ||
+      getAuthSession()?.uid !== owner ||
+      authEpoch !== epoch
+    )
+      throw new Error(
+        "Cloud restore requires the same signed-in learner. Saving is paused.",
+      );
+    return await loadLearnerStateFromSupabase(owner);
+  };
+  if (owner && typeof navigator !== "undefined" && navigator.locks?.request)
+    return await navigator.locks.request(`bml-cloud-write:${owner}`, read);
+  return await read();
 }
 
 export async function renderGoogleButton(

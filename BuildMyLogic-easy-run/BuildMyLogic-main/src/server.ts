@@ -1,3 +1,7 @@
+import {
+  sessionMentorChat,
+  validMentorQuestion,
+} from "./lib/session-mentor.server";
 import { practiceTaskBody } from "./lib/practice-task";
 import {
   createPairingCode,
@@ -406,7 +410,7 @@ async function handleBuildMyLogicApi(
   }
 
   const learningMatch = pathname.match(
-    /^\/api\/sessions\/([^/]+)(?:\/(events|practice-task|project-challenge|test-result|hint|stuck|failed|complete|run-plan|submit|state|recovery-state|conquest|project-recheck|project-recheck-ready))?$/,
+    /^\/api\/sessions\/([^/]+)(?:\/(events|practice-task|project-challenge|test-result|mentor-chat|hint|stuck|failed|complete|run-plan|submit|state|recovery-state|conquest|project-recheck|project-recheck-ready))?$/,
   );
   if (learningMatch) {
     const session = await verifySession(
@@ -422,6 +426,7 @@ async function handleBuildMyLogicApi(
         "submit",
         "run-plan",
         "test-result",
+        "mentor-chat",
       ].includes(learningMatch[2] ?? ""),
     );
     if (!session)
@@ -666,6 +671,89 @@ async function handleBuildMyLogicApi(
             ok: false,
             error:
               "Cloud recovery sync is unavailable. Your website result has not been changed.",
+          },
+          503,
+        );
+      }
+    }
+    if (action === "mentor-chat") {
+      if (session.status === "expired")
+        return jsonResponse(
+          { ok: false, error: "Session expired. Reconnect before chatting." },
+          401,
+        );
+      const body = await readJson(request);
+      if (
+        typeof body["message"] !== "string" ||
+        !body["message"].trim() ||
+        body["message"].length > 1000
+      )
+        return jsonResponse(
+          { ok: false, error: "Enter a question of 1 to 1000 characters." },
+          400,
+        );
+      if (
+        !validMentorQuestion(
+          body["message"],
+          body["task_generation"],
+          session.taskGeneration ?? 0,
+        )
+      )
+        return jsonResponse(
+          {
+            ok: false,
+            error: "Question changed. Refresh the session and try again.",
+          },
+          409,
+        );
+      if (
+        rateLimited(`mentor-chat:${session.sessionId}`, 12) ||
+        rateLimited(`mentor-chat-ip:${ip}`, 30)
+      )
+        return jsonResponse(
+          {
+            ok: false,
+            error: "Too many Mentor requests. Wait a minute and try again.",
+          },
+          429,
+        );
+      const generation = session.taskGeneration ?? 0,
+        challenge = session.challengeId;
+      try {
+        const guidance = await sessionMentorChat(session, body["message"]);
+        const current = await verifySession(session.sessionId, true);
+        if (
+          !current ||
+          current.status === "expired" ||
+          (scopedExtension
+            ? !sessionTokenValid(
+                current,
+                request.headers.get("x-bml-session-token"),
+              )
+            : current.userId !== ownerId)
+        )
+          return jsonResponse(
+            { ok: false, error: "Reconnect the session before chatting." },
+            403,
+          );
+        if (
+          (current.taskGeneration ?? 0) !== generation ||
+          current.challengeId !== challenge
+        )
+          return jsonResponse(
+            {
+              ok: false,
+              error: "Question changed. Refresh the session and try again.",
+            },
+            409,
+          );
+        return jsonResponse({ ok: true, guidance });
+      } catch {
+        return jsonResponse(
+          {
+            ok: false,
+            error:
+              "Mentor could not reply right now. Your question was not saved. Try again shortly.",
           },
           503,
         );

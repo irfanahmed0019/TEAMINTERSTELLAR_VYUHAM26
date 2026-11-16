@@ -66,6 +66,7 @@ function AccountCloudSync() {
   const [saveRetry, setSaveRetry] = useState(0);
   const [saveFailure, setSaveFailure] = useState(false);
   const lastSaved = useRef("");
+  const ambiguousLocal = useRef<{ uid: string; raw: string } | null>(null);
   const readyUid = useRef<string | null>(null);
   useEffect(() => {
     const retry = () => setRetry((n) => n + 1);
@@ -120,11 +121,33 @@ function AccountCloudSync() {
       learnerStorage.getItem(LOOP_STATE_UID_KEY) === uid &&
       !learnerStorage.getItem(RECOVERY_OWNER_KEY) &&
       !learnerStorage.getItem(RETAINED_PREFIX + uid);
+    const localAtRead = learnerStorage.getItem("loop.state.v1");
     void restoreCloudState<LoopState>({
       read: async () => (await loadLoopStateFromCloud(uid)) as LoopState | null,
       current,
       normalize: normalizeLoopState,
       local: getLoopState,
+      newerLocal: () => {
+        const latest = learnerStorage.getItem("loop.state.v1");
+        if (!current() || latest === null) return null;
+        if (
+          latest === localAtRead &&
+          !(
+            ambiguousLocal.current?.uid === uid &&
+            ambiguousLocal.current.raw === latest
+          )
+        )
+          return null;
+        const parsed = JSON.parse(latest);
+        if (parsed._readyLocalOwner !== uid) {
+          ambiguousLocal.current = { uid, raw: latest };
+          throw new Error(
+            "Local progress changed before cloud restore was ready. Both copies are preserved; saving is paused.",
+          );
+        }
+        ambiguousLocal.current = null;
+        return normalizeLoopState(parsed);
+      },
       apply: (restored) => setLoopState(() => restored),
     })
       .then((baseline) => {
@@ -140,7 +163,7 @@ function AccountCloudSync() {
         if (!current()) return;
         // Remain unhydrated: a permission/network error must never unlock autosave.
         setFailure(
-          "Cloud progress could not be loaded. Your saved progress has not been replaced. Cloud saving is paused until a successful retry.",
+          "Cloud progress could not be safely restored. Local and cloud progress have not been replaced. Cloud saving is paused. If local progress changed before restore finished, keep this tab open for recovery.",
         );
       });
     return () => {

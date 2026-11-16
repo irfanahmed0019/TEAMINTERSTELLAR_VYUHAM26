@@ -32,6 +32,7 @@ type Message = {
     | "connect"
     | "pair"
     | "hint"
+    | "mentorChat"
     | "stuck"
     | "runTests"
     | "submit"
@@ -45,10 +46,12 @@ type Message = {
   pairingCode?: string;
   sessionId?: string;
   tool?: string;
+  message?: string;
 };
 
 class Sidebar implements vscode.WebviewViewProvider {
   private running = false;
+  private mentorBusy = false;
   private evidenceConsent = false;
   private activityAt = 0;
   private activityFlushAt = Date.now();
@@ -93,6 +96,10 @@ class Sidebar implements vscode.WebviewViewProvider {
         .get<Connection>("session");
       if (saved?.sessionId) void this.connect(saved.sessionId, true);
     }
+  }
+  public async focusSessionChat() {
+    await vscode.commands.executeCommand("buildMyLogic.sidebar.focus");
+    this.post({ type: "focusMentor" });
   }
   private async waitForView(timeout = 2500) {
     const started = Date.now();
@@ -208,6 +215,51 @@ class Sidebar implements vscode.WebviewViewProvider {
         const url = new URL("/reassess", this.api.getBaseUrl());
         url.searchParams.set("session", this.connection.sessionId);
         await vscode.env.openExternal(vscode.Uri.parse(url.toString()));
+        return;
+      }
+      if (m.command === "mentorChat") {
+        const connection = this.connection;
+        const message = typeof m.message === "string" ? m.message.trim() : "";
+        if (!message || message.length > 1000)
+          return this.post({
+            type: "mentorError",
+            text: "Write a question using 1 to 1,000 characters.",
+          });
+        if (this.mentorBusy)
+          return this.post({
+            type: "mentorError",
+            text: "Wait for the current reply, then try again.",
+          });
+        this.mentorBusy = true;
+        try {
+          const response = await this.api.mentorChat(
+            connection.sessionId,
+            message,
+            taskGeneration,
+          );
+          if (this.connection !== connection || !unchangedTask()) return;
+          if (
+            typeof response.guidance !== "string" ||
+            !response.guidance.trim()
+          )
+            throw new Error("The mentor returned no reply. Try again.");
+          this.post({
+            type: "mentorReply",
+            text: response.guidance.slice(0, 1200),
+          });
+        } catch (error) {
+          if (this.connection !== connection || !unchangedTask()) return;
+          this.post({
+            type: "mentorError",
+            text:
+              (error instanceof Error
+                ? error.message
+                : "Mentor unavailable. Try again.") +
+              " Your code and test results are unchanged.",
+          });
+        } finally {
+          this.mentorBusy = false;
+        }
         return;
       }
       if (m.command === "hint" || m.command === "stuck") {
@@ -1701,6 +1753,7 @@ function valid(v: unknown): v is Message {
       "connect",
       "pair",
       "hint",
+      "mentorChat",
       "stuck",
       "runTests",
       "submit",
@@ -1734,6 +1787,11 @@ export function activate(context: vscode.ExtensionContext) {
       );
       await vscode.commands.executeCommand("buildMyLogic.mentor.focus");
     }),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand("buildmylogic.sessionChat", () =>
+      sidebar.focusSessionChat(),
+    ),
   );
   const mentor = new MentorPanel(context, new MentorClient(config.apiBaseUrl));
   const connectSession = (connect: SessionConnect) =>

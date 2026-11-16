@@ -59,7 +59,10 @@ function harness() {
     "./cloud-restore": { restoreCloudState },
     "./loop-store": {
       getLoopState: () => local,
-      normalizeLoopState: (x) => x,
+      normalizeLoopState: (x) => {
+        const { _readyLocalOwner, ...rest } = x;
+        return rest;
+      },
       resetLoop: () => {
         local = { history: [] };
       },
@@ -158,4 +161,56 @@ test("actual CloudSync: stale rendered auth cannot claim marker or create recove
   assert.equal(h.storage.has("loop.state.uid"), false);
   assert.equal(h.storage.has("loop.recovery.owner"), false);
   assert.equal(h.applied.length, 0);
+});
+test("actual CloudSync: newer shared local state during slow read is preserved", async () => {
+  const h = harness();
+  h.render();
+  h.storage.set(
+    "loop.state.v1",
+    JSON.stringify({
+      history: ["new-shared-local"],
+      _readyLocalOwner: "owner-a",
+    }),
+  );
+  await h.finish();
+  assert.equal(
+    JSON.stringify(h.local),
+    JSON.stringify({ history: ["new-shared-local"] }),
+  );
+});
+test("actual CloudSync: changed shared state cannot bypass a retained recovery copy", async () => {
+  const h = harness();
+  h.render();
+  h.storage.set(
+    "loop.state.v1",
+    JSON.stringify({
+      history: ["new-shared-local"],
+      _readyLocalOwner: "owner-a",
+    }),
+  );
+  h.storage.set("retained.owner-a", "protected");
+  await h.finish();
+  assert.equal(h.applied.length, 0);
+});
+test("actual CloudSync: changed shared state cannot cross owners", async () => {
+  const h = harness();
+  h.render();
+  h.storage.set("loop.state.v1", JSON.stringify({ history: ["other-owner"] }));
+  h.storage.set("loop.state.uid", "owner-b");
+  await h.finish();
+  assert.equal(h.applied.length, 0);
+});
+test("actual CloudSync: unready startup write pauses without applying cloud or local", async () => {
+  const h = harness();
+  h.render();
+  h.storage.set(
+    "loop.state.v1",
+    JSON.stringify({ history: ["unready-local"], _readyLocalOwner: null }),
+  );
+  await h.finish();
+  assert.equal(h.applied.length, 0);
+  assert.equal(
+    JSON.parse(h.storage.get("loop.state.v1")).history[0],
+    "unready-local",
+  );
 });

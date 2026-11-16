@@ -21,3 +21,10 @@ test('all five panels are siblings and recovery actions do not hide Setup',()=>{
  assert.deepEqual(panels,['mission','progress','mentor','recovery','setup']);assert.equal(stack.length,0);
  for(const id of ['projectRecheck','failed','disconnect'])assert.ok(html.indexOf(`id="${id}"`)<html.indexOf('data-panel="setup"'));
 });
+
+test('unscored prior output is labeled historical; changed task generation clears cached output',async()=>{
+ const result=await build({entryPoints:['src/resultsPanel.ts'],bundle:true,platform:'node',format:'cjs',write:false,plugins:[{name:'vscode-stub',setup(b){b.onResolve({filter:/^vscode$/},()=>({path:'vscode',namespace:'stub'}));b.onLoad({filter:/.*/,namespace:'stub'},()=>({contents:'export const commands={executeCommand:async()=>{}};'}));}}]});const mod={exports:{}};new Function('module','exports','require',result.outputFiles[0].text)(mod,mod.exports,createRequire(import.meta.url));const panel=new mod.exports.ResultsPanel(),view={webview:{options:{},html:''}};panel.resolveWebviewView(view);
+ panel.update({session_id:'same',challenge_id:'old',task_generation:0,attempts:0,checkpoints:[{title:'Old output',status:'active',lastOutput:'BML_PRACTICE_PASS:old'}]});assert.match(view.webview.html,/No test results yet/);assert.match(view.webview.html,/Previous command output only. No current test result is recorded/);
+ panel.update({session_id:'same',challenge_id:'old',task_generation:0,attempts:1,test_score:{passed:1,total:1},checkpoints:[]},'OLD_PRIVATE_OUTPUT');assert.ok(!view.webview.html.includes('Previous command output only'));
+ panel.update({session_id:'same',challenge_id:'new',task_generation:1,attempts:0,checkpoints:[]});assert.ok(!view.webview.html.includes('OLD_PRIVATE_OUTPUT'));assert.match(view.webview.html,/No test results yet/);
+});

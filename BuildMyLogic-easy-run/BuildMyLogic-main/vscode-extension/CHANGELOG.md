@@ -1,3 +1,9 @@
+## 0.3.17
+
+- Adds paired-session Mentor chat inside VS Code with short replies, Explain more and Skip.
+- Makes the optional separate C course sign-in distinct from the connected session.
+- Labels previous command output honestly when no current test result exists.
+
 ## 0.3.16
 
 - Keeps completed practice results visible without rerunning or uploading source on Run/Submit.

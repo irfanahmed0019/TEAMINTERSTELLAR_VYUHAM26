@@ -1,3 +1,4 @@
+import { isReadyCloudOwner } from "@/lib/cloud-readiness";
 import { PRACTICE_TASKS } from "@/lib/practice-task";
 import { getAuthSession, getAuthSessionForApi } from "@/lib/auth";
 import { learningSchedule } from "@/lib/learning-schedule";
@@ -85,8 +86,11 @@ function Dashboard() {
     let cancelled = false;
     const syncBuildSession = async () => {
       const owner = getAuthSession()?.uid;
-      if (!owner || cancelled) return;
-      const isCurrent = () => !cancelled && getAuthSession()?.uid === owner;
+      if (!owner || cancelled || !isReadyCloudOwner(owner)) return;
+      const isCurrent = () =>
+        !cancelled &&
+        getAuthSession()?.uid === owner &&
+        isReadyCloudOwner(owner);
       const raw = learnerStorage.getItem("bml-vscode-session");
       if (!raw) return;
       try {

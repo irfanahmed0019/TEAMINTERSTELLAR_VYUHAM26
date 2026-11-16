@@ -1,3 +1,4 @@
+import { useCloudHydrated } from "@/lib/cloud-sync";
 import { PRACTICE_TASKS, suggestedPracticeId } from "@/lib/practice-task";
 import { learningSchedule } from "@/lib/learning-schedule";
 import { learnerStorage } from "@/lib/demo-mode";
@@ -70,6 +71,7 @@ function difficultyLabel(difficulty: number) {
 function Sessions() {
   const state = useLoop();
   const pairingAuth = useAuth();
+  const cloudHydrated = useCloudHydrated(pairingAuth?.uid);
   const navigate = useNavigate();
   const plan = state.plan;
   const sessionPlan = plan?.session;
@@ -325,7 +327,7 @@ function Sessions() {
   }, [vscodeSession?.sessionId]);
 
   useEffect(() => {
-    if (!remoteState || !pairingAuth?.uid) return;
+    if (!remoteState || !pairingAuth?.uid || !cloudHydrated) return;
     const completed = remoteState.status === "completed";
     const shouldRetune =
       completed ||
@@ -339,7 +341,7 @@ function Sessions() {
     applyBuildSessionEvidence(remoteState, pairingAuth.uid);
     // Ingest finite evidence only. Opening/polling Sessions must not spend AI
     // credits or rewrite the learner's roadmap from a passive event signal.
-  }, [pairingAuth?.uid, remoteState]);
+  }, [pairingAuth?.uid, remoteState, cloudHydrated]);
 
   const elapsed = Math.max(1, Math.round((startRef.current - seconds) / 60));
   const pct = startRef.current

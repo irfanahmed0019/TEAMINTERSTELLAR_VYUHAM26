@@ -14,6 +14,7 @@ export interface MentorConnect {
 
 type MentorMessage =
 	| { command: 'ready' }
+	| { command: 'session-chat' }
 	| { command: 'refresh' }
 	| { command: 'start'; level: 'beginner' | 'intermediate' | 'advanced' }
 	| { command: 'select-lesson'; lessonId: string }
@@ -100,6 +101,7 @@ export class MentorPanel implements vscode.WebviewViewProvider {
 
 	private async handle(m: MentorMessage): Promise<void> {
 		try {
+			if (m.command === 'session-chat') { await vscode.commands.executeCommand('buildmylogic.sessionChat'); return; }
 			if (m.command === 'ready') return void (await this.refresh(false));
 			if (m.command === 'disconnect') {
 				this.stopPolling();
@@ -362,5 +364,5 @@ export class MentorPanel implements vscode.WebviewViewProvider {
 function valid(v: unknown): v is MentorMessage {
 	if (!v || typeof v !== 'object') return false;
 	const command = String((v as { command?: unknown }).command);
-	return ['ready', 'refresh', 'start', 'select-lesson', 'select-revision', 'run', 'submit', 'hint', 'ask', 'open-starter', 'disconnect'].includes(command);
+	return ['session-chat', 'ready', 'refresh', 'start', 'select-lesson', 'select-revision', 'run', 'submit', 'hint', 'ask', 'open-starter', 'disconnect'].includes(command);
 }

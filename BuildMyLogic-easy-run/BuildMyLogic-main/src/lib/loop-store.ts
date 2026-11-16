@@ -1,3 +1,4 @@
+import { isReadyCloudOwner } from "./cloud-readiness.ts";
 import { ingestPracticeEvidence } from "./practice-evidence.ts";
 import { PRACTICE_TASKS } from "./practice-task.ts";
 import {
@@ -47,6 +48,7 @@ const KEY = "loop.state.v1";
 let state: LoopState = emptyState;
 let loaded = false;
 let unpersisted = false;
+let cachedStorageRaw: string | null = null;
 const listeners = new Set<() => void>();
 
 function isLegacyStarterState(candidate: Partial<LoopState>): boolean {
@@ -68,6 +70,10 @@ export function normalizeLoopState(
   candidate: Partial<LoopState> | null | undefined,
 ): LoopState {
   if (!candidate || isLegacyStarterState(candidate)) return emptyState;
+  // Local-only provenance is never learner data or cloud evidence.
+  candidate = { ...candidate };
+  delete (candidate as Partial<LoopState> & { _readyLocalOwner?: unknown })
+    ._readyLocalOwner;
 
   return {
     ...emptyState,
@@ -106,6 +112,7 @@ function load(): LoopState {
   loaded = true;
   try {
     const raw = learnerStorage.getItem(KEY);
+    cachedStorageRaw = raw;
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<LoopState>;
       state = normalizeLoopState(parsed);
@@ -138,7 +145,13 @@ export function refreshLoopCacheFromStorage(): boolean {
  */
 function persist() {
   try {
-    learnerStorage.setItem(KEY, JSON.stringify(state));
+    const owner = learnerStorage.getItem("loop.state.uid");
+    const raw = JSON.stringify({
+      ...state,
+      _readyLocalOwner: owner && isReadyCloudOwner(owner) ? owner : null,
+    });
+    learnerStorage.setItem(KEY, raw);
+    cachedStorageRaw = raw;
     unpersisted = false;
   } catch {
     unpersisted = true;
@@ -150,15 +163,46 @@ function persist() {
 /**
  * Synchronously retrieves current snapshot of the learner state
  */
+/** A stale tab must not replace newer same-owner shared work with its module cache.
+ * Never adopt another owner, a recovery copy, or overwrite this tab's unsaved memory. */
+function adoptSharedOwnerSnapshot(): boolean {
+  if (typeof window === "undefined" || !loaded || unpersisted) return false;
+  try {
+    const owner = learnerStorage.getItem("loop.state.uid");
+    if (
+      !owner ||
+      !isReadyCloudOwner(owner) ||
+      learnerStorage.getItem("loop.recovery.owner") ||
+      learnerStorage.getItem("loop.state.retained." + owner)
+    )
+      return false;
+    const raw = learnerStorage.getItem(KEY);
+    if (raw === null || raw === cachedStorageRaw) return false;
+    const parsed = JSON.parse(raw);
+    if (parsed._readyLocalOwner !== owner) return false;
+    state = normalizeLoopState(parsed);
+    cachedStorageRaw = raw;
+    return true;
+  } catch {
+    return false;
+  }
+}
+if (typeof window !== "undefined" && window.addEventListener)
+  window.addEventListener("storage", (event) => {
+    if (event.key === KEY && adoptSharedOwnerSnapshot())
+      listeners.forEach((listener) => listener());
+  });
 export function getLoopState(): LoopState {
-  return load();
+  load();
+  adoptSharedOwnerSnapshot();
+  return state;
 }
 
 /**
  * Updates learner state with functional transformer and triggers persistence
  */
 export function setLoopState(update: (prev: LoopState) => LoopState) {
-  state = update(load());
+  state = update(getLoopState());
   persist();
 }
 

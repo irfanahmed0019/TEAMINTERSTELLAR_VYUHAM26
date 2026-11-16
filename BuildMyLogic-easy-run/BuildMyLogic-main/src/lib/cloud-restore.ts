@@ -20,10 +20,19 @@ export async function restoreCloudState<T>(options: {
   normalize: (state: T) => T;
   local: () => T;
   apply: (state: T) => void;
+  newerLocal?: () => T | null;
 }): Promise<string | null> {
   const cloud = await options.read();
   if (!options.current()) return null;
-  const state = cloud === null ? options.local() : options.normalize(cloud);
-  if (cloud !== null) options.apply(state);
-  return JSON.stringify(state);
+  const baseline = cloud === null ? options.local() : options.normalize(cloud);
+  // A successful read must not replace same-owner edits made in another tab
+  // while it was pending. Keep that full local snapshot; return the CLOUD
+  // baseline so the ordinary guarded autosave persists the newer local work.
+  const newer = options.newerLocal?.();
+  if (newer !== null && newer !== undefined) {
+    options.apply(newer);
+    return JSON.stringify(baseline);
+  }
+  if (cloud !== null) options.apply(baseline);
+  return JSON.stringify(baseline);
 }

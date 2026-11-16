@@ -245,14 +245,15 @@ function renderResources() {
 function render() {
   const app = $('app');
   if (!model) { app.innerHTML = ''; return; }
-  $('pill').textContent = model.connected ? (model.state ? 'connected' : 'signed in') : 'not connected';
+  $('pill').textContent = model.connected ? (model.state ? 'connected' : 'signed in') : 'Separate C course';
   if (!model.connected) {
     $('tabs').hidden = true;
-    app.innerHTML = '<div class="card"><b>Connect this VS Code to your AI Mentor.</b><ol>' +
+    app.innerHTML = '<div class="card"><b>This is the optional C course mentor.</b><p>Your paired Python/session chat is in BuildMyLogic → Mentor above. This course has a separate sign-in; this does not mean the main extension is disconnected.</p><button class="btn" id="sessionChatLink">Open session chat</button><details><summary>Link the C course instead</summary><ol>' +
       '<li>Open the BuildMyLogic website and sign in.</li>' +
       '<li>Open <b>AI Mentor</b>.</li>' +
       '<li>Click <b>Connect VS Code</b>. The website talks to this extension privately on your own machine; nothing is pasted or typed.</li></ol>' +
-      '<p class="muted">Server: ' + esc(model.apiBaseUrl) + '</p></div>';
+      '<p class="muted">Server: ' + esc(model.apiBaseUrl) + '</p></details></div>';
+    $('sessionChatLink').onclick=()=>send({command:'session-chat'});
     return;
   }
   if (!model.state) {

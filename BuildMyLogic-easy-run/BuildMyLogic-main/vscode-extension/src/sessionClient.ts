@@ -216,6 +216,12 @@ export class SessionClient {
       { method: "POST", body: JSON.stringify(result) },
     );
   }
+  public mentorChat(sessionId: string, message: string, task_generation = 0) {
+    return this.request(
+      "/api/sessions/" + encodeURIComponent(sessionId) + "/mentor-chat",
+      { method: "POST", body: JSON.stringify({ message, task_generation }) },
+    );
+  }
   public hint(sessionId: string, stuck = false, task_generation = 0) {
     return this.request(
       "/api/sessions/" +
