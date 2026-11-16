@@ -1,3 +1,7 @@
+import {
+  createPairingCode,
+  claimPairingCode,
+} from "./lib/session-pairing.server";
 import { validProjectReview } from "./lib/project-recovery";
 import type { LoopState, BuildSessionState } from "./lib/loop-types";
 import { savedConquestReceipt } from "./lib/shared-conquest";
@@ -249,6 +253,105 @@ async function handleBuildMyLogicApi(
             error instanceof Error ? error.message : "Could not start session.",
         },
         400,
+      );
+    }
+  }
+
+  const pairingCreate = pathname.match(
+    /^\/api\/sessions\/(BML-[A-Z0-9]{5})\/pairing\/create$/,
+  );
+  if (request.method === "POST" && pairingCreate) {
+    const owner = await authenticatedUserId(request);
+    if (!owner)
+      return jsonResponse(
+        { ok: false, error: "Sign in before creating a pairing code." },
+        401,
+      );
+    if (rateLimited(`pair-create:${owner}`, 5))
+      return jsonResponse(
+        { ok: false, error: "Wait a minute before creating another code." },
+        429,
+      );
+    const candidate = await verifySession(pairingCreate[1]!);
+    const body = await readJson(request);
+    const token =
+      typeof body["connection_token"] === "string"
+        ? body["connection_token"]
+        : "";
+    if (
+      !candidate ||
+      candidate.userId !== owner ||
+      !sessionTokenValid(candidate, token)
+    )
+      return jsonResponse(
+        {
+          ok: false,
+          error: "Start a new session before creating a pairing code.",
+        },
+        403,
+      );
+    try {
+      return jsonResponse({
+        ok: true,
+        ...(await createPairingCode(candidate.sessionId, owner, token)),
+      });
+    } catch {
+      return jsonResponse(
+        {
+          ok: false,
+          error:
+            "Pairing is unavailable. Your learner progress is unchanged. Try again later.",
+        },
+        503,
+      );
+    }
+  }
+  if (request.method === "POST" && pathname === "/api/sessions/pairing/claim") {
+    if (rateLimited(`pair-claim:${ip}`, 8))
+      return jsonResponse(
+        {
+          ok: false,
+          error: "Too many pairing attempts. Wait a minute and try again.",
+        },
+        429,
+        request,
+      );
+    const body = await readJson(request);
+    try {
+      const pair = await claimPairingCode(body["code"]);
+      const candidate = pair ? await verifySession(pair.session_id) : undefined;
+      if (
+        !pair ||
+        !candidate ||
+        candidate.userId !== pair.owner_id ||
+        !sessionTokenValid(candidate, pair.connection_token)
+      )
+        return jsonResponse(
+          {
+            ok: false,
+            error:
+              "Pairing code is invalid, expired or already used. Create a new code on the website.",
+          },
+          403,
+          request,
+        );
+      return jsonResponse(
+        {
+          ok: true,
+          session_id: pair.session_id,
+          connection_token: pair.connection_token,
+        },
+        200,
+        request,
+      );
+    } catch {
+      return jsonResponse(
+        {
+          ok: false,
+          error: "Pairing is unavailable. Create a new code and try again.",
+        },
+        503,
+        request,
       );
     }
   }

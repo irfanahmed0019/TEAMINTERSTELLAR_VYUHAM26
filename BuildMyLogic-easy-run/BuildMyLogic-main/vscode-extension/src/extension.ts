@@ -1,3 +1,4 @@
+import { claimPairingCode, normalizePairingCode } from "./pairingCode";
 import * as vscode from "vscode";
 import * as path from "node:path";
 import { executeLocalCommand } from "./processRunner";
@@ -21,6 +22,7 @@ type Message = {
   command:
     | "ready"
     | "connect"
+    | "pair"
     | "hint"
     | "stuck"
     | "runTests"
@@ -32,6 +34,7 @@ type Message = {
     | "openMentor"
     | "checkSetup"
     | "installTool";
+  pairingCode?: string;
   sessionId?: string;
   tool?: string;
 };
@@ -115,7 +118,7 @@ class Sidebar implements vscode.WebviewViewProvider {
         params.get("token") || (await this.context.secrets.get(key));
       if (!token || !/^[A-Za-z0-9_-]{43}$/.test(token))
         throw new Error(
-          "Install v0.3.8, then choose Start new session and Open VS Code on the signed-in Sessions page. A display code alone cannot connect.",
+          "Use the pairing code shown on the signed-in Sessions page. A display Session ID alone cannot connect.",
         );
       this.api.setSessionToken(token);
       await this.context.secrets.store(key, token);
@@ -163,6 +166,7 @@ class Sidebar implements vscode.WebviewViewProvider {
         await this.installTool(String(m.tool || ""));
         return;
       }
+      if (m.command === "pair") return await this.pair(m.pairingCode || "");
       if (m.command === "connect")
         return void this.connect(m.sessionId || "", false);
       if (m.command === "disconnect") {
@@ -244,6 +248,48 @@ class Sidebar implements vscode.WebviewViewProvider {
       );
     }
   }
+  private async pair(value: string) {
+    if (!normalizePairingCode(value))
+      return this.status(
+        "Enter the 8-character pairing code from the signed-in website. The Session ID is only a display ID.",
+        true,
+      );
+    const epoch = ++this.connectEpoch,
+      base = this.api.getBaseUrl();
+    this.stop();
+    this.clearEvidenceSubscriptions();
+    this.session = undefined;
+    this.connection = undefined;
+    this.api.setSessionToken(undefined);
+    this.results.update(undefined, "");
+    this.post({ type: "disconnected" });
+    try {
+      this.status("Claiming your one-use pairing code…");
+      const claim = await claimPairingCode(base, value);
+      if (epoch !== this.connectEpoch || this.api.getBaseUrl() !== base) return;
+      try {
+        await this.context.secrets.store(
+          "bml.session." + base + ":" + claim.session_id,
+          claim.connection_token,
+        );
+      } catch {
+        throw new Error(
+          "VS Code could not save the secure session credential. Generate a new pairing code after SecretStorage is available.",
+        );
+      }
+      if (epoch !== this.connectEpoch || this.api.getBaseUrl() !== base) return;
+      // Existing connect reads the token from SecretStorage and keeps normal evidence consent.
+      await this.connect(claim.session_id, false);
+    } catch (error) {
+      if (epoch !== this.connectEpoch) return;
+      this.status(
+        error instanceof Error
+          ? error.message
+          : "Pairing could not finish. Generate a new code on the website.",
+        true,
+      );
+    }
+  }
   private async connect(sessionId: string, silent: boolean) {
     sessionId = sessionId.trim().toUpperCase();
     if (!/^[A-Z0-9][A-Z0-9_-]{5,39}$/.test(sessionId)) {
@@ -266,10 +312,14 @@ class Sidebar implements vscode.WebviewViewProvider {
       const savedToken = await this.context.secrets.get(
         "bml.session." + this.api.getBaseUrl() + ":" + sessionId,
       );
+      if (epoch !== this.connectEpoch) return;
       this.api.setSessionToken(savedToken);
       const r = await this.api.connect(sessionId);
       if (epoch !== this.connectEpoch) return;
-      if (!r.session) throw new Error("Session has no challenge context.");
+      if (!r.session || r.session.session_id !== sessionId)
+        throw new Error(
+          "The returned session does not match this connection. Generate a new pairing code.",
+        );
       this.session = r.session;
       this.connection = { sessionId };
       await vscode.workspace
@@ -302,7 +352,7 @@ class Sidebar implements vscode.WebviewViewProvider {
           ? error.message
           : "This Session ID is not active.";
       this.status(
-        `${message} Start a new session on the BuildMyLogic website, then use its generated ID.`,
+        `${message} Generate a new pairing code on the signed-in Sessions page and enter it here.`,
         true,
       );
     }
@@ -1407,6 +1457,7 @@ function valid(v: unknown): v is Message {
     [
       "ready",
       "connect",
+      "pair",
       "hint",
       "stuck",
       "runTests",

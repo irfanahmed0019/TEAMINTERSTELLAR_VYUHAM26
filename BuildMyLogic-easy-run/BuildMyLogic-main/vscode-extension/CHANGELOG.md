@@ -1,3 +1,9 @@
+## 0.3.11
+
+- Pair a session by typing the signed-in website's 8-character, 5-minute, one-use code. Open VS Code links and loopback access are not required for this flow.
+- Claim only against the official API or loopback development address, with no redirects, cookies, previous session token or automatic retry. Codes are cleared immediately after submission.
+- Keep returned session credentials in VS Code SecretStorage. Existing session reconnect and explicit project evidence consent remain unchanged.
+
 ## 0.3.10
 
 - Add opt-in reviewed changed-input partitions for actual Python utility functions with at least four distinct existing literal-test inputs.

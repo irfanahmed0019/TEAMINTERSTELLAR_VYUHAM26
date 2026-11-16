@@ -33,7 +33,12 @@ import {
 } from "@/lib/loop-store";
 import type { BuildSessionState, SessionReview } from "@/lib/loop-types";
 import { aiReviewProjectZip, aiReviewSession } from "@/lib/sarvam.functions";
-import { getAuthSessionForApi } from "@/lib/auth";
+import {
+  getAuthSession,
+  getAuthEpoch,
+  getAuthSessionForApi,
+  useAuth,
+} from "@/lib/auth";
 import type { ProjectReview } from "@/lib/project-review";
 
 export const Route = createFileRoute("/sessions")({
@@ -63,6 +68,7 @@ function difficultyLabel(difficulty: number) {
 
 function Sessions() {
   const state = useLoop();
+  const pairingAuth = useAuth();
   const navigate = useNavigate();
   const plan = state.plan;
   const sessionPlan = plan?.session;
@@ -119,6 +125,64 @@ function Sessions() {
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const startRef = useRef(planned * 60);
   const connectionTokenRef = useRef<string | undefined>(undefined);
+  const [pairingCode, setPairingCode] = useState("");
+  const [pairingExpiry, setPairingExpiry] = useState("");
+  const [pairingBusy, setPairingBusy] = useState(false);
+  const [pairingError, setPairingError] = useState("");
+  useEffect(() => {
+    setPairingCode("");
+    setPairingExpiry("");
+    setPairingError("");
+  }, [pairingAuth?.uid, vscodeSession?.sessionId]);
+  async function showPairingCode() {
+    if (pairingBusy) return;
+    setPairingBusy(true);
+    setPairingError("");
+    setPairingCode("");
+    try {
+      const epoch = getAuthEpoch();
+      const auth = await getAuthSessionForApi();
+      if (!auth?.idToken)
+        throw Error("Sign in before creating a pairing code.");
+      const linked =
+        connectionTokenRef.current && vscodeSession
+          ? vscodeSession
+          : await createVscodeSession();
+      if (getAuthSession()?.uid !== auth.uid || getAuthEpoch() !== epoch)
+        throw Error("Account changed. Try again.");
+      const response = await fetch(
+        `/api/sessions/${encodeURIComponent(linked.sessionId)}/pairing/create`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${auth.idToken}`,
+          },
+          body: JSON.stringify({
+            connection_token: connectionTokenRef.current,
+          }),
+        },
+      );
+      const result = (await response.json()) as {
+        ok?: boolean;
+        code?: string;
+        expires_at?: string;
+        error?: string;
+      };
+      if (getAuthSession()?.uid !== auth.uid || getAuthEpoch() !== epoch)
+        return;
+      if (!response.ok || !result.ok || !result.code || !result.expires_at)
+        throw Error(result.error || "Could not create a pairing code.");
+      setPairingCode(result.code);
+      setPairingExpiry(result.expires_at);
+    } catch (error) {
+      setPairingError(
+        error instanceof Error ? error.message : "Pairing is unavailable.",
+      );
+    } finally {
+      setPairingBusy(false);
+    }
+  }
 
   useEffect(() => {
     const saved = learnerStorage.getItem("loop-vscode-path") ?? "";
@@ -1115,9 +1179,50 @@ function Sessions() {
             </>
           ) : (
             <p className="mt-2.5 rounded-xl bg-muted px-3 py-3.5 text-center text-[12px] font-semibold text-muted-foreground">
-              Open VS Code to generate an ID.
+              Create a pairing code below. Opening VS Code automatically is
+              optional.
             </p>
           )}
+          <div className="mt-4 border-t border-border pt-4">
+            <h3 className="text-sm font-bold">Pair with a code</h3>
+            <p className="mt-2 text-xs text-muted-foreground">
+              No launcher or folder picker needed. In VS Code, open BuildMyLogic
+              and choose Enter pairing code. Type the code shown here. It
+              expires in five minutes and works once. Keep it private.
+            </p>
+            <button
+              type="button"
+              className="btn-base btn-primary mt-3 w-full"
+              disabled={pairingBusy}
+              onClick={() => void showPairingCode()}
+            >
+              {pairingBusy ? "Creating code..." : "Create pairing code"}
+            </button>
+            {pairingCode ? (
+              <div className="mt-3 rounded-xl border border-primary/20 bg-primary-soft p-3 text-center">
+                <p
+                  className="text-xl font-black tracking-widest"
+                  aria-label="Pairing code"
+                >
+                  {pairingCode}
+                </p>
+                <p className="mt-2 text-xs">
+                  Expires{" "}
+                  {new Date(pairingExpiry).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                  . Single use. A Session ID alone does not connect the
+                  extension.
+                </p>
+              </div>
+            ) : null}
+            {pairingError ? (
+              <p role="alert" className="mt-2 text-xs text-red-700">
+                {pairingError}
+              </p>
+            ) : null}
+          </div>
         </section>
       </div>
 

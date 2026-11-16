@@ -234,3 +234,13 @@ Choose "Project utility repair + reviewed changed-input recheck (4+ cases)" for 
 After actual initial failures and the initial repair pass, open the website learning step for this source session. Complete and save its reviewed lesson and prediction gate as the signed-in owner. Then use "Run reviewed changed-input recheck" in the extension. A saved owner/session binding is required before the two reserved cases run. The website validates the result before any recovery receipt. Initial task results are not overwritten.
 
 All cases were reviewed and the test file remains viewable. These are changed inputs from existing tests, not secret or unseen tests, independent transfer evidence, or proof of general mastery. Older finite-only tasks cannot be converted into a fresh recheck.
+
+### Pair without an Open VS Code link (0.3.11)
+
+1. Install this version and reload VS Code. Open the BuildMyLogic sidebar.
+2. Sign in on the BuildMyLogic website. Open Sessions, select/start your learning session, and generate its pairing code.
+3. Type the eight-character code into "One-use pairing code" in VS Code, then choose "Pair session". Grouping spaces/hyphens and lowercase letters are accepted. Never enter your account password.
+
+A code expires in five minutes and works once. If it expires, is used, or the network loses the claim response, generate a new code on the website. The extension does not automatically retry a consumed code. Pairing is accepted only against the official website API or loopback development server, never an arbitrary workspace-configured external host. The code goes in a POST body, not a URL, and is cleared from the input immediately. The long secure session credential is stored only in VS Code SecretStorage, not normal settings. Project source/evidence sharing still requires its own consent after connection.
+
+"Reconnect an already paired session" accepts a saved display Session ID only when this extension already holds its secure credential. A display ID alone is not a pairing code. The old Open VS Code route remains an optional path; this code flow does not depend on it, a loopback port or browser protocol-handler support.

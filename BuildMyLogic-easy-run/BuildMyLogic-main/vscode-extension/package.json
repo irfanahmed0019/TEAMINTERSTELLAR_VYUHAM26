@@ -3,7 +3,7 @@
   "publisher": "buildmylogic",
   "displayName": "BuildMyLogic",
   "description": "BuildMyLogic in VS Code: learning challenges plus the AI Mentor - milestones, real graded C submissions, hints and task-aware chat on your persisted learning state.",
-  "version": "0.3.10",
+  "version": "0.3.11",
   "files": [
     "dist/extension.js",
     "media/**",
@@ -97,7 +97,7 @@
     "vscode:prepublish": "npm run package",
     "compile": "node esbuild.js",
     "package": "node esbuild.js --production",
-    "test": "node --experimental-strip-types --test src/ui-contract.test.mjs src/environmentSetup.test.mjs src/project-evaluator.test.mjs src/literal-repair.test.mjs"
+    "test": "node --experimental-strip-types --test src/ui-contract.test.mjs src/environmentSetup.test.mjs src/project-evaluator.test.mjs src/literal-repair.test.mjs src/pairing-code.test.mjs"
   },
   "devDependencies": {
     "@types/node": "20.x",

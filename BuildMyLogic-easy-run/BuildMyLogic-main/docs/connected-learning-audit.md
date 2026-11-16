@@ -331,3 +331,13 @@ minified production builds. Unknown-owner and seeded stale-pending controls
 still block. A simulated quota failure visibly shows the dedicated notice and
 retains the memory copy without restoring account/cloud authority. These local
 checks are distinct from the following live-deployment acceptance.
+
+## 2026-11-16: actual cross-tab restore and typed pairing release
+
+Production89d7ad: normal two-tab logout and same-tab sign-in restored actual QA cloud observation count4 and Conditions checkpoint1. After full hydration, actual Learn UI showed1of5 sections complete. Camera-free playback was stopped immediately; no new question or paid AI. Earlier pre-hydration observation was transient, not proven data loss. Existing blocked pending copies remain untouched.
+
+Pairing0.3.11: authenticated website issues an eight-character five-minute single-use code; matching extension claims it then keeps returned credentials in SecretStorage. Code hash only in additive database table, encrypted token, atomic DELETE claim, owner/token recheck. Best-effort per-instance rate limiting is not a global security boundary. No launcher/folder dependency for code issuance; project inspection consent remains separate. Display BML session IDs are not connection credentials.
+
+Validation:362appunit tests;36extension tests (unactivated Node prep excluded); both TypeScript checks; production build; actual router mocked-I/O integration verifies unauth/wrong-owner/wrong-token rejection, single race winner/replay, display ID rejection and returned-token connection. Local browser pixels inspected for code card and download page; synthetic fixtures only, not live DB or laptop acceptance.
+
+Deployment caveat: reviewed additive supabase-session-pairing.sql still awaits administrator execution on correct project. Missing table fails closed with503, without issuing a fake usable code. Do not call live OTP accepted until real create/claim/replay checks pass after migration. User installed0.3.3 requires0.3.11install and Reload Window. No physical laptop/keychain/camera acceptance claimed.
