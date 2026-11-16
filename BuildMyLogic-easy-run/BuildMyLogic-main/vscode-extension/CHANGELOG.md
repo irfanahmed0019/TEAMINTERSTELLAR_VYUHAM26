@@ -1,3 +1,9 @@
+## 0.3.21
+
+- Replaces the misleading AI copy-paste headline with a neutral large-edit notice. A text insertion cannot establish AI authorship.
+- Clears the notice on the next normal edit, task change or completion; ignores replacement and multi-cursor edits.
+- Keeps consent, AFK timing, local-only checks, passed results and nonblocking submission unchanged.
+
 ## 0.3.20
 
 - Shows the existing consented 30-second foreground activity idle window as a visible AFK countdown.

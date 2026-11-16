@@ -513,3 +513,13 @@ The user's request for similar questions leading to mastery is implemented as an
 
 - Adds the explicit "Python Developer" choice to the shared target-job catalog. Suggested future tools are Python, SQLite and pytest; the matching authored starter recommendation is Python Expense Tracker. Settings, onboarding and Dashboard use the same catalog. No user's selected goal, current plan, history or resume claims are changed automatically.
 - 418 tests, TypeScript, production build and focused lint pass. Controlled actual UI verified the named choice and Python recommendation, save/refresh/cloud persistence, existing C claims and plan/history/schedule unchanged, and the same choice in onboarding. Three screenshots were inspected. No AI test calls, real user profile edits or extension changes.
+
+
+## 2026-11-17: neutral insertion notice and stale-warning correction (0.3.21)
+
+- User reported their own coding being called AI-written, then clarified an initial copy-paste; whether the exact sequence caused the screenshot remains unproven. Screenshot itself has no visible insertion notice.
+- Removed the AI-origin headline. Text changes only show a large edit, never its origin. A single pure insertion can show a neutral local notice; replacements, small keystrokes, multiple cursor changes, undo/redo do not. This is not a paste or AI detector.
+- Normal subsequent edits clear the prior notice. Same-task completion/expiry and existing task-generation/disconnect/consent resets clear it too.
+- Existing consent, workspace/foreground/paused guards, AFK accounting, graded results, submission access and cloud evidence remain unchanged. No clipboard reads, insertion-content uploads or new AI calls.
+- Exact installed 0.3.21 VSIX verified in isolated desktop using real Ctrl+V of 469 synthetic characters across 35 lines, then ordinary typing, same-task completion and task change. Neutral notice appeared only for large insertions, cleared as intended; Submit stayed enabled. 30-second countdown and idle cap still work.
+- 418 web tests, 65 extension tests, both TypeScript checks and production build pass. Focused lint has zero errors (two existing sessions hook warnings). Screenshots show controlled local QA, not the user's private session.

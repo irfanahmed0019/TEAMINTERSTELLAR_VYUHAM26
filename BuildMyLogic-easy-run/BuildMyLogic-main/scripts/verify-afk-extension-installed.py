@@ -7,7 +7,7 @@ TMP=Path(tempfile.mkdtemp(prefix='bml-afk-gui-'));PORT=5488;DEBUG=9499
 for folder in ['user/User','ext','project']:(TMP/folder).mkdir(parents=True,exist_ok=True)
 (TMP/'project/main.py').write_text('print("hello")\n')
 (TMP/'user/User/settings.json').write_text(json.dumps({'workbench.startupEditor':'none','window.dialogStyle':'custom','security.workspace.trust.enabled':False,'buildMyLogic.apiBaseUrl':f'http://127.0.0.1:{PORT}','window.commandCenter':False,'extensions.autoUpdate':False,'extensions.autoCheckUpdates':False,'update.mode':'none','telemetry.telemetryLevel':'off'}))
-subprocess.run(['code','--no-sandbox','--user-data-dir',str(TMP/'user'),'--extensions-dir',str(TMP/'ext'),'--install-extension',str(ROOT/'public/downloads/buildmylogic-vscode-0.3.20.vsix'),'--force'],check=True)
+subprocess.run(['code','--no-sandbox','--user-data-dir',str(TMP/'user'),'--extensions-dir',str(TMP/'ext'),'--install-extension',str(ROOT/'public/downloads/buildmylogic-vscode-0.3.21.vsix'),'--force'],check=True)
 state={'session_id':'BML-AFKQA5','challenge_id':'python-conditions-sign-v1','title':'Number sign - local QA','language':'Python','concept':'conditions','instructions':'Read one integer and print negative, zero or positive.','expected_skills':['conditions'],'status':'connected','attempts':0,'hints_used':0,'extension_status':'connected','rev':1,'task_generation':0,'checkpoints':[],'timing':{'active_ms':0,'quality':'extension-observed','paused':False}}
 events=[]
 class Handler(BaseHTTPRequestHandler):
@@ -61,6 +61,7 @@ with sync_playwright() as pw:
  frame.locator('#pairCode').fill('ABCD2345');frame.locator('#pairButton').click()
  page.get_by_role('button',name='Share session evidence',exact=True).click()
  frame.locator('#active').wait_for(state='visible')
+ assert 'v0.3.21' in frame.locator('.version').inner_text()
  frame.locator('#afkClock').filter(has_text='AFK').wait_for()
  # The exact installed VSIX receives a real foreground document edit.
  page.keyboard.press('Control+1');page.keyboard.press('Control+End');page.keyboard.press('Enter');page.keyboard.insert_text('x = 1')
@@ -77,9 +78,27 @@ with sync_playwright() as pw:
  procs.append(clipboard);time.sleep(.3)
  subprocess.run(['xdotool','key','--clearmodifiers','ctrl+v'],env=env,check=True)
  frame.locator('#insertionNotice').wait_for(state='visible')
- assert 'not proof of AI use' in frame.locator('#insertionNotice').inner_text()
+ assert 'Large edit noticed' in frame.locator('#insertionNotice').inner_text()
+ assert 'does not tell us how the code was written' in frame.locator('#insertionNotice').inner_text()
+ assert 'Possible AI' not in frame.locator('#insertionNotice').inner_text()
  assert frame.locator('#submit').is_enabled()
- page.screenshot(path='/downloads/bml-large-insertion-installed.png')
+ page.screenshot(path='/downloads/bml-neutral-insertion-installed.png')
+ # The first normal keystroke after a paste clears the old notice.
+ page.keyboard.press('Control+1');page.keyboard.type(' # own typing',delay=80)
+ assert frame.locator('#insertionNotice').is_hidden()
+ page.screenshot(path='/downloads/bml-normal-typing-clear-installed.png')
+ # Trigger another real paste to exercise completion on the same generation.
+ subprocess.run(['xdotool','key','--clearmodifiers','ctrl+v'],env=env,check=True)
+ frame.locator('#insertionNotice').wait_for(state='visible')
+ state['status']='completed';state['rev']=2
+ for i in range(40):
+  if frame.locator('#insertionNotice').is_hidden():break
+  time.sleep(.3)
+ assert frame.locator('#insertionNotice').is_hidden()
+ page.screenshot(path='/downloads/bml-completed-clear-installed.png')
+ state['status']='connected';state['rev']=3
+ time.sleep(9)
+ page.keyboard.press('Control+1');page.keyboard.type('x',delay=80)
  time.sleep(31)
  assert 'idle limit reached' in frame.locator('#afkClock').inner_text(),frame.locator('#afkClock').inner_text()
  page.screenshot(path='/downloads/bml-afk-idle-installed.png')
@@ -88,11 +107,14 @@ with sync_playwright() as pw:
  assert any(e['event_type']=='work_activity' for e in events)
  assert all(0<=e['payload']['active_ms']<=30000 for e in events if e['event_type']=='work_activity')
  # An actual task-generation update clears the local insertion notice.
- state['task_generation']=1;state['rev']=2
+ page.keyboard.press('Control+1')
+ subprocess.run(['xdotool','key','--clearmodifiers','ctrl+v'],env=env,check=True)
+ frame.locator('#insertionNotice').wait_for(state='visible')
+ state['task_generation']=1;state['rev']=4
  for i in range(40):
   if frame.locator('#insertionNotice').is_hidden():break
   time.sleep(.3)
  assert frame.locator('#insertionNotice').is_hidden()
- print('PASS exact installed0.3.20 VSIX actualGUI: pair/consent/edit/countdown/insertion/31sAFK/task-switch-clear; submit not blocked; no insertion/source event or AI call')
+ print('PASS exact installed0.3.21 VSIX actualGUI: pair/consent/edit/countdown/neutral-insertion/normal-typing-clear/completion-clear/31sAFK/task-switch-clear; submit not blocked; no insertion/source event or AI call')
  print('API event types:',[e['event_type'] for e in events])
  browser.close()

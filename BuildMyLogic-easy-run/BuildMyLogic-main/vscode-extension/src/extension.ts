@@ -1,4 +1,8 @@
-import { IDLE_WINDOW_MS, largeCodeInsertion, sessionActivityClock } from "./sessionActivity";
+import {
+  IDLE_WINDOW_MS,
+  largeCodeInsertion,
+  sessionActivityClock,
+} from "./sessionActivity";
 import { claimPairingCode, normalizePairingCode } from "./pairingCode";
 import * as vscode from "vscode";
 import * as path from "node:path";
@@ -761,7 +765,10 @@ class Sidebar implements vscode.WebviewViewProvider {
     this.activityFlushAt = Date.now();
     this.activityAt = 0;
     this.activityTimer = setInterval(() => void this.flushActivity(), 15000);
-    this.activityDisplayTimer = setInterval(() => this.publishActivityState(), 1000);
+    this.activityDisplayTimer = setInterval(
+      () => this.publishActivityState(),
+      1000,
+    );
     this.publishActivityState();
     this.evidenceSubscriptions.push(
       vscode.workspace.onDidChangeTextDocument((event) => {
@@ -772,9 +779,20 @@ class Sidebar implements vscode.WebviewViewProvider {
           )
         ) {
           this.noteActivity();
-          if (vscode.window.state.focused && !this.session?.timing?.paused && this.session?.status !== "completed" && this.session?.status !== "expired") {
-            const signal = largeCodeInsertion(event.contentChanges ?? [], event.document.languageId, event.reason !== undefined);
-            if (signal) { this.insertionSignal = signal; this.publishActivityState(); }
+          if (
+            vscode.window.state.focused &&
+            !this.session?.timing?.paused &&
+            this.session?.status !== "completed" &&
+            this.session?.status !== "expired"
+          ) {
+            const signal = largeCodeInsertion(
+              event.contentChanges ?? [],
+              event.document.languageId,
+              event.reason !== undefined,
+            );
+            // A notice describes the latest edit only, never the author or later typing.
+            this.insertionSignal = signal;
+            this.publishActivityState();
           }
         }
       }),
@@ -911,7 +929,19 @@ class Sidebar implements vscode.WebviewViewProvider {
     }
   }
   private publishActivityState(session = this.session) {
-    this.post({ type: "activityState", clock: sessionActivityClock({ now: Date.now(), activityAt: this.activityAt, consent: !!this.connection && this.evidenceConsent, focused: vscode.window.state.focused, paused: !!session?.timing?.paused, finished: session?.status === "completed" || session?.status === "expired" }), insertion: this.insertionSignal ?? null });
+    this.post({
+      type: "activityState",
+      clock: sessionActivityClock({
+        now: Date.now(),
+        activityAt: this.activityAt,
+        consent: !!this.connection && this.evidenceConsent,
+        focused: vscode.window.state.focused,
+        paused: !!session?.timing?.paused,
+        finished:
+          session?.status === "completed" || session?.status === "expired",
+      }),
+      insertion: this.insertionSignal ?? null,
+    });
   }
   private async flushActivity(foregroundUntilNow = false) {
     const connection = this.connection,
@@ -1836,7 +1866,13 @@ class Sidebar implements vscode.WebviewViewProvider {
     const m = message as { session?: RemoteSession };
     if (m.session) {
       this.results.update(m.session);
-      const key = [m.session.session_id, m.session.challenge_id, m.session.task_generation ?? 0].join(":");
+      const key = [
+        m.session.session_id,
+        m.session.challenge_id,
+        m.session.task_generation ?? 0,
+      ].join(":");
+      if (m.session.status === "completed" || m.session.status === "expired")
+        this.insertionSignal = undefined;
       if (key !== this.activityTaskKey) {
         this.activityTaskKey = key;
         this.insertionSignal = undefined;

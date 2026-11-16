@@ -16,6 +16,9 @@ test('AFK displays the existing 30-second cap exactly, without changing evidence
 test('large insertion is an uncertain size heuristic, never AI or clipboard attribution',()=>{
  assert.equal(largeCodeInsertion([{text:'x=1'}],'python',false),undefined);
  assert.equal(largeCodeInsertion([{text:''}],'python',false),undefined);
+ for (const text of 'x'.repeat(2000)) assert.equal(largeCodeInsertion([{text,rangeLength:0}],'python',false),undefined,'normal typing never accumulates into a notice');
+ assert.equal(largeCodeInsertion([{text:'x'.repeat(800),rangeLength:700}],'python',false),undefined,'formatter or replacement');
+ assert.equal(largeCodeInsertion(Array.from({length:500},()=>({text:'x',rangeLength:0})),'python',false),undefined,'multiple small cursor edits');
  assert.equal(largeCodeInsertion([{text:'x'.repeat(800)}],'plaintext',false),undefined);
  assert.equal(largeCodeInsertion([{text:'x'.repeat(800)}],'python',true),undefined);
  assert.deepEqual(largeCodeInsertion([{text:'x'.repeat(400)}],'python',false),{characters:400,lines:1});
@@ -38,6 +41,14 @@ test('actual extension listener stays consented, foreground, task-local and send
   assert.equal(messages.at(-1).clock.seconds,30);
   assert.deepEqual(sidebar.insertionSignal,{characters:500,lines:1});
   assert.equal(events.length,0,'insertion is local and no source uploaded');
+  for (const text of 'normal own typing') listeners.change({...event,contentChanges:[{text,rangeLength:0}]});
+  assert.equal(sidebar.insertionSignal,undefined,'normal typing clears a prior insertion notice');
+  assert.equal(messages.at(-1).insertion,null);
+  listeners.change(event);
+  assert.ok(sidebar.insertionSignal);
+  sidebar.post({session:{...sidebar.session,status:'completed'}});
+  assert.equal(sidebar.insertionSignal,undefined,'completion clears notice even within same task');
+  listeners.change(event);
   sidebar.post({session:{...sidebar.session,task_generation:1}});assert.equal(sidebar.insertionSignal,undefined);
   vs.window.state.focused=false;listeners.change(event);assert.equal(sidebar.insertionSignal,undefined);
   vs.window.state.focused=true;listeners.change({...event,document:{...event.document,uri:{scheme:'file',fsPath:'/outside/secret.py'}}});assert.equal(sidebar.insertionSignal,undefined);
@@ -45,4 +56,12 @@ test('actual extension listener stays consented, foreground, task-local and send
   sidebar.session.status='connected';sidebar.session.timing={paused:true};listeners.change(event);assert.equal(sidebar.insertionSignal,undefined);
  } finally {sidebar.clearEvidenceSubscriptions();}
  assert.equal(sidebar.evidenceConsent,false);assert.equal(sidebar.insertionSignal,undefined);
+});
+
+test('insertion notice never attributes the code to AI or paste detection',()=>{
+ const ui=readFileSync('src/webviewHtml.ts','utf8');
+ assert.ok(ui.includes('Large edit noticed'));
+ assert.ok(ui.includes('This does not tell us how the code was written'));
+ assert.ok(!ui.includes('Possible AI copy-paste detected'));
+ assert.ok(ui.includes('does not judge authorship, block submission or change passed results'));
 });

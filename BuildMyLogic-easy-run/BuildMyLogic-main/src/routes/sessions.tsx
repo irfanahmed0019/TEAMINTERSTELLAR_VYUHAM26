@@ -1542,8 +1542,9 @@ function Sessions() {
             <p className="mb-3 text-xs text-muted-foreground">
               Standalone practice, not a test of your project. Choose a topic
               you want help with. Requires Python. All 12 questions and correct
-              run disclosures need extension v0.3.19 or newer. AFK countdown and local
-              insertion notices need v0.3.20.
+              run disclosures need extension v0.3.19 or newer. AFK countdown and
+              local insertion notices need v0.3.20. Neutral notices that clear
+              on normal edits need v0.3.21.
             </p>
             <button
               type="button"
