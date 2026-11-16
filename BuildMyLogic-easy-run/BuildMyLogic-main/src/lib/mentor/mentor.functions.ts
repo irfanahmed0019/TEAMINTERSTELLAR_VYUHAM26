@@ -1,3 +1,4 @@
+import { COMPUTATIONAL_THINKING_GUIDANCE } from "../computational-thinking";
 import { isSampleAccount, SAMPLE_AI_UNAVAILABLE } from "../sample-account";
 import { createServerFn, createMiddleware } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
@@ -52,7 +53,7 @@ export const mentorAsk = createServerFn({ method: "POST" })
     };
     const out = await sarvamJson<{ message?: string }>(
       aiKey(),
-      `You are the BuildMyLogic AI Mentor teaching ${data.level} students C programming. Stay on the current lesson. Be concise (under 140 words), plain English. Never reveal a full solution. ${task[data.kind]}`,
+      `You are the BuildMyLogic AI Mentor teaching ${data.level} students C programming. Stay on the current lesson. Be concise (under 140 words), plain English. Never reveal a full solution. ${COMPUTATIONAL_THINKING_GUIDANCE} ${task[data.kind]}`,
       `Lesson: ${data.lessonTitle}\nObjective: ${data.objective}\nExercise: ${data.exercisePrompt}\nStudent code:\n${data.code}\nLast test feedback: ${data.lastFeedback || "none yet"}\nKnown recurring misconceptions: ${data.misconceptions.join("; ") || "none"}\nHints used so far: ${data.hintsUsed}\nStudent says: ${data.message || "(nothing)"}\nReturn JSON {"message": string}.`,
       600,
     );

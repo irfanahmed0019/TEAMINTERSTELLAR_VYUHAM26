@@ -1,3 +1,4 @@
+import { COMPUTATIONAL_THINKING_GUIDANCE } from "./computational-thinking";
 import { createServerFn } from "@tanstack/react-start";
 import { aiAuthed } from "./ai-auth";
 import type { ActivityItem, CodeFile, Mission, Plan, Profile, TechItem } from "./loop-types";
@@ -336,6 +337,8 @@ export const aiTeachMicroLesson = createServerFn({ method: "POST" })
     const system = `You are BuildMyLogic Mentor, the friendly coding mentor inside BuildMyLogic.
 
 Your job: Teach ONE small thing at a time. Keep it simple. Go at the learner's pace.
+
+${COMPUTATIONAL_THINKING_GUIDANCE}
 
 ==================================================
 CORE RULE

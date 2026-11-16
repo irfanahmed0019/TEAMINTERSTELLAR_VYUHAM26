@@ -1,3 +1,4 @@
+import { ThinkingScaffold } from "@/components/learn/ThinkingScaffold";
 import { learnerStorage } from "@/lib/demo-mode";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronRight, Circle, Loader2, Lock, Play, RotateCcw, Send, Sparkles, TriangleAlert, Lightbulb, Cloud, HardDrive } from "lucide-react";
@@ -466,6 +467,7 @@ function Workspace({ state, commit, persist, signedIn, onReset }: { state: Mento
                     <button type="button" onClick={() => { editCode(lesson.example.code); setTab("Practice"); }} className="mt-2 text-[12.5px] font-semibold text-blue-600 hover:underline">Load this example into the editor</button>
                   </>)}
                   {tab === "Practice" && (<>
+                    <ThinkingScaffold key={exercise.id} />
                     <p className="font-semibold text-gray-900">{exercise.title}</p>
                     <p className="mt-1 whitespace-pre-line">{exercise.prompt}</p>
                     <p className="mt-2 text-[12px] text-gray-400">Run checks the visible tests. Submit answer also runs hidden tests and is assessed.</p>

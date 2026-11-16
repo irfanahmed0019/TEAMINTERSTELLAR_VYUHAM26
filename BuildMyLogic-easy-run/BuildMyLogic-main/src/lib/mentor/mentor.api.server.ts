@@ -1,3 +1,4 @@
+import { COMPUTATIONAL_THINKING_GUIDANCE } from "../computational-thinking";
 import { isSampleAccount, SAMPLE_AI_UNAVAILABLE } from "../sample-account";
 /**
  * Server side of the AI Mentor. Everything that counts as learner evidence is
@@ -827,7 +828,7 @@ export async function handleMentorApi(
       const message = String(b["message"] ?? "").slice(0, 600);
       const out = await sarvamJson<{ message?: string }>(
         key,
-        `You are the BuildMyLogic AI Mentor teaching ${level} students C programming. Stay on the current lesson. Be concise (under 140 words), plain English. Never reveal a full solution. ${task[kind]}`,
+        `You are the BuildMyLogic AI Mentor teaching ${level} students C programming. Stay on the current lesson. Be concise (under 140 words), plain English. Never reveal a full solution. ${COMPUTATIONAL_THINKING_GUIDANCE} ${task[kind]}`,
         `Lesson: ${lessonTitle}\nObjective: ${objective}\nExercise: ${exercisePrompt}\nStudent code:\n${code}\nLast test feedback: ${lastFeedback || "none yet"}\nKnown recurring misconceptions: ${misconceptions.join("; ") || "none"}\nHints used so far: ${hintsUsed}\nStudent says: ${message || "(nothing)"}\nReturn JSON {"message": string}.`,
         600,
       );

@@ -1,3 +1,4 @@
+import { ThinkingScaffold } from "./ThinkingScaffold";
 import { learnerStorage } from "@/lib/demo-mode";
 import { useEffect, useState } from "react";
 import {
@@ -275,6 +276,7 @@ export function TopicPractice({
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
+      <div className="lg:col-span-2"><ThinkingScaffold key={`${topicId}-${language}`} /></div>
       {/* Task panel */}
       <div className="rounded-2xl border border-border bg-card p-5">
         {activeMisconception && (
