@@ -3,6 +3,7 @@ import { InitialCodingDiagnosticPanel } from "@/components/InitialCodingDiagnost
 import { mergeAssessmentEvidence } from "@/lib/assessment-evidence";
 import {
   intakePrompts,
+  relevantIntakePrompt,
   restoreIntake,
   saveIntakeAnswers,
 } from "@/lib/intake-state";
@@ -79,7 +80,7 @@ function AccountOnboarding() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "mentor",
-      text: "Hi! I'm your BuildMyLogic Mentor. Tell me what you want to learn, build, or become. I'll understand your starting point and create a practical learning path with real projects.",
+      text: "Hi! I'm your BuildMyLogic Mentor. " + relevantIntakePrompt(0, []),
     },
   ]);
   const [answers, setAnswers] = useState<string[]>([]);
@@ -106,7 +107,10 @@ function AccountOnboarding() {
     if (restored.answers.length) {
       setMessages([
         ...restored.answers.flatMap((answer, index): Message[] => [
-          { role: "mentor", text: prompts[index] ?? "" },
+          {
+            role: "mentor",
+            text: relevantIntakePrompt(index, restored.answers, loop.profile),
+          },
           { role: "student", text: answer },
         ]),
         {
@@ -114,7 +118,11 @@ function AccountOnboarding() {
           text:
             restored.stage === "plan"
               ? "Your intake is saved. Continue your starting-point checks below."
-              : (prompts[restored.answers.length] ?? ""),
+              : relevantIntakePrompt(
+                  restored.answers.length,
+                  restored.answers,
+                  loop.profile,
+                ),
         },
       ]);
     }
@@ -133,7 +141,7 @@ function AccountOnboarding() {
       prev.onboarded ? prev : { ...prev, profile: updated },
     );
   }
-  const currentPrompt = prompts[answers.length];
+  const currentPrompt = relevantIntakePrompt(answers.length, answers, profile);
   const firstName = auth?.displayName?.split(" ")[0] ?? "";
 
   useEffect(() => {
@@ -181,7 +189,10 @@ function AccountOnboarding() {
       saveProfile(saveIntakeAnswers(profile, nextAnswers));
       setMessages((old) => [
         ...old,
-        { role: "mentor", text: prompts[nextAnswers.length] ?? "" },
+        {
+          role: "mentor",
+          text: relevantIntakePrompt(nextAnswers.length, nextAnswers, profile),
+        },
       ]);
       return;
     }
@@ -194,7 +205,7 @@ function AccountOnboarding() {
     const techMatch = goal.match(
       /\b(python|javascript|typescript|java|c\+\+|c|react|django|html|css|machine learning|data science)\b/i,
     );
-    const tech = techMatch?.[0] ?? "Python";
+    const tech = techMatch?.[0] ?? profile.technologies[0]?.name;
     const nextProfile: Profile = saveIntakeAnswers(
       {
         ...profile,
@@ -217,14 +228,18 @@ function AccountOnboarding() {
             }
           : {}),
         technologies: [
-          {
-            name: tech,
-            level: isBeginner
-              ? ("beginner" as const)
-              : ("intermediate" as const),
-          },
+          ...(tech
+            ? [
+                {
+                  name: tech,
+                  level: isBeginner
+                    ? ("beginner" as const)
+                    : ("intermediate" as const),
+                },
+              ]
+            : []),
           ...profile.technologies.filter(
-            (item) => item.name.toLowerCase() !== tech.toLowerCase(),
+            (item) => !tech || item.name.toLowerCase() !== tech.toLowerCase(),
           ),
         ].slice(0, 10),
         projectIdea: goal,

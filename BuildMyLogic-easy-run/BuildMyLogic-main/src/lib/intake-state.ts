@@ -61,3 +61,24 @@ export function diagnosticContinueLabel(
     return `Continue with ${d.answers.length} provisional checks`;
   return "Continue with an unassessed profile";
 }
+
+/** Ask about stated learning context, never guess personal or sensitive identity. */
+export function relevantIntakePrompt(
+  index: number,
+  answers: string[],
+  profile?: Profile | null,
+): string {
+  if (index === 0)
+    return "Tell me your background and goal: are you studying, working, changing careers, or exploring? What would you like to learn or build? You can skip any personal detail.";
+  const stated = answers[0] ?? "";
+  const matched = stated.match(
+    /\b(python|javascript|typescript|java|react|django|html|css|machine learning|data science)\b/i,
+  )?.[0];
+  const topic = matched ?? profile?.technologies?.[0]?.name;
+  const context = topic ? ` with ${topic}` : " in the area you want to learn";
+  if (index === 1)
+    return /\b(job|career|interview)\b/i.test(stated)
+      ? `Which role are you aiming for, and what have you already built or practiced${context}? It's fine if you are starting from zero.`
+      : `What have you tried${context}? Tell me one thing you can do and one thing you get stuck on, or say you are a complete beginner.`;
+  return `How much time can you realistically spend each week? Which small ${topic ? topic + " " : ""}task would you like to tackle first?`;
+}
