@@ -239,3 +239,21 @@ verify the automatic switch, restore, Dashboard/Learn context and absence of
 fake submissions. The ordinary actual-component local-Python handler journey
 also passes with two calibration answers. These are local fixture checks, not
 live learner or real-model acceptance of the new flow.
+
+### Production boundary regression closed at `44572f5`
+
+Verified the actual browser `/api/app-version` returns
+`44572f567d854f9c739a55aa3b0ef9335ed69adf`. Two bounded normal Learn UI
+submissions on the isolated synthetic account, without AI or state injection:
+
+- Wrong `n >= 0`: HTTP 200 in 1.7467 seconds. Positive and negative cases passed;
+  zero failed with expected `not positive`, actual `positive`. The faulty
+  boundary was rejected by actual production execution.
+- Correct `n > 0`: HTTP 200 in 1.8682 seconds; all three output checks passed.
+
+Screenshots captured both real UI outcomes. These close the specific zero-case
+regression and verify this finite execution path, not general algorithm mastery,
+runner reliability, or the root cause of the earlier transient 502 responses.
+No paid AI calls were repeated. The newly shortened real-model calibration and
+its generated content remain untested against a fresh provider call. Local
+component fixtures verify the new two-question and automatic-support behavior.

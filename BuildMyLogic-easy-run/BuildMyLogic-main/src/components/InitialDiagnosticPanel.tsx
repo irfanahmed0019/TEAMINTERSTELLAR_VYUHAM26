@@ -25,6 +25,9 @@ export function InitialDiagnosticPanel({
   const d = profile.initialDiagnostic;
   const q = d?.status === "in_progress" ? nextDiagnostic(d) : null;
   const last = d?.answers.at(-1);
+  const eligibleAnswers =
+    d?.answers.filter((a) => !diagnosticQuestionIssue(a.question)) ?? [];
+  const excludedCount = (d?.answers.length ?? 0) - eligibleAnswers.length;
   async function generate() {
     setBusy(true);
     setError("");
@@ -68,9 +71,10 @@ export function InitialDiagnosticPanel({
       )}
       {last && (
         <p role="status" className="mt-4 rounded-xl bg-muted p-3 text-sm">
-          {last.correct
-            ? "Answer matches the key."
-            : "Answer does not match the key."}{" "}
+          {diagnosticQuestionIssue(last.question) ??
+            (last.correct
+              ? "Answer matches the key."
+              : "Answer does not match the key.")}{" "}
           {last.question.explanation}
         </p>
       )}
@@ -102,14 +106,12 @@ export function InitialDiagnosticPanel({
       )}
       {d?.status === "completed" && (
         <p className="mt-4 text-sm">
-          Initial checks:{" "}
-          {
-            d.answers.filter(
-              (a) => a.correct && !diagnosticQuestionIssue(a.question),
-            ).length
-          }
-          /{d.answers.length} match the answer keys. Your roadmap will use this
-          provisional evidence, not treat resume claims as verified strengths.
+          Initial checks: {eligibleAnswers.filter((a) => a.correct).length}/
+          {eligibleAnswers.length} eligible checks match the answer keys.
+          {excludedCount > 0 &&
+            ` ${excludedCount} contradictory item excluded; raw answers remain saved.`}{" "}
+          Your roadmap will use this provisional evidence, not treat resume
+          claims as verified strengths.
         </p>
       )}
       {error && (
