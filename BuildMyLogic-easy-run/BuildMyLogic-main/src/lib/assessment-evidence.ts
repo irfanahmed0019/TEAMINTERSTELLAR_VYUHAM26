@@ -5,11 +5,13 @@ export type AssessmentEvidence = {
   ownerId: string;
   skill: string;
   topicId?: string;
+  taskId?: string;
+  language?: "c" | "python";
   at: number;
   passed: number;
   total: number;
   hintsUsed: number;
-  source: "server-graded Mentor tests";
+  source: "server-graded Mentor tests" | "server-graded initial coding tests";
 };
 const topicBySkill: Record<string, { id: string; title: string }> = {
   output: { id: "first-program", title: "Your First Program" },

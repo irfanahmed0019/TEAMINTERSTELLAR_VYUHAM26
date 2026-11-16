@@ -1,3 +1,5 @@
+import { InitialCodingDiagnosticPanel } from "@/components/InitialCodingDiagnosticPanel";
+import { mergeAssessmentEvidence } from "@/lib/assessment-evidence";
 import {
   intakePrompts,
   restoreIntake,
@@ -478,6 +480,45 @@ function AccountOnboarding() {
                   researches which topics you need and builds your personalized
                   learning path while your new dashboard assembles.
                 </p>
+                <InitialCodingDiagnosticPanel
+                  profile={profile}
+                  onChange={(initialCodingDiagnostic, evidence) => {
+                    if (
+                      !auth ||
+                      !hydrated ||
+                      getAuthSession()?.uid !== auth.uid
+                    )
+                      return;
+                    if (
+                      evidence &&
+                      (evidence.ownerId !== auth.uid ||
+                        evidence.source !==
+                          "server-graded initial coding tests")
+                    )
+                      return;
+                    const updated = {
+                      ...profileRef.current,
+                      initialCodingDiagnostic,
+                    };
+                    setProfile(updated);
+                    setLoopState((prev) =>
+                      prev.onboarded
+                        ? prev
+                        : {
+                            ...prev,
+                            profile: updated,
+                            ...(evidence
+                              ? {
+                                  assessmentEvidence: mergeAssessmentEvidence(
+                                    prev.assessmentEvidence ?? [],
+                                    [evidence],
+                                  ),
+                                }
+                              : {}),
+                          },
+                    );
+                  }}
+                />
                 <InitialDiagnosticPanel
                   profile={profile}
                   onChange={(initialDiagnostic) => {

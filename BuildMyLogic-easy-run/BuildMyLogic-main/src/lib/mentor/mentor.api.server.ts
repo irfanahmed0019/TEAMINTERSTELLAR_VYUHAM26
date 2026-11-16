@@ -1,3 +1,4 @@
+import { initialCodingTask } from "../initial-coding-diagnostic";
 import { COMPUTATIONAL_THINKING_GUIDANCE } from "../computational-thinking";
 import { isSampleAccount, SAMPLE_AI_UNAVAILABLE } from "../sample-account";
 /**
@@ -547,6 +548,72 @@ export async function handleMentorApi(
     return json(request, { ok: false, error: "Origin is not allowed." }, 403);
   const ip = ipOf(request);
   try {
+    // Authenticated finite initial coding check. The server owns tasks/expected
+    // outputs. No AI provider or paid credential is used by this route.
+    if (request.method === "POST" && p === "/api/mentor/diagnostic") {
+      const uid = await authenticatedUserId(request);
+      if (!uid)
+        return json(
+          request,
+          {
+            ok: false,
+            error: "Sign in before submitting an initial coding check.",
+          },
+          401,
+        );
+      if (limited(ip, "initial-coding", 6))
+        return json(
+          request,
+          { ok: false, error: "Too many submissions. Wait a minute." },
+          429,
+        );
+      const b = await body(request);
+      const task = initialCodingTask(
+        String(b["taskId"] ?? ""),
+        b["language"] as "c" | "python",
+      );
+      if (!task)
+        throw new HttpError(
+          400,
+          "This authored diagnostic task is unavailable.",
+        );
+      const code = String(b["code"] ?? "");
+      if (!code.trim() || code.length > MAX_CODE)
+        throw new HttpError(
+          400,
+          "Write between 1 and 12,000 characters of code.",
+        );
+      const items = await runCode(
+        task.language,
+        code,
+        task.tests.map((t) => t.stdin),
+      );
+      const results = gradeRun(task.tests, items);
+      const at = Date.now();
+      return json(request, {
+        ok: true,
+        taskId: task.id,
+        language: task.language,
+        evidence: {
+          id: `initial-coding:${crypto.randomUUID()}`,
+          ownerId: uid,
+          taskId: task.id,
+          language: task.language,
+          skill: task.skill,
+          topicId: task.topicId,
+          at,
+          passed: results.filter((r) => r.passed).length,
+          total: results.length,
+          hintsUsed: b["hintUsed"] === true ? 1 : 0,
+          source: "server-graded initial coding tests",
+        },
+        results,
+        sandbox: `Judge0 CE public sandbox (ce.judge0.com), ${JUDGE0_LANGS[task.language].label}`,
+        scope:
+          "Finite output checks only. Source structure, independent authorship and general mastery are not verified. Results are saved to your learner profile by this app, not an immutable credential.",
+      });
+    }
+
     // Public trial: run only. No grading, no storage, no learner data.
     if (request.method === "POST" && p === "/api/mentor/run") {
       if (limited(ip, "run", 12))

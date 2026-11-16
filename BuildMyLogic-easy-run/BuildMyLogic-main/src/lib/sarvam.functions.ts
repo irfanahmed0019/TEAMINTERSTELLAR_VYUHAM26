@@ -1,3 +1,4 @@
+import { codingDiagnosticSummary } from "./initial-coding-diagnostic";
 import { diagnosticQuestions, diagnosticSummary } from "./initial-diagnostic";
 import { normalizeResumeAnalysis } from "./resume-intake";
 import { COMPUTATIONAL_THINKING_GUIDANCE } from "./computational-thinking";
@@ -34,6 +35,7 @@ function profileBrief(profile: Profile): string {
   return [
     `Name: ${profile.name || "Builder"}`,
     diagnosticSummary(profile.initialDiagnostic),
+    codingDiagnosticSummary(profile.initialCodingDiagnostic),
     `Reported technologies (unverified until assessed): ${profile.technologies.map((t) => `${t.name} (${t.level})`).join(", ") || "not stated"}`,
     `Primary goal: ${profile.goal}${profile.goalDetail ? ` — ${profile.goalDetail}` : ""}`,
     `Building experience: ${profile.experience}${profile.experienceDetail ? ` — ${profile.experienceDetail}` : ""}`,

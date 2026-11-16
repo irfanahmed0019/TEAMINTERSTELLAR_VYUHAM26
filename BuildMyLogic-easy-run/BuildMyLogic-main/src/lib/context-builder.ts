@@ -1,3 +1,4 @@
+import { codingDiagnosticSummary } from "./initial-coding-diagnostic.ts";
 import type {
   CompressedMemorySummary,
   LearningState,
@@ -92,6 +93,7 @@ export function buildAiContext(
 Learner: ${name}
 Goal: ${input.profile?.goal || "Learn practical programming"}
 Experience level: ${input.profile?.experience || "beginner"}
+${codingDiagnosticSummary(input.profile?.initialCodingDiagnostic)}
 
 MISSION:
 Title: ${input.mission.title}
