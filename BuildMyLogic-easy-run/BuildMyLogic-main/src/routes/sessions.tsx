@@ -403,7 +403,8 @@ function Sessions() {
     const existingPending =
       practiceTask &&
       vscodeSession?.sessionId &&
-      remoteState?.challenge_id === "project-context-pending";
+      (remoteState?.challenge_id === "project-context-pending" ||
+        PRACTICE_TASKS.some((t) => t.id === remoteState?.challenge_id));
     const response = await fetch(
       existingPending
         ? `/api/sessions/${encodeURIComponent(vscodeSession!.sessionId)}/practice-task`
@@ -413,6 +414,14 @@ function Sessions() {
         headers,
         body: JSON.stringify({
           ...(practiceTask ? { practice_task: practiceTask } : {}),
+          ...(existingPending &&
+          remoteState?.challenge_id !== "project-context-pending"
+            ? {
+                replace_task: true,
+                previous_challenge: remoteState?.challenge_id,
+                task_generation: remoteState?.task_generation ?? 0,
+              }
+            : {}),
           challenge_id: "project-context-pending",
           user_id: userId,
           title: "Inspect your project before choosing a challenge",
@@ -1281,6 +1290,15 @@ function Sessions() {
               className="btn-base btn-outline mb-3 w-full"
               onClick={async () => {
                 if (practiceStarting.current || !practiceSelection) return;
+                if (
+                  PRACTICE_TASKS.some(
+                    (t) => t.id === remoteState?.challenge_id,
+                  ) &&
+                  !window.confirm(
+                    "Change to this question? Earlier attempts will stay in task history. Requires extension v0.3.15.",
+                  )
+                )
+                  return;
                 practiceStarting.current = true;
                 setPracticeBusy(true);
                 setPracticeNotice("");
@@ -1292,9 +1310,13 @@ function Sessions() {
                   setPickerError("");
                   setPracticeNotice(
                     vscodeSession &&
-                      remoteState?.challenge_id === "project-context-pending"
-                      ? "Task sent to this session. In connected VS Code, open main.py."
-                      : "Practice selected. Create a pairing code, then open main.py in VS Code.",
+                      (remoteState?.challenge_id ===
+                        "project-context-pending" ||
+                        PRACTICE_TASKS.some(
+                          (t) => t.id === remoteState?.challenge_id,
+                        ))
+                      ? "Task sent to this session. In VS Code, open your Python file. Changing questions needs v0.3.15."
+                      : "Practice selected. Create a pairing code, then open your Python file in VS Code.",
                   );
                 } catch (e) {
                   setPickerError(
@@ -1310,6 +1332,41 @@ function Sessions() {
             >
               {practiceBusy ? "Selecting task..." : "Use this Python task"}
             </button>
+            {Boolean(remoteState?.practice_history?.length) && (
+              <details className="mb-3 text-xs">
+                <summary>
+                  Earlier task attempts ({remoteState?.practice_history?.length}
+                  )
+                </summary>
+                {remoteState?.practice_history?.map((entry, index) => (
+                  <div key={index} className="mt-2 rounded-xl border p-2">
+                    <b>{entry.title}</b>
+                    <p>
+                      {String(entry.state["attempts"] ?? 0)} attempts -{" "}
+                      {String(entry.state["status"] ?? "unverified")}
+                    </p>
+                    <ul className="mt-2 space-y-1">
+                      {(Array.isArray(entry.state["attempt_history"])
+                        ? entry.state["attempt_history"]
+                        : []
+                      ).map(
+                        (
+                          attempt: Record<string, unknown>,
+                          attemptIndex: number,
+                        ) => (
+                          <li key={attemptIndex}>
+                            Attempt{" "}
+                            {String(attempt["attempt"] ?? attemptIndex + 1)}:{" "}
+                            {String(attempt["passed"] ?? 0)}/
+                            {String(attempt["total"] ?? 0)} checks passed
+                          </li>
+                        ),
+                      )}
+                    </ul>
+                  </div>
+                ))}
+              </details>
+            )}
             {practiceNotice && (
               <p
                 role="status"

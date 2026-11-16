@@ -416,6 +416,7 @@ async function handleBuildMyLogicApi(
         "conquest",
         "project-recheck",
         "project-recheck-ready",
+        "practice-task",
       ].includes(learningMatch[2] ?? ""),
     );
     if (!session)
@@ -423,6 +424,7 @@ async function handleBuildMyLogicApi(
         { ok: false, error: "Invalid, expired, or unauthorized session." },
         401,
       );
+    await refreshConquestReceipts(session);
     const action = learningMatch[2] ?? "state";
     const scopedExtension = sessionTokenValid(
       session,
@@ -680,6 +682,27 @@ async function handleBuildMyLogicApi(
       );
     const body = await readJson(request);
     if (
+      (session.taskGeneration ?? 0) > 0 &&
+      (["test-result", "submit", "failed", "hint", "stuck"].includes(action) ||
+        (action === "events" &&
+          [
+            "test_result",
+            "build_result",
+            "runtime_error",
+            "compiler_error",
+            "file_evidence",
+          ].includes(String(body["event_type"])))) &&
+      body["task_generation"] !== session.taskGeneration
+    )
+      return jsonResponse(
+        {
+          ok: false,
+          error:
+            "Question changed. Run the current task with extension v0.3.15; no attempt recorded.",
+        },
+        409,
+      );
+    if (
       session.challengeId === "project-context-pending" &&
       ([
         "test-result",
@@ -719,7 +742,16 @@ async function handleBuildMyLogicApi(
         return jsonResponse({
           ok: true,
           session_id: session.sessionId,
-          state: await assignPracticeTask(session, body["practice_task"]),
+          state: await assignPracticeTask(
+            session,
+            body["practice_task"],
+            body["replace_task"] === true
+              ? {
+                  challenge: body["previous_challenge"],
+                  generation: body["task_generation"],
+                }
+              : undefined,
+          ),
         });
       }
       if (action === "events")

@@ -266,3 +266,38 @@ test("all catalog practice tasks accept real solutions and reject wrong answers,
     rmSync(dir, { recursive: true, force: true });
   }
 });
+test("explicit active Python file accepts interactive Fibonacci, rejects printed prefix/wrong output and missing file", () => {
+  const script = resolve("media/python_loops_practice.py"),
+    dir = mkdtempSync(join(tmpdir(), "bml-active-")),
+    file = join(dir, "learner's k.py");
+  try {
+    for (const [code, source] of [
+      [
+        0,
+        'n=int(input("How many numbers do you want? "))\na,b=0,1\nfor _ in range(n):\n print(a,end=" ")\n a,b=b,a+b',
+      ],
+      [1, 'n=int(input("Count: "))\nfor i in range(n): print(i,end=" ")'],
+      [
+        1,
+        'print("PREFIX")\nfor i in range(1): print("0 1 1 2 3 5 8 13 21 34")',
+      ],
+    ]) {
+      writeFileSync(file, source);
+      const r = spawnSync(
+        "python3",
+        ["-I", script, "python-loops-fibonacci-v1", file],
+        { cwd: tmpdir(), encoding: "utf8", timeout: 6000 },
+      );
+      assert.equal(r.status, code, r.stdout + r.stderr);
+      assert.equal(r.stdout.includes("BML_PRACTICE_PASS:"), code === 0);
+    }
+    const r = spawnSync(
+      "python3",
+      ["-I", script, "python-loops-fibonacci-v1", join(dir, "missing.py")],
+      { encoding: "utf8" },
+    );
+    assert.equal(r.status, 3);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

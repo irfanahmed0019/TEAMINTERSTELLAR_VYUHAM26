@@ -157,6 +157,15 @@ async function sidebarFixture() {
     ConfigurationTarget: { Global: 1 },
     window: {
       state: { focused: true },
+      activeTextEditor: {
+        document: {
+          uri: { scheme: "file", fsPath: "/outside/k.py" },
+          version: 1,
+          isDirty: false,
+          isClosed: false,
+          save: async () => true,
+        },
+      },
       onDidChangeWindowState: listen("focus"),
     },
     languages: { onDidChangeDiagnostics: listen("diagnostics") },
@@ -655,12 +664,88 @@ test("every allowlisted practice routes only its fixed ID after consent, cancels
       [],
     );
     assert.equal(commands.length, 1);
-    assert.ok(commands[0].endsWith("'" + id + "'"));
+    assert.ok(commands[0].includes("'" + id + "'"));
     f.sidebar.evidenceConsent = true;
     f.vscode.workspace.isTrusted = true;
     f.vscode.window.showQuickPick = () => {
       throw Error("practice must not be overwritten");
     };
     await f.sidebar.offerProjectChallenge();
+  }
+});
+test("active-file consent rejects changed document, failed save, and uses quoted outside-workspace path", async () => {
+  const f = await sidebarFixture();
+  f.sidebar.connection = { sessionId: "BML-ABCDE" };
+  f.sidebar.session = {
+    session_id: "BML-ABCDE",
+    checkpoints: [
+      {
+        index: 0,
+        status: "active",
+        title: "Practice",
+        detail: "",
+        evaluator: {
+          id: "python-loops-fibonacci-v1",
+          command: "buildmylogic:python-loops-fibonacci-v1",
+          expectedOutputIncludes: [
+            "BML_PRACTICE_PASS:python-loops-fibonacci-v1",
+          ],
+        },
+      },
+    ],
+  };
+  f.context.asAbsolutePath = (p) => "/extension/" + p;
+  const doc = f.vscode.window.activeTextEditor.document;
+  let runs = 0;
+  f.sidebar.runCommand = async (cmd, cwd, timeout, validate) => {
+    assert.equal(cwd, "/outside");
+    assert.ok(cmd.includes("k.py"));
+    assert.equal(validate(), true);
+    runs++;
+    return { code: 3, output: "missing", passed: false };
+  };
+  f.vscode.window.showWarningMessage = async () => {
+    doc.version++;
+    return "Run my Python code";
+  };
+  assert.deepEqual(await f.sidebar.runNextCheckpoint("/project", ""), []);
+  assert.equal(runs, 0);
+  f.vscode.window.showWarningMessage = async () => "Run my Python code";
+  doc.isDirty = true;
+  doc.save = async () => false;
+  assert.deepEqual(await f.sidebar.runNextCheckpoint("/project", ""), []);
+  assert.equal(runs, 0);
+  doc.isDirty = false;
+  assert.deepEqual(await f.sidebar.runNextCheckpoint("/project", ""), []);
+  assert.equal(runs, 1);
+});
+test("in-flight prior-task local result is discarded after generation change; valid same generation posted", async () => {
+  for (const change of [true, false]) {
+    const f = await sidebarFixture();
+    f.sidebar.connection = { sessionId: "BML-ABCDE" };
+    f.sidebar.session = {
+      session_id: "BML-ABCDE",
+      challenge_id: "python-loops-fibonacci-v1",
+      task_generation: 2,
+      attempts: 0,
+      status: "active",
+    };
+    f.api.runPlan = async () => ({ run_plan: { command: "ignored" } });
+    let posts = [];
+    f.api.test = async (id, payload) => {
+      posts.push(payload);
+      return {};
+    };
+    f.sidebar.runNextCheckpoint = async () => {
+      if (change)
+        f.sidebar.session = { ...f.sidebar.session, task_generation: 3 };
+      return [
+        { index: 0, passed: true, output: "ok", evidence_kind: "assertion" },
+      ];
+    };
+    f.sidebar.results.show = async () => {};
+    await f.sidebar.test();
+    assert.equal(posts.length, change ? 0 : 1);
+    if (!change) assert.equal(posts[0].task_generation, 2);
   }
 });

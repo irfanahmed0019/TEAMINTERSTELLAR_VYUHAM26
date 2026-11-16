@@ -68,6 +68,13 @@ export type LearningSession = {
     at: string;
   };
   evidenceProvenance?: "extension-reported" | "legacy-client-reported";
+  taskGeneration?: number;
+  practiceHistory?: Array<{
+    challenge_id: string;
+    title: string;
+    at: string;
+    state: Record<string, unknown>;
+  }>;
   sessionId: string;
   userId: string;
   challengeId: string;
@@ -272,10 +279,19 @@ async function persistSession(
       : null;
   try {
     const pending = session.challengeId === "project-context-pending";
-    const conditionalPending = pending && existingRow;
+    const authoredPractice = Boolean(practiceTaskBody(session.challengeId));
+    const conditionalPending = (pending || authoredPractice) && existingRow;
     const pendingQuery = new URLSearchParams({
       session_id: "eq." + session.sessionId,
-      challenge_id: "eq.project-context-pending",
+      challenge_id: "eq." + session.challengeId,
+      ...(authoredPractice
+        ? {
+            "session_data->>taskGeneration":
+              session.taskGeneration === undefined
+                ? "is.null"
+                : "eq." + session.taskGeneration,
+          }
+        : {}),
     });
     const response = await fetch(
       `${config.url}/rest/v1/learning_sessions${conditionalPending ? "?" + pendingQuery : ""}`,
@@ -487,6 +503,8 @@ export async function verifySession(
     if (session) session.status = "expired";
     return undefined;
   }
+  if (practiceTaskBody(session.challengeId))
+    await refreshConquestReceipts(session);
   if (!allowFinished && !["active", "connected"].includes(session.status))
     return undefined;
   return session;
@@ -548,6 +566,8 @@ function compact(session: LearningSession) {
     .join("\n");
   return {
     rev: session.rev ?? 0,
+    task_generation: session.taskGeneration ?? 0,
+    practice_history: session.practiceHistory ?? [],
     expected_duration_ms: session.expectedDurationMs,
     timing: {
       active_ms: session.timing?.activeMs ?? 0,
@@ -1475,20 +1495,63 @@ export async function assignLiteralProjectChallenge(
 export async function assignPracticeTask(
   session: LearningSession,
   value: unknown,
+  replace?: { challenge: unknown; generation: unknown },
 ) {
   await refreshConquestReceipts(session);
   const task = practiceTaskBody(value);
   if (!task) throw new Error("This practice task is not supported.");
+  const changing = Boolean(replace && practiceTaskBody(session.challengeId));
   if (
-    session.challengeId !== "project-context-pending" ||
-    session.attempts ||
-    session.checkpoints.some((checkpoint) => checkpoint.status === "passed") ||
-    !["active", "connected"].includes(session.status)
+    changing &&
+    (replace!.challenge !== session.challengeId ||
+      replace!.generation !== (session.taskGeneration ?? 0))
   )
-    throw new Error(
-      "This session already has a task or evidence. Start a fresh session to keep it.",
+    throw Object.assign(
+      new Error("Question changed elsewhere. Refresh before choosing."),
+      { statusCode: 409 },
     );
+  if (
+    (!changing &&
+      (session.challengeId !== "project-context-pending" ||
+        session.attempts ||
+        session.checkpoints.some((c) => c.status === "passed"))) ||
+    ![
+      "active",
+      "connected",
+      ...(changing ? ["completed", "failed"] : []),
+    ].includes(session.status)
+  )
+    throw new Error("Start a fresh session to preserve this project task.");
+  if (changing && task.challenge_id === session.challengeId)
+    throw new Error("This question is already selected.");
   const next = structuredClone(session);
+  if (changing) {
+    const prior = compact(session);
+    const { practice_history: _, ...snapshot } = prior;
+    next.practiceHistory = [
+      ...(session.practiceHistory ?? []),
+      {
+        challenge_id: session.challengeId,
+        title: session.title,
+        at: new Date().toISOString(),
+        state: snapshot,
+      },
+    ];
+    if (next.practiceHistory.length > 50)
+      throw new Error(
+        "Task history is full. Start a new session; history is kept.",
+      );
+    next.taskGeneration = (session.taskGeneration ?? 0) + 1;
+    next.attempts = 0;
+    next.hintsUsed = 0;
+    delete next.testScore;
+    delete next.latestFeedback;
+    delete next.recovery;
+    next.events = [];
+    next.status = session.connectedAt ? "connected" : "active";
+    next.potentialStruggle = false;
+    next.timing = { activeMs: 0, paused: false, lastSequence: -1 };
+  }
   next.challengeId = task.challenge_id;
   next.title = task.title;
   next.language = task.language;
@@ -1508,12 +1571,12 @@ export async function assignPracticeTask(
   if (config) {
     const query = new URLSearchParams({
       session_id: "eq." + session.sessionId,
-      challenge_id: "eq.project-context-pending",
-      "session_data->>challengeId": "eq.project-context-pending",
+      challenge_id: "eq." + session.challengeId,
+      "session_data->>challengeId": "eq." + session.challengeId,
       "session_data->>rev":
         session.rev === undefined ? "is.null" : "eq." + session.rev,
-      attempts: "eq.0",
-      status: "in.(active,connected)",
+      attempts: "eq." + session.attempts,
+      status: "eq." + session.status,
       select: "session_id",
     });
     const response = await fetch(
@@ -1533,6 +1596,12 @@ export async function assignPracticeTask(
           concept: next.concept,
           instructions: next.instructions,
           expected_skills: next.expectedSkills,
+          attempts: next.attempts,
+          hints_used: next.hintsUsed,
+          status: next.status,
+          test_score: next.testScore ?? null,
+          latest_mentor_feedback: null,
+          recovery: null,
           session_data: { ...next, connectionToken: undefined },
         }),
       },
@@ -1962,9 +2031,10 @@ function adoptAssignedPractice(
   saved: LearningSession | undefined,
 ) {
   if (
-    session.challengeId === "project-context-pending" &&
-    !session.attempts &&
     saved?.userId === session.userId &&
+    ((saved.taskGeneration ?? 0) > (session.taskGeneration ?? 0) ||
+      (session.challengeId === "project-context-pending" &&
+        !session.attempts)) &&
     (practiceTaskBody(saved.challengeId) ||
       (saved.challengeId === "project-context-pending" &&
         !saved.attempts &&

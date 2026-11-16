@@ -48,15 +48,25 @@ global.fetch = async (input, o = {}) => {
         row = sessions.get(id);
       if (
         !row ||
-        row.challenge_id !== "project-context-pending" ||
-        (u.searchParams.has("attempts") && row.attempts !== 0) ||
-        row.session_data.challengeId !== "project-context-pending" ||
+        u.searchParams.get("challenge_id") !== "eq." + row.challenge_id ||
+        (u.searchParams.has("attempts") &&
+          u.searchParams.get("attempts") !== "eq." + row.attempts) ||
+        (u.searchParams.has("session_data->>challengeId") &&
+          u.searchParams.get("session_data->>challengeId") !==
+            "eq." + row.session_data.challengeId) ||
         (u.searchParams.has("session_data->>rev") &&
           u.searchParams.get("session_data->>rev") !==
             (row.session_data.rev === undefined
               ? "is.null"
               : "eq." + row.session_data.rev)) ||
-        !["active", "connected"].includes(row.status)
+        (u.searchParams.has("session_data->>taskGeneration") &&
+          u.searchParams.get("session_data->>taskGeneration") !==
+            (row.session_data.taskGeneration === undefined
+              ? "is.null"
+              : "eq." + row.session_data.taskGeneration)) ||
+        (u.searchParams.has("status") &&
+          u.searchParams.get("status").startsWith("eq.") &&
+          u.searchParams.get("status") !== "eq." + row.status)
       )
         return Response.json([]);
       Object.assign(row, JSON.parse(o.body));
@@ -316,7 +326,7 @@ try {
       "python-loops-fibonacci-v1",
       "Fibonacci",
       "for n in range(10): print(n)",
-      "a,b=0,1\nfor _ in range(10):\n print(a,end=' ')\n a,b=b,a+b",
+      "n=int(input('How many numbers do you want? '))\na,b=0,1\nfor _ in range(n):\n print(a,end=' ')\n a,b=b,a+b",
     ],
     [
       "python-conditions-sign-v1",
@@ -363,7 +373,11 @@ try {
         [wrong, false],
         [correct, true],
       ]) {
-        writeFileSync(join(dir, "main.py"), source);
+        const selectedPath = join(
+          dir,
+          taskId === "python-loops-fibonacci-v1" ? "learner's k.py" : "main.py",
+        );
+        writeFileSync(selectedPath, source);
         const local = spawnSync(
           "python3",
           [
@@ -373,6 +387,7 @@ try {
               "vscode-extension/media/python_loops_practice.py",
             ),
             taskId,
+            selectedPath,
           ],
           { cwd: dir, encoding: "utf8", timeout: 5000 },
         );
@@ -408,6 +423,125 @@ try {
         const state = (await result.json()).state;
         assert.equal(result.status, 200);
         assert.equal(state.status === "completed", pass);
+      }
+      if (taskId === "python-loops-fibonacci-v1") {
+        const previous =
+            globalThis.__buildMyLogicLearningSessions.get(pendingId),
+          old = structuredClone(previous);
+        const change = await call(
+          "/api/sessions/" + pendingId + "/practice-task",
+          {
+            practice_task: "python-functions-double-v1",
+            replace_task: true,
+            previous_challenge: taskId,
+            task_generation: 0,
+          },
+          "owner",
+        );
+        assert.equal(change.status, 200);
+        assert.equal(change.body.state.task_generation, 1);
+        assert.equal(change.body.state.attempts, 0);
+        assert.equal(change.body.state.practice_history.length, 1);
+        assert.equal(change.body.state.practice_history[0].state.attempts, 2);
+        assert.equal(
+          change.body.state.practice_history[0].state.status,
+          "completed",
+        );
+        const late = await call(
+          "/api/sessions/" + pendingId + "/test-result",
+          {
+            status: "passed",
+            checkpoint_results: [
+              {
+                index: 0,
+                passed: true,
+                output: "BML_PRACTICE_PASS:" + taskId,
+                evaluator_id: taskId,
+                evidence_kind: "assertion",
+              },
+            ],
+          },
+          "owner",
+        );
+        assert.equal(late.status, 409);
+        assert.equal(
+          globalThis.__buildMyLogicLearningSessions.get(pendingId).attempts,
+          0,
+        );
+        assert.equal(
+          (
+            await call(
+              "/api/sessions/" + pendingId + "/practice-task",
+              {
+                practice_task: "python-strings-vowels-v1",
+                replace_task: true,
+                previous_challenge: taskId,
+                task_generation: 0,
+              },
+              "owner",
+            )
+          ).status,
+          409,
+        );
+        globalThis.__buildMyLogicLearningSessions.set(pendingId, old);
+        const restored = await router.fetch(
+          new Request(
+            "https://buildmylogicxyz.vercel.app/api/sessions/" +
+              pendingId +
+              "/state",
+            { headers: { "x-bml-session-token": pendingToken } },
+          ),
+          {},
+          {},
+        );
+        const newer = await restored.json();
+        assert.equal(newer.state.task_generation, 1);
+        assert.equal(newer.state.challenge_id, "python-functions-double-v1");
+        const switchedFile = join(dir, "k.py");
+        writeFileSync(
+          switchedFile,
+          "def double(n): return n*2\nprint(double(int(input('Value? '))))",
+        );
+        const switchedRun = spawnSync(
+          "python3",
+          [
+            "-I",
+            join(
+              process.cwd(),
+              "vscode-extension/media/python_loops_practice.py",
+            ),
+            "python-functions-double-v1",
+            switchedFile,
+          ],
+          { cwd: dir, encoding: "utf8", timeout: 12000 },
+        );
+        assert.equal(switchedRun.status, 0);
+        const boundResult = await call(
+          "/api/sessions/" + pendingId + "/test-result",
+          {
+            task_generation: 1,
+            status: "passed",
+            checkpoint_results: [
+              {
+                index: 0,
+                passed: true,
+                output: switchedRun.stdout,
+                evaluator_id: "python-functions-double-v1",
+                evidence_kind: "assertion",
+              },
+            ],
+          },
+          "owner",
+        );
+        assert.equal(boundResult.status, 200);
+        assert.equal(boundResult.body.state.status, "completed");
+        assert.equal(
+          boundResult.body.state.practice_history[0].state.attempts,
+          2,
+        );
+        console.log(
+          "PASS explicit same-ID completed-task switch archives two old attempts; generation1 resets only currenttask; late old result and stale selection409; oldinstance adopts changedquestion.",
+        );
       }
       console.log(
         "PASS " +

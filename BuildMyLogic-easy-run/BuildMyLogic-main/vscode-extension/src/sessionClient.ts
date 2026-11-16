@@ -5,6 +5,7 @@ export type ConquestReceipt = {
   conqueredAt: number;
 };
 export type RemoteSession = {
+  task_generation?: number;
   project_recheck_ready?: {
     binding: { source_session_id: string; partition_digest: string };
     at: number;
@@ -215,19 +216,19 @@ export class SessionClient {
       { method: "POST", body: JSON.stringify(result) },
     );
   }
-  public hint(sessionId: string, stuck = false) {
+  public hint(sessionId: string, stuck = false, task_generation = 0) {
     return this.request(
       "/api/sessions/" +
         encodeURIComponent(sessionId) +
         "/" +
         (stuck ? "stuck" : "hint"),
-      { method: "POST", body: "{}" },
+      { method: "POST", body: JSON.stringify({ task_generation }) },
     );
   }
-  public fail(sessionId: string, reason: string) {
+  public fail(sessionId: string, reason: string, task_generation = 0) {
     return this.request(
       "/api/sessions/" + encodeURIComponent(sessionId) + "/failed",
-      { method: "POST", body: JSON.stringify({ reason }) },
+      { method: "POST", body: JSON.stringify({ reason, task_generation }) },
     );
   }
   public runPlan(sessionId: string, platform: string) {
@@ -239,10 +240,11 @@ export class SessionClient {
   public submit(
     sessionId: string,
     files: Array<{ path: string; content: string }>,
+    task_generation = 0,
   ) {
     return this.request(
       "/api/sessions/" + encodeURIComponent(sessionId) + "/submit",
-      { method: "POST", body: JSON.stringify({ files }) },
+      { method: "POST", body: JSON.stringify({ files, task_generation }) },
     );
   }
 }

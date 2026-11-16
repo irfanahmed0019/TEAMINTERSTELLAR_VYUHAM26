@@ -5,7 +5,7 @@ export const PRACTICE_TASKS = [
     concept: "loops",
     title: "Loop practice",
     question:
-      "In main.py, use a loop to print the first 10 Fibonacci numbers, starting 0, 1.\nSeparate the numbers with spaces.",
+      "In your Python file, use a loop to print the first 10 Fibonacci numbers, starting 0, 1.\nSeparate the numbers with spaces.",
     cases: 1,
   },
   {
@@ -13,7 +13,7 @@ export const PRACTICE_TASKS = [
     concept: "conditions",
     title: "Conditions practice",
     question:
-      "In main.py, read one integer. Use if/else to print negative, zero or positive.\nPrint only that word in lowercase.",
+      "In your Python file, read one integer. Use if/else to print negative, zero or positive.\nPrint only that word in lowercase.",
     cases: 3,
   },
   {
@@ -21,7 +21,7 @@ export const PRACTICE_TASKS = [
     concept: "functions",
     title: "Functions practice",
     question:
-      "In main.py, write double(n) to return n * 2. Read one integer and call double.\nPrint the returned number.",
+      "In your Python file, write double(n) to return n * 2. Read one integer and call double.\nPrint the returned number.",
     cases: 3,
   },
   {
@@ -29,7 +29,7 @@ export const PRACTICE_TASKS = [
     concept: "strings",
     title: "Strings practice",
     question:
-      "In main.py, read one lowercase word. Use a loop to count a, e, i, o and u.\nPrint the count.",
+      "In your Python file, read one lowercase word. Use a loop to count a, e, i, o and u.\nPrint the count.",
     cases: 3,
   },
 ] as const;

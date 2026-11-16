@@ -1,3 +1,9 @@
+## 0.3.15
+
+- Runs the saved active Python file, including files outside a workspace, after explicit consent.
+- Supplies finite input for interactive exercises; builtin input prompts are not graded as output.
+- Binds results to the current question generation and discards changed-file or old-question results.
+
 ## 0.3.14
 
 - Adds explicit standalone Python conditions, functions and strings practice beside loops.

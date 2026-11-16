@@ -148,6 +148,13 @@ export type BuildSessionState = {
   test_score?: { passed: number; total: number };
   latest_mentor_feedback?: string;
   recovery?: string;
+  task_generation?: number;
+  practice_history?: Array<{
+    challenge_id: string;
+    title: string;
+    at: string;
+    state: Record<string, unknown>;
+  }>;
   attempt_history?: Array<{
     attempt: number;
     at: number;

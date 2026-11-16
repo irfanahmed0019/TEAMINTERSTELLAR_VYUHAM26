@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 TASKS = {
-    'python-loops-fibonacci-v1': [('', '0 1 1 2 3 5 8 13 21 34')],
+    'python-loops-fibonacci-v1': [('10', '0 1 1 2 3 5 8 13 21 34')],
     'python-conditions-sign-v1': [('-3', 'negative'), ('0', 'zero'), ('7', 'positive')],
     'python-functions-double-v1': [('-2', '-4'), ('0', '0'), ('9', '18')],
     'python-strings-vowels-v1': [('sky', '0'), ('hello', '2'), ('aeiou', '5')],
@@ -18,13 +18,13 @@ TASKS = {
 
 def main():
     # No argument retains the released Fibonacci contract. Never accept custom cases.
-    task = sys.argv[1] if len(sys.argv) == 2 else 'python-loops-fibonacci-v1'
-    if len(sys.argv) > 2 or task not in TASKS:
+    task = sys.argv[1] if len(sys.argv) >= 2 else 'python-loops-fibonacci-v1'
+    if len(sys.argv) > 3 or task not in TASKS:
         print('Unsupported practice task. No attempt recorded.')
         return 3
-    path = Path('main.py')
+    path = Path(sys.argv[2]) if len(sys.argv) == 3 else Path('main.py')
     if not path.is_file() or path.is_symlink() or path.stat().st_size > 32000:
-        print('Open a workspace with main.py (up to 32 KB, not a link). No attempt recorded.')
+        print('Choose a saved Python file (up to 32 KB, not a link). No attempt recorded.')
         return 3
     source = path.read_text(encoding='utf-8')
     try:
@@ -35,15 +35,15 @@ def main():
     nodes = list(ast.walk(tree))
     if task in ('python-loops-fibonacci-v1', 'python-strings-vowels-v1'):
         valid = any(isinstance(node, (ast.For, ast.While)) for node in nodes)
-        requirement = 'Use a for or while loop in main.py.'
+        requirement = 'Use a for or while loop in your Python file.'
     elif task == 'python-conditions-sign-v1':
         valid = any(isinstance(node, ast.If) for node in nodes)
-        requirement = 'Use if/else in main.py.'
+        requirement = 'Use if/else in your Python file.'
     else:
         defined = any(isinstance(node, ast.FunctionDef) and node.name == 'double' for node in nodes)
         called = any(isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'double' for node in nodes)
         valid = defined and called
-        requirement = 'Define double(n) and call double in main.py.'
+        requirement = 'Define double(n) and call double in your Python file.'
     if not valid:
         print(requirement)
         return 1
@@ -61,7 +61,10 @@ def run_case(path, input_value, expected):
     with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as stdin:
         stdin.write((input_value + '\n').encode('utf-8'))
         stdin.seek(0)
-        child = subprocess.Popen([sys.executable, '-I', str(path.resolve())], stdout=output, stderr=subprocess.STDOUT, stdin=stdin, start_new_session=os.name != 'nt')
+        # Suppress only prompts emitted by actual builtin input() calls. Other
+        # printed prefixes still fail strict output comparison. Not a sandbox.
+        bootstrap = "import builtins,runpy,sys; original=builtins.input; builtins.input=lambda prompt='': original(); runpy.run_path(sys.argv[1],run_name='__main__')"
+        child = subprocess.Popen([sys.executable, '-I', '-c', bootstrap, str(path.resolve())], stdout=output, stderr=subprocess.STDOUT, stdin=stdin, start_new_session=os.name != 'nt')
         import time
         deadline = time.monotonic() + 3
         while child.poll() is None:
@@ -91,5 +94,5 @@ if __name__ == '__main__':
     try:
         sys.exit(main())
     except (OSError, UnicodeError) as error:
-        print('Could not read or run main.py. No attempt recorded: ' + type(error).__name__)
+        print('Could not read or run the selected Python file. No attempt recorded: ' + type(error).__name__)
         sys.exit(3)

@@ -198,6 +198,11 @@ class Sidebar implements vscode.WebviewViewProvider {
           "Connect an active BuildMyLogic session first.",
           true,
         );
+      const taskGeneration = this.session.task_generation ?? 0,
+        taskChallenge = this.session.challenge_id;
+      const unchangedTask = () =>
+        this.session?.challenge_id === taskChallenge &&
+        (this.session?.task_generation ?? 0) === taskGeneration;
       if (m.command === "projectRecheck") return await this.runProjectRecheck();
       if (m.command === "reassess") {
         const url = new URL("/reassess", this.api.getBaseUrl());
@@ -210,8 +215,9 @@ class Sidebar implements vscode.WebviewViewProvider {
         const r = await this.api.hint(
           connection.sessionId,
           m.command === "stuck",
+          taskGeneration,
         );
-        if (this.connection !== connection) return;
+        if (this.connection !== connection || !unchangedTask()) return;
         this.session = r.state || this.session;
         return this.post({
           type: "guidance",
@@ -234,13 +240,18 @@ class Sidebar implements vscode.WebviewViewProvider {
           { modal: true },
           "Yes, Help Me Recover",
         );
-        if (yes !== "Yes, Help Me Recover" || this.connection !== connection)
+        if (
+          yes !== "Yes, Help Me Recover" ||
+          this.connection !== connection ||
+          !unchangedTask()
+        )
           return;
         const r = await this.api.fail(
           connection.sessionId,
           "Learner selected I Failed",
+          taskGeneration,
         );
-        if (this.connection !== connection) return;
+        if (this.connection !== connection || !unchangedTask()) return;
         this.session = r.state || this.session;
         return this.post({
           type: "failed",
@@ -1157,8 +1168,30 @@ class Sidebar implements vscode.WebviewViewProvider {
       return this.status(
         "No coding task yet. Choose a task on the website first.",
       );
-    const connection = this.connection;
-    const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const connection = this.connection,
+      challenge = this.session.challenge_id,
+      generation = this.session.task_generation ?? 0;
+    const sameTask = () =>
+      this.connection === connection &&
+      this.session?.challenge_id === challenge &&
+      (this.session?.task_generation ?? 0) === generation;
+    const practice = isPracticeTask(this.session.challenge_id);
+    const activeDocument = practice
+      ? vscode.window.activeTextEditor?.document
+      : undefined;
+    const folder =
+      practice && activeDocument?.uri.scheme === "file"
+        ? path.dirname(activeDocument.uri.fsPath)
+        : vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (
+      practice &&
+      (!activeDocument ||
+        activeDocument.uri.scheme !== "file" ||
+        !activeDocument.uri.fsPath.endsWith(".py"))
+    )
+      return this.status(
+        "Open your saved Python file, then run tests. No attempt recorded.",
+      );
     if (!folder)
       throw new Error("Open the challenge workspace before running tests.");
     this.noteActivity();
@@ -1166,7 +1199,7 @@ class Sidebar implements vscode.WebviewViewProvider {
       this.connection.sessionId,
       process.platform,
     );
-    if (this.connection !== connection) return;
+    if (!sameTask()) return;
     this.post({
       type: "status",
       text:
@@ -1176,12 +1209,10 @@ class Sidebar implements vscode.WebviewViewProvider {
     const checkpointResults = await this.runNextCheckpoint(
       folder,
       plan.run_plan?.command || "",
+      activeDocument,
     );
     if (!checkpointResults.length) return;
-    if (
-      this.connection !== connection ||
-      this.session?.session_id !== connection.sessionId
-    )
+    if (!sameTask() || this.session?.session_id !== connection.sessionId)
       return this.status(
         "Session changed. Local output was not sent to another session.",
         true,
@@ -1198,8 +1229,9 @@ class Sidebar implements vscode.WebviewViewProvider {
       stdout: latest?.output,
       checkpoint_results: checkpointResults,
       attempt: this.session.attempts + 1,
+      task_generation: generation,
     });
-    if (this.connection !== connection) return;
+    if (!sameTask()) return;
     this.session = r.state || this.session;
     if (this.session.status === "completed") {
       this.clearEvidenceSubscriptions();
@@ -1220,7 +1252,11 @@ class Sidebar implements vscode.WebviewViewProvider {
     });
   }
 
-  private async runNextCheckpoint(folder: string, runCommand: string) {
+  private async runNextCheckpoint(
+    folder: string,
+    runCommand: string,
+    selectedDocument?: vscode.TextDocument,
+  ) {
     if (!this.session)
       return [] as Array<{
         index: number;
@@ -1262,13 +1298,31 @@ class Sidebar implements vscode.WebviewViewProvider {
       checkpoint.evaluator?.command.startsWith("buildmylogic:")
     ) {
       const connection = this.connection;
+      const doc = selectedDocument || vscode.window.activeTextEditor?.document;
+      if (!doc || doc.uri.scheme !== "file" || !doc.uri.fsPath.endsWith(".py"))
+        return (
+          this.status("Open your saved Python file. No attempt recorded."),
+          []
+        );
+      const version = doc.version;
+      const unchanged = () =>
+        vscode.window.activeTextEditor?.document === doc &&
+        doc.version === version &&
+        !doc.isClosed &&
+        this.connection === connection;
       const yes = await vscode.window.showWarningMessage(
-        "Run main.py on your computer for this practice task? It can read or change files and use the network. This is not a sandbox. Nothing is read until you agree.",
+        `Run ${doc.uri.fsPath} on your computer for this practice task? It can read or change files and use the network. This is not a sandbox. Fibonacci tests supply 10 as input. Nothing is read until you agree.`,
         { modal: true },
         "Run my Python code",
       );
-      if (yes !== "Run my Python code" || this.connection !== connection)
-        return [];
+      if (yes !== "Run my Python code" || !unchanged()) return [];
+      if (doc.isDirty && !(await doc.save()))
+        return (this.status("Save cancelled. No attempt recorded."), []);
+      if (!unchanged())
+        return (
+          this.status("File changed. Run tests again. No attempt recorded."),
+          []
+        );
       const quote = (v: string) =>
         process.platform === "win32"
           ? '"' + v.replace(/"/g, "") + '"'
@@ -1278,9 +1332,12 @@ class Sidebar implements vscode.WebviewViewProvider {
           " -I " +
           quote(this.context.asAbsolutePath("media/python_loops_practice.py")) +
           " " +
-          quote(checkpoint.evaluator!.command.slice("buildmylogic:".length)),
-        folder,
+          quote(checkpoint.evaluator!.command.slice("buildmylogic:".length)) +
+          " " +
+          quote(doc.uri.fsPath),
+        path.dirname(doc.uri.fsPath),
         15000,
+        () => unchanged() && !doc.isDirty,
       );
       if (
         evaluation.cancelled ||
@@ -1292,7 +1349,11 @@ class Sidebar implements vscode.WebviewViewProvider {
         this.status("Check blocked. No attempt recorded. " + evaluation.output);
         return [];
       }
-      if (this.connection !== connection) return [];
+      if (!unchanged() || doc.isDirty)
+        return (
+          this.status("File changed during the run. No attempt recorded."),
+          []
+        );
       result = evaluation;
     } else if (
       checkpoint.evaluator?.command === "buildmylogic:python-literal-repair-v1"
@@ -1491,6 +1552,7 @@ class Sidebar implements vscode.WebviewViewProvider {
     command: string,
     cwd: string,
     timeoutMs: number,
+    validate?: () => boolean,
   ): Promise<{
     code: number;
     passed: boolean;
@@ -1510,7 +1572,7 @@ class Sidebar implements vscode.WebviewViewProvider {
       { modal: true },
       "Run command",
     );
-    if (approval !== "Run command")
+    if (approval !== "Run command" || (validate && !validate()))
       return {
         code: 1,
         passed: false,
@@ -1532,7 +1594,13 @@ class Sidebar implements vscode.WebviewViewProvider {
       return this.status(
         "No coding task yet. Choose a task on the website first.",
       );
-    const connection = this.connection;
+    const connection = this.connection,
+      generation = this.session?.task_generation ?? 0,
+      challenge = this.session?.challenge_id;
+    const sameTask = () =>
+      this.connection === connection &&
+      this.session?.challenge_id === challenge &&
+      (this.session?.task_generation ?? 0) === generation;
     if (!vscode.workspace.isTrusted)
       throw new Error("Trust this workspace before submitting files.");
     const consent = await vscode.window.showWarningMessage(
@@ -1540,7 +1608,7 @@ class Sidebar implements vscode.WebviewViewProvider {
       { modal: true },
       "Submit source",
     );
-    if (consent !== "Submit source" || this.connection !== connection) return;
+    if (consent !== "Submit source" || !sameTask()) return;
     const root = vscode.workspace.workspaceFolders?.[0]?.uri;
     if (!root) throw new Error("Open the project folder before submitting it.");
     const excluded =
@@ -1563,9 +1631,13 @@ class Sidebar implements vscode.WebviewViewProvider {
         /* Ignore unreadable binary files. */
       }
     }
-    if (this.connection !== connection) return;
-    const result = await this.api.submit(connection.sessionId, files);
-    if (this.connection !== connection) return;
+    if (!sameTask()) return;
+    const result = await this.api.submit(
+      connection.sessionId,
+      files,
+      generation,
+    );
+    if (!sameTask()) return;
     this.session = result.state || this.session;
     const review = result.review as
       | {
