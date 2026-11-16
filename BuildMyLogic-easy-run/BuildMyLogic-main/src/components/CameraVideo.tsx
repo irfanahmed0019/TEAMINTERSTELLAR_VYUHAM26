@@ -1,3 +1,4 @@
+import { sectionQuestion } from "@/lib/video-section-questions";
 import { useAuth, getAuthSession } from "@/lib/auth";
 import { useCloudHydrated } from "@/lib/cloud-sync";
 import { getLoopState, setLoopState } from "@/lib/loop-store";
@@ -297,9 +298,7 @@ export function CameraVideo({
             setPending(completedRef.current);
             setFeedback("");
             paused = true;
-            setStatus(
-              "Section finished. Answer the topic checkpoint to continue.",
-            );
+            setStatus("Section finished. Answer the checkpoint to continue.");
           }
           const count = duration > 0 ? Math.ceil(duration / 120) : "?";
           setSectionInfo(
@@ -342,7 +341,9 @@ export function CameraVideo({
   function answer(choice: number) {
     const section = pendingRef.current;
     if (section === null || !auth || getAuthSession()?.uid !== auth.uid) return;
-    const correct = choice === videoQuestion(topicId, section).answer;
+    const activeQuestion =
+      sectionQuestion(videoId, section) ?? videoQuestion(topicId, section);
+    const correct = choice === activeQuestion.answer;
     const ownerId = auth.uid;
     setLoopState((prev) => {
       const old = prev.videoProgress?.[videoId];
@@ -366,7 +367,7 @@ export function CameraVideo({
       };
     });
     setFeedback(
-      `${correct ? "Correct." : "Try again."} ${videoQuestion(topicId, section).explanation}`,
+      `${correct ? "Correct." : "Try again."} ${activeQuestion.explanation}`,
     );
     if (correct) {
       completedRef.current = section + 1;
@@ -384,7 +385,12 @@ export function CameraVideo({
     setStatus("Stopped. Completed question checkpoints are saved.");
   }
   const active = phase === "watching" || phase === "starting";
-  const question = pending === null ? null : videoQuestion(topicId, pending);
+  const groundedQuestion =
+    pending === null ? null : sectionQuestion(videoId, pending);
+  const question =
+    pending === null
+      ? null
+      : (groundedQuestion ?? videoQuestion(topicId, pending));
   return (
     <div className="space-y-3">
       <div className="relative aspect-video overflow-hidden rounded-2xl bg-black">
@@ -436,13 +442,42 @@ export function CameraVideo({
           className="rounded-xl border border-primary/30 p-4"
         >
           <h3 className="font-bold">
-            Section {(pending ?? 0) + 1} topic checkpoint
+            Section {(pending ?? 0) + 1}{" "}
+            {groundedQuestion
+              ? "caption-based checkpoint"
+              : "topic review checkpoint"}
           </h3>
           <p className="mt-2 text-xs text-muted-foreground">
-            Authored topic review, not a claim about this exact video segment.
-            Longer videos may repeat topic checks. This checks an answer, not
-            independent coding mastery.
+            {groundedQuestion
+              ? "Question based on this section's English auto-captions, which may contain transcription errors. This checks one answer, not independent coding mastery."
+              : "No reviewed section question is available here. This is an authored topic review, not a claim about this exact video segment. Longer videos may repeat topic checks."}
           </p>
+          {groundedQuestion ? (
+            <details className="mt-2 text-xs text-muted-foreground">
+              <summary>Caption source and timestamp</summary>
+              <blockquote className="my-2">
+                {groundedQuestion.provenance.quote}
+              </blockquote>
+              <a
+                className="underline"
+                href={groundedQuestion.provenance.sourceUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                YouTube transcript, caption starts at{" "}
+                {Math.floor(groundedQuestion.provenance.startSeconds / 60)}:
+                {String(groundedQuestion.provenance.startSeconds % 60).padStart(
+                  2,
+                  "0",
+                )}{" "}
+                (auto-generated)
+              </a>
+              <p>
+                Caption timing is from the transcript panel, not independently
+                audio-verified.
+              </p>
+            </details>
+          ) : null}
           <p className="my-3 text-sm">{question.prompt}</p>
           <div className="grid gap-2">
             {question.options.map((o, i) => (

@@ -1,0 +1,517 @@
+{
+  "60OI5tzmkCw:0": {
+    "startSeconds": 9,
+    "endSeconds": 15,
+    "caption": "is a special character called the null terminator that signifies the end of the string so if i were to say here car"
+  },
+  "60OI5tzmkCw:1": {
+    "startSeconds": 200,
+    "endSeconds": 207,
+    "caption": "big of an array to make test two based on the length of this string literal and so we can we can run code like this"
+  },
+  "60OI5tzmkCw:2": {
+    "startSeconds": 293,
+    "endSeconds": 300,
+    "caption": "9 10 11 12 13 14. so length gives us the length of the string not including the null terminator"
+  },
+  "60OI5tzmkCw:3": {
+    "startSeconds": 450,
+    "endSeconds": 459,
+    "caption": "copy s1 into s2 and so if i run this here we're going to get that s2 is my string"
+  },
+  "6YNYuJ_jiu0:0": {
+    "startSeconds": 75,
+    "endSeconds": 84,
+    "caption": "some way to escape a while loop because you need to continue on with the rest of the program and then eventually exit here's a more practical example we're"
+  },
+  "6YNYuJ_jiu0:1": {
+    "startSeconds": 179,
+    "endSeconds": 188,
+    "caption": "must be true to begin with in order for you to enter it if I were to set number to be one from the get-go well we never actually enter the"
+  },
+  "6YNYuJ_jiu0:2": {
+    "startSeconds": 252,
+    "endSeconds": 260,
+    "caption": "variation of a while loop but you check the condition at the end rather than the beginning all right here's another example a user is going to enter in"
+  },
+  "6YNYuJ_jiu0:3": {
+    "startSeconds": 471,
+    "endSeconds": 479,
+    "caption": "a Boolean you don't need to say is equal to true you can just say is running because this already is true or false"
+  },
+  "6YNYuJ_jiu0:4": {
+    "startSeconds": 564,
+    "endSeconds": 572,
+    "caption": "response does not equal for not equal you can use an exclamation point than an equal sign if our response does not"
+  },
+  "6YNYuJ_jiu0:5": {
+    "startSeconds": 626,
+    "endSeconds": 635,
+    "caption": "logical operator and our response does not equal a character of lowercase y to continue playing the game we can"
+  },
+  "89cGQjB5R4M:0": {
+    "startSeconds": 0,
+    "endSeconds": 7,
+    "caption": "hey everybody today I need to explain functions think of a function as a block of reusable code to invoke a function"
+  },
+  "89cGQjB5R4M:1": {
+    "startSeconds": 137,
+    "endSeconds": 144,
+    "caption": "function I will name this data name a parameter is kind of like a temporary variable that's used within a function"
+  },
+  "89cGQjB5R4M:2": {
+    "startSeconds": 245,
+    "endSeconds": 254,
+    "caption": "happy birthday 230 you are Steve years old happy birthday 240 you are Joe years old so the position of the parameters"
+  },
+  "89cGQjB5R4M:3": {
+    "startSeconds": 375,
+    "endSeconds": 384,
+    "caption": "statement that is used to end a function and send a result back to the caller here's an example we have a variable z z"
+  },
+  "89cGQjB5R4M:4": {
+    "startSeconds": 490,
+    "endSeconds": 500,
+    "caption": "this function a value is returned just imagine that after we finish this function this function becomes whatever is returned three this function becomes"
+  },
+  "89cGQjB5R4M:5": {
+    "startSeconds": 612,
+    "endSeconds": 619,
+    "caption": "to call a function you type the function's name add a set of parentheses you can send a function some data which"
+  },
+  "9E3I1URu6fc:0": {
+    "startSeconds": 43,
+    "endSeconds": 52,
+    "caption": "attention to this with division so 5 divided by 2 equals 2.5 right well that's where you're wrong it's 2 because we're storing the results"
+  },
+  "9E3I1URu6fc:1": {
+    "startSeconds": 140,
+    "endSeconds": 148,
+    "caption": "the remainder of five divided by two is one if this was four four divides by two evenly"
+  },
+  "DB9Cq6TSTuQ:0": {
+    "startSeconds": 101,
+    "endSeconds": 110,
+    "caption": "dude hello dude now this next part is very important when we accept user input it is always of the string data type a series of"
+  },
+  "DB9Cq6TSTuQ:1": {
+    "startSeconds": 161,
+    "endSeconds": 168,
+    "caption": "cannot normally use strings for any sort of mathematical equation or operation we'll want to cast it to the integer or"
+  },
+  "DB9Cq6TSTuQ:2": {
+    "startSeconds": 281,
+    "endSeconds": 290,
+    "caption": "invalid literal for int with base 10 that means if we cast a string as an integer it can only be a whole number a portion"
+  },
+  "DB9Cq6TSTuQ:3": {
+    "startSeconds": 382,
+    "endSeconds": 391,
+    "caption": "input it will give you a value of the string data type if you need to use that value for any sort of math you'll probably need to cast it to be of"
+  },
+  "FvMPfrgGeKs:0": {
+    "startSeconds": 54,
+    "endSeconds": 62,
+    "caption": "18 then add a colon then hit enter any code underneath the if statement should be indented make sure to pay"
+  },
+  "FvMPfrgGeKs:1": {
+    "startSeconds": 218,
+    "endSeconds": 225,
+    "caption": "condition is still technically true you do need to pay attention to your order of if and else if statements if I"
+  },
+  "FvMPfrgGeKs:2": {
+    "startSeconds": 304,
+    "endSeconds": 313,
+    "caption": "the doubles equal sign is the comparison operator it will check to see if two values are equal you don't want one equals because"
+  },
+  "FvMPfrgGeKs:3": {
+    "startSeconds": 408,
+    "endSeconds": 415,
+    "caption": "be true now using an if statement you can just use the Boolean variable in place of a condition because a condition"
+  },
+  "FvMPfrgGeKs:4": {
+    "startSeconds": 482,
+    "endSeconds": 491,
+    "caption": "Boolean all right everybody so those are if statements do some code only if some condition is true else you can do"
+  },
+  "KWgYha0clzw:0": {
+    "startSeconds": 47,
+    "endSeconds": 57,
+    "caption": "I would like to start at one then count to ten but the second number is exclusive so really we're going to write 11 if we want to count to 10."
+  },
+  "KWgYha0clzw:1": {
+    "startSeconds": 136,
+    "endSeconds": 144,
+    "caption": "parameter too you could add that is the step if you would like to count by twos you would add comma two"
+  },
+  "KWgYha0clzw:2": {
+    "startSeconds": 255,
+    "endSeconds": 264,
+    "caption": "to skip over an iteration you can use the continue keyword whereas the break keyword we will break out of this Loop entirely"
+  },
+  "LKFrQXaoSMQ:0": {
+    "startSeconds": 15,
+    "endSeconds": 23,
+    "caption": "let's talk about variables a variable is a reusable container for storing a value a variable behaves as if it were the"
+  },
+  "LKFrQXaoSMQ:1": {
+    "startSeconds": 216,
+    "endSeconds": 224,
+    "caption": "variable add a set of curly braces the curly braces are acting as a placeholder for a value or variable we will place"
+  },
+  "LKFrQXaoSMQ:2": {
+    "startSeconds": 249,
+    "endSeconds": 257,
+    "caption": "still more but these are four for beginners we have integers floats strings and booleans let's begin with"
+  },
+  "LKFrQXaoSMQ:3": {
+    "startSeconds": 428,
+    "endSeconds": 437,
+    "caption": "they're numbers that contain a decimal portion even if the decimal had point zero it would still be considered a float whereas this would be an integer"
+  },
+  "LKFrQXaoSMQ:4": {
+    "startSeconds": 530,
+    "endSeconds": 539,
+    "caption": "binary it's kind of like a light switch a Boolean variable can have only one of two states true or false typically booleans are used internally within a"
+  },
+  "LKFrQXaoSMQ:5": {
+    "startSeconds": 668,
+    "endSeconds": 676,
+    "caption": "booleans is that they may put them within quotes you can see that the color scheme changed this is technically a string"
+  },
+  "LKFrQXaoSMQ:6": {
+    "startSeconds": 740,
+    "endSeconds": 750,
+    "caption": "what I would instead type is x equals y equals z equals zero or some other value"
+  },
+  "Sg4GMVMdOPo:0": {
+    "startSeconds": 74,
+    "endSeconds": 84,
+    "caption": "exe to path and we will install now the setup was successful and that's"
+  },
+  "Sg4GMVMdOPo:1": {
+    "startSeconds": 223,
+    "endSeconds": 231,
+    "caption": "file python files end with the py file extension we should have our main python"
+  },
+  "Sg4GMVMdOPo:2": {
+    "startSeconds": 310,
+    "endSeconds": 318,
+    "caption": "comments the python interpreter doesn't output comments to write a comment you use a pound sign I like to call this a"
+  },
+  "WrFEtUzVcnw:0": {
+    "startSeconds": 71,
+    "endSeconds": 78,
+    "caption": "to use a percent sign for a format specifier to display an INT and integer we'll use D meaning"
+  },
+  "WrFEtUzVcnw:1": {
+    "startSeconds": 184,
+    "endSeconds": 192,
+    "caption": "product you wouldn't have you know half a product right quantities would be whole numbers typically"
+  },
+  "WrFEtUzVcnw:2": {
+    "startSeconds": 283,
+    "endSeconds": 290,
+    "caption": "specifier then for a floating Point number we're going to type f for floating Point number I'll add a new line character because I'm probably"
+  },
+  "WrFEtUzVcnw:3": {
+    "startSeconds": 457,
+    "endSeconds": 469,
+    "caption": "as if you're working with pi you can use a different data type known as a double so let's say double pi equals"
+  },
+  "WrFEtUzVcnw:4": {
+    "startSeconds": 492,
+    "endSeconds": 500,
+    "caption": "a format specifier then type LF meaning long float then we will display our variable"
+  },
+  "WrFEtUzVcnw:5": {
+    "startSeconds": 707,
+    "endSeconds": 715,
+    "caption": "name in the C programming language we use an array of characters to represent a string so to store more than one"
+  },
+  "WrFEtUzVcnw:6": {
+    "startSeconds": 776,
+    "endSeconds": 783,
+    "caption": "can store more than one character and again they do have to be within double quotes So what's another example of an"
+  },
+  "WrFEtUzVcnw:7": {
+    "startSeconds": 896,
+    "endSeconds": 904,
+    "caption": "L.H meaning standard Boolean and this is a header file to create a Boolean variable we'll type"
+  },
+  "WrFEtUzVcnw:8": {
+    "startSeconds": 962,
+    "endSeconds": 969,
+    "caption": "online this would give me the number one one also means true if somebody were"
+  },
+  "WrFEtUzVcnw:9": {
+    "startSeconds": 1158,
+    "endSeconds": 1166,
+    "caption": "use eight bytes a Char is a single character they use up one bite now an array of characters also"
+  },
+  "Ws-mVAJDFAw:0": {
+    "startSeconds": 75,
+    "endSeconds": 82,
+    "caption": "printf printf is used to display something as output scanf is used to read input what we're going to place"
+  },
+  "Ws-mVAJDFAw:1": {
+    "startSeconds": 173,
+    "endSeconds": 182,
+    "caption": "cause a buffer overflow and let's ask a user for their name so we'll create a prompt printf"
+  },
+  "Ws-mVAJDFAw:2": {
+    "startSeconds": 256,
+    "endSeconds": 263,
+    "caption": "function and that is the f gets function f gets parentheses"
+  },
+  "Ws-mVAJDFAw:3": {
+    "startSeconds": 376,
+    "endSeconds": 384,
+    "caption": "want to use fgets in place of scanf because scanf can't read those white spaces it stops right there but it will include that new line character when you"
+  },
+  "b4DPj0XAfSg:0": {
+    "startSeconds": 81,
+    "endSeconds": 92,
+    "caption": "so let's take i and increment it by one after each iteration by using i plus plus so let's just test this so printf"
+  },
+  "b4DPj0XAfSg:1": {
+    "startSeconds": 149,
+    "endSeconds": 156,
+    "caption": "is greater than or equal to 1 and we will decrement i minus minus so"
+  },
+  "eE9MnoS0lc0:0": {
+    "startSeconds": 111,
+    "endSeconds": 118,
+    "caption": "known as an element so we have five elements within our array and to access one of these elements i need to list an"
+  },
+  "eE9MnoS0lc0:1": {
+    "startSeconds": 150,
+    "endSeconds": 158,
+    "caption": "is twenty five and four which is our last element is 20. so arrays they have a fixed size"
+  },
+  "eE9MnoS0lc0:2": {
+    "startSeconds": 251,
+    "endSeconds": 259,
+    "caption": "your array you type the array name followed by an index number kind of like a parking spot number so yeah those are arrays in the next video i'm going to"
+  },
+  "gOMW_n2-2Mw:0": {
+    "startSeconds": 46,
+    "endSeconds": 55,
+    "caption": "braces for a set or parentheses for a tuple let's begin with the list if I would like to store more than one value in this variable I will surround my"
+  },
+  "gOMW_n2-2Mw:1": {
+    "startSeconds": 134,
+    "endSeconds": 141,
+    "caption": "if we attempt to access an element that's not found within our collection you'll run into an index error with the"
+  },
+  "gOMW_n2-2Mw:2": {
+    "startSeconds": 330,
+    "endSeconds": 337,
+    "caption": "let's remove that using the in operator we can find if a value is within a collection"
+  },
+  "gOMW_n2-2Mw:3": {
+    "startSeconds": 367,
+    "endSeconds": 374,
+    "caption": "changeable duplicates are okay we can change one of these values after we create our list"
+  },
+  "gOMW_n2-2Mw:4": {
+    "startSeconds": 501,
+    "endSeconds": 510,
+    "caption": "to clear a list use the clear method fruits.clear all of the elements are gone"
+  },
+  "gOMW_n2-2Mw:5": {
+    "startSeconds": 667,
+    "endSeconds": 675,
+    "caption": "we have an error set object is not subscriptable we're not able to use indexing on a set because they're unordered much like what we can do with"
+  },
+  "gOMW_n2-2Mw:6": {
+    "startSeconds": 773,
+    "endSeconds": 781,
+    "caption": "tuple over a list is that tuples are faster than lists if you're working with a collection and it's okay if the collection is ordered and unchangeable"
+  },
+  "gOMW_n2-2Mw:7": {
+    "startSeconds": 878,
+    "endSeconds": 886,
+    "caption": "each of them has unique benefits lists are ordered and changeable duplicates are okay a set is unordered and"
+  },
+  "ivl5-snqul8:0": {
+    "startSeconds": 0,
+    "endSeconds": 9,
+    "caption": "hello everybody today I'm going to attempt to explain recursion in just a few minutes think of recursion as just a function that calls itself from within"
+  },
+  "ivl5-snqul8:1": {
+    "startSeconds": 124,
+    "endSeconds": 132,
+    "caption": "negative steps we need what is known as a base condition when do we want to stop I'm going to add one line"
+  },
+  "ivl5-snqul8:2": {
+    "startSeconds": 301,
+    "endSeconds": 308,
+    "caption": "if x is equal to one then we will return one"
+  },
+  "jc7TBgMS_kw:0": {
+    "startSeconds": 62,
+    "endSeconds": 71,
+    "caption": "friends plus equals one that would do the same thing this is known as an augmented assignment operator"
+  },
+  "jc7TBgMS_kw:1": {
+    "startSeconds": 204,
+    "endSeconds": 211,
+    "caption": "modulus operator it will give us the remainder of any Division if I were to divide my group of friends by three we"
+  },
+  "jc7TBgMS_kw:2": {
+    "startSeconds": 323,
+    "endSeconds": 336,
+    "caption": "absolute value of y the absolute value is the distance away from zero as a whole number the absolute value of negative 4 is 4."
+  },
+  "jc7TBgMS_kw:3": {
+    "startSeconds": 381,
+    "endSeconds": 390,
+    "caption": "result equals the max between X Y and Z well the maximum value is five"
+  },
+  "jc7TBgMS_kw:4": {
+    "startSeconds": 495,
+    "endSeconds": 505,
+    "caption": "number up suppose X is 9.1 so 9.1 rounded up is 10."
+  },
+  "jc7TBgMS_kw:5": {
+    "startSeconds": 660,
+    "endSeconds": 671,
+    "caption": "pi times radius squared we could easily use the built-in power function to raise our radius to the power of 2."
+  },
+  "jc7TBgMS_kw:6": {
+    "startSeconds": 728,
+    "endSeconds": 737,
+    "caption": "of a right angled triangle is C equals the square root of a squared plus b squared we'll Begin by importing the"
+  },
+  "kepBmgvWNDw:0": {
+    "startSeconds": 25,
+    "endSeconds": 34,
+    "caption": "into the content what is the definition of recursion recursion is a process in which a function calls itself directly"
+  },
+  "kepBmgvWNDw:1": {
+    "startSeconds": 199,
+    "endSeconds": 208,
+    "caption": "as 3 equals to 1 is false this will not get evaluated as this is false therefore the else part will get evaluated and"
+  },
+  "kepBmgvWNDw:2": {
+    "startSeconds": 333,
+    "endSeconds": 342,
+    "caption": "indicated over here return means you are simply popping this activation record out of the stack and you're returning"
+  },
+  "kepBmgvWNDw:3": {
+    "startSeconds": 417,
+    "endSeconds": 424,
+    "caption": "particular program is three recursion is not a rocket science it is very simple"
+  },
+  "kepBmgvWNDw:4": {
+    "startSeconds": 548,
+    "endSeconds": 556,
+    "caption": "the control transpose to fun 1 and n is equals to 1 and 1 is equals to 1 which means true therefore this is the"
+  },
+  "kepBmgvWNDw:5": {
+    "startSeconds": 614,
+    "endSeconds": 621,
+    "caption": "you find out the return statement with a single value which does not consist of calling the function once again then"
+  },
+  "nrbBmoINqtk:0": {
+    "startSeconds": 23,
+    "endSeconds": 31,
+    "caption": "is a middle level language that originated in the 1970s and it is one of the most widely used programming languages"
+  },
+  "nrbBmoINqtk:1": {
+    "startSeconds": 162,
+    "endSeconds": 169,
+    "caption": "this compiles or otherwise converts c code to machine code you know all those ones and zeros that a machine"
+  },
+  "nrbBmoINqtk:2": {
+    "startSeconds": 265,
+    "endSeconds": 273,
+    "caption": "the c extension hello world dot c and we now have a c file that we can work with and on this tab at the top"
+  },
+  "nrbBmoINqtk:3": {
+    "startSeconds": 465,
+    "endSeconds": 473,
+    "caption": "this creates a json file that tells vs code how to compile the program and with that out of the way we can begin coding now before we do start"
+  },
+  "nrbBmoINqtk:4": {
+    "startSeconds": 570,
+    "endSeconds": 579,
+    "caption": "if our program runs successfully with no errors if there is an error then we'll return a 1. so now we can add anything that we want within"
+  },
+  "nrbBmoINqtk:5": {
+    "startSeconds": 652,
+    "endSeconds": 660,
+    "caption": "well i can add an escape sequence for a new line character so at the end of my printf statement within the double quotes"
+  },
+  "ou_G7_zodR4:0": {
+    "startSeconds": 51,
+    "endSeconds": 59,
+    "caption": "more than once if you don't have to wouldn't it be better if we write this code once and then simply reuse it while we can by using a function so let's"
+  },
+  "ou_G7_zodR4:1": {
+    "startSeconds": 125,
+    "endSeconds": 133,
+    "caption": "basically that's all what a function is it's some subsection of code that is executed whenever you invoke it also known as calling a function a benefit to"
+  },
+  "rRTjPnVooxE:0": {
+    "startSeconds": 88,
+    "endSeconds": 96,
+    "caption": "in my first name hit enter hello whatever your first name is while this condition remains true execute this code"
+  },
+  "rRTjPnVooxE:1": {
+    "startSeconds": 129,
+    "endSeconds": 136,
+    "caption": "actually escape this Loop we didn't give ourselves an exit strategy that's why previously we re-prompted the"
+  },
+  "rRTjPnVooxE:2": {
+    "startSeconds": 249,
+    "endSeconds": 258,
+    "caption": "going to make one change we want to exit the while loop when they press Q so you could say while not food"
+  },
+  "rRTjPnVooxE:3": {
+    "startSeconds": 397,
+    "endSeconds": 405,
+    "caption": "a while loop will execute some code while some condition remains true it's fairly useful for verifying user input"
+  },
+  "tb6EYiHtcXU:0": {
+    "startSeconds": 27,
+    "endSeconds": 36,
+    "caption": "the first method I'll show you well technically this is a function the length function will give us the length of a string how many characters is it we"
+  },
+  "tb6EYiHtcXU:1": {
+    "startSeconds": 159,
+    "endSeconds": 170,
+    "caption": "character it will return negative one let's find any I don't know uh cues"
+  },
+  "tb6EYiHtcXU:2": {
+    "startSeconds": 271,
+    "endSeconds": 278,
+    "caption": "string was some combination of alphabetical characters and numbers this method will still return false it"
+  },
+  "tb6EYiHtcXU:3": {
+    "startSeconds": 437,
+    "endSeconds": 445,
+    "caption": "the dashes completely by replacing the dashes or another character with an empty string"
+  },
+  "tb6EYiHtcXU:4": {
+    "startSeconds": 522,
+    "endSeconds": 532,
+    "caption": "input is more than 12 characters long we can do that using the length function we will find the length of our username"
+  },
+  "tb6EYiHtcXU:5": {
+    "startSeconds": 661,
+    "endSeconds": 669,
+    "caption": "strings the is Alpha method returns a Boolean if a string only contains alphabetical characters"
+  },
+  "xyQrVEFz9kw:0": {
+    "startSeconds": 50,
+    "endSeconds": 57,
+    "caption": "equal signs this is the comparison operator if you use just one this is the assignment operator and this would be"
+  },
+  "xyQrVEFz9kw:1": {
+    "startSeconds": 211,
+    "endSeconds": 219,
+    "caption": "true we will skip all of these statements that come after then with our else block If All Above statements evaluate to be false we definitely"
+  }
+}
