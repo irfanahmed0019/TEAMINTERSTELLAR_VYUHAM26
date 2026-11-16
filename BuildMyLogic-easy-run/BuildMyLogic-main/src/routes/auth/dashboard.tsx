@@ -1,3 +1,5 @@
+import { CompetencySummary } from "@/components/CompetencySummary";
+import { competencyPlan, competencyView } from "@/lib/competency";
 import { learnerStorage, isPublicDemo } from "@/lib/demo-mode";
 /**
  * BuildMyLogic — Learner Dashboard
@@ -47,7 +49,7 @@ const LOOP_STEPS: [string, string][] = [
 function Dashboard() {
   const state = useLoop();
   const navigate = useNavigate();
-  const plan = state.plan;
+  const plan = competencyPlan(state);
   const name = state.profile?.name?.trim() || "Builder";
   const missions = plan?.missions ?? [];
   const current = missions.find((m) => state.missionProgress[m.id]?.status === "active") ?? missions[0];
@@ -121,6 +123,7 @@ function Dashboard() {
       quote={plan?.quote ?? "Small steps every day build big skills."}
       wide
     >
+      <CompetencySummary />
       {/* Schedule & Google Calendar Modal */}
       <ScheduleModal
         isOpen={scheduleModalOpen}

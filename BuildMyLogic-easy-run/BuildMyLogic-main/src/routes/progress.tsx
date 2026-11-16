@@ -1,3 +1,5 @@
+import { CompetencySummary } from "@/components/CompetencySummary";
+import { competencyPlan, competencyView } from "@/lib/competency";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { BarChart3, Check, Code2, Flame, Layers, Lock, Target, TrendingDown, TrendingUp, Trophy, X } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
@@ -47,7 +49,7 @@ function Progress() {
   const sample = !!state.sampleProvenance;
   const [tab, setTab] = useState<"Overview" | "Skills" | "Missions" | "Struggle DNA" | "Activity">(typeof window!=='undefined'&&new URLSearchParams(window.location.search).get('view')==='struggle'?"Struggle DNA":"Overview");
   const [selectedMission, setSelectedMission] = useState<string | null>(null);
-  const plan = state.plan;
+  const plan = competencyPlan(state);
   const missions = plan?.missions ?? [];
   const skills = plan?.skills ?? [];
   const completedMissions = missions.filter((m) => state.missionProgress[m.id]?.status === "done");
@@ -61,15 +63,15 @@ function Progress() {
   const competency = useMemo(() => {
     const entries: [string, number][] = [
       ...skills.map((s): [string, number] => [s.name, s.level]),
-      ...Object.entries(state.skillMemory ?? {}).map(([name, item]): [string, number] => [name, item.level]),
+      ...competencyView(state).filter(c => c.estimate !== null).map((c): [string, number] => [c.skill, c.estimate!]),
     ];
     return COMPETENCY_AXES.map(({ axis, keywords }) => {
       const matches = entries
-        .filter(([name]) => keywords.some((k) => name.toLowerCase().includes(k)))
+        .filter(([name]) => keywords.some((k) => name.toLowerCase().split(/[^a-z0-9]+/).includes(k)))
         .map(([, level]) => level);
       return { axis, value: matches.length ? Math.round(matches.reduce((a, b) => a + b, 0) / matches.length) : 0 };
     });
-  }, [skills, state.skillMemory]);
+  }, [skills, state]);
   const hasCompetency = competency.some((c) => c.value > 0);
 
   const week = useMemo(() => {
@@ -94,29 +96,9 @@ function Progress() {
   const standing = useMemo(() => {
     // Evidence is keyed by lowercased skill name; plan skills keep their own
     // casing, so match case-insensitively and show the plan's display name.
-    const memory = state.skillMemory ?? {};
-    const memoryFor = (name: string) => memory[name] ?? memory[name.toLowerCase().trim()];
-    const names = new Set<string>([
-      ...skills.map((s) => s.name),
-      ...Object.keys(memory).filter((key) => !skills.some((s) => s.name.toLowerCase().trim() === key)),
-    ]);
-    const assessed: { name: string; level: number }[] = [];
-    const unassessed: string[] = [];
-    for (const name of names) {
-      const item = memoryFor(name);
-      if (item && (item.evidence?.length ?? 0) > 0) {
-        assessed.push({ name, level: Math.max(0, Math.min(100, item.level)) });
-      } else {
-        unassessed.push(name);
-      }
-    }
-    assessed.sort((a, b) => b.level - a.level);
-    return {
-      strong: assessed.filter((s) => s.level >= 40),
-      weak: assessed.filter((s) => s.level < 40).sort((a, b) => a.level - b.level),
-      unassessed,
-    };
-  }, [skills, state.skillMemory]);
+    const all = competencyView(state);
+    return {strong:all.filter(c=>c.observations>=3&&(c.estimate??0)>=65).map(c=>({name:c.skill,level:c.estimate!})),weak:all.filter(c=>c.observations>0&&((c.estimate??0)<65||c.observations<3)).map(c=>({name:c.skill,level:c.estimate!})),unassessed:all.filter(c=>!c.observations).map(c=>c.skill)};
+  }, [state]);
   const goals: [string, boolean][] = [
     ...(activeMission ? [[`Complete ${activeMission.title}`, state.missionProgress[activeMission.id]?.status === "done"] as [string, boolean]] : []),
     ...(nextMission ? [[`Build and submit the ${nextMission.title} project`, (state.missionProgress[nextMission.id]?.completedSteps?.length ?? 0) >= nextMission.steps.length && nextMission.steps.length > 0] as [string, boolean]] : []),
@@ -152,11 +134,12 @@ function Progress() {
 
       {tab === "Overview" && (
         <>
+          <CompetencySummary />
           {/* Stat cards */}
           <div className="mt-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
             <StatCard icon={Layers} value={completedMissions.length} label={sample ? "Sample projects" : "Projects Completed"} />
             <StatCard icon={Code2} value={state.sessions.length} label={sample ? "Sample sessions" : "Practice Sessions"} />
-            <StatCard icon={BarChart3} value={`${averageSkill}%`} label={sample ? "Sample mastery" : "Overall Mastery"} />
+            <StatCard icon={BarChart3} value={`${averageSkill}%`} label={sample ? "Sample mastery" : "Competency estimate"} />
             <StatCard
               icon={Flame}
               value={

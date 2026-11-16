@@ -1,3 +1,4 @@
+import { InitialDiagnosticPanel } from "@/components/InitialDiagnosticPanel";
 import { ResumeIntake } from "@/components/ResumeIntake";
 import { isPublicDemo } from "@/lib/demo-mode";
 import { EmailPasswordSignIn } from "@/components/EmailPasswordSignIn";
@@ -47,6 +48,8 @@ export function ConversationalOnboarding() {
   const [genStatus, setGenStatus] = useState<"working" | "ready" | "error">("working");
   const [genError, setGenError] = useState("");
 
+  const restoredProfile = useRef(false);
+  useEffect(() => { if (auth && hydrated && !restoredProfile.current && !loop.onboarded) { restoredProfile.current = true; if (loop.profile) setProfile(loop.profile); } }, [auth, hydrated, loop.onboarded, loop.profile]);
   const currentPrompt = prompts[answers.length];
   const firstName = auth?.displayName?.split(" ")[0] ?? "";
 
@@ -231,7 +234,7 @@ export function ConversationalOnboarding() {
               <div className="rounded-2xl border border-primary/20 bg-background p-5">
                 <div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-soft text-primary"><WandSparkles className="h-5 w-5" /></div><div><h2 className="text-lg font-black">Everything's noted</h2><p className="text-xs text-muted-foreground">Your goal, level and time are saved</p></div></div>
                 <p className="mt-4 text-sm leading-6 text-muted-foreground">When you press <b>I'm Ready</b>, your mentor researches which topics you need and builds your personalized learning path while your new dashboard assembles.</p>
-                <button onClick={startLearning} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3.5 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 transition hover:opacity-90"><Check className="h-4 w-4" /> I'm Ready <ArrowRight className="h-4 w-4" /></button>
+                <InitialDiagnosticPanel profile={profile} onChange={initialDiagnostic => { const updated = { ...profile, initialDiagnostic }; setProfile(updated); setLoopState(prev => ({ ...prev, profile: updated })); }} onContinue={startLearning} />
               </div>
             )}
             <div ref={bottomRef} />

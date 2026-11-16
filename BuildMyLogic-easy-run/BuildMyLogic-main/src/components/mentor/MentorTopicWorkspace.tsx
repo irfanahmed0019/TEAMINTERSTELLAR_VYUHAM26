@@ -1,3 +1,5 @@
+import { competencyContext } from "@/lib/competency";
+import { getLoopState as competencyState } from "@/lib/loop-store";
 import { getAuthSession } from "@/lib/auth";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
@@ -65,6 +67,7 @@ export function MentorTopicWorkspace({
     try {
       const result = await aiMentorChat({
         data: {
+          competencyContext: competencyContext(competencyState()),
           mentorName: "BuildMyLogic Mentor",
           struggleContext: struggle
             ? diagnosticMentorContext(struggle, topicId, getAuthSession()?.uid)

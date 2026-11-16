@@ -1,3 +1,5 @@
+import { competencyContext } from "@/lib/competency";
+import { getLoopState as competencyState } from "@/lib/loop-store";
 import { ThinkingScaffold } from "@/components/learn/ThinkingScaffold";
 import { learnerStorage } from "@/lib/demo-mode";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -369,7 +371,7 @@ function Workspace({ state, commit, persist, signedIn, onReset }: { state: Mento
       return null;
     };
     try {
-      const r = await mentorAsk({ data: { kind, level: state.level, lessonTitle: lesson.title, objective: lesson.objective, exercisePrompt: exercise.prompt, code, lastFeedback: assessment?.feedback ?? "", misconceptions: activeMis, hintsUsed, message } });
+      const r = await mentorAsk({ data: { competencyContext: competencyContext(competencyState()), kind, level: state.level, lessonTitle: lesson.title, objective: lesson.objective, exercisePrompt: exercise.prompt, code, lastFeedback: assessment?.feedback ?? "", misconceptions: activeMis, hintsUsed, message } });
       setMentor({ text: r.message, source: "ai" });
     } catch (e) {
       const c = curated();

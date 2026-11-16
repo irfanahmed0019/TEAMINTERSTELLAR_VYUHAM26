@@ -1,3 +1,5 @@
+import { competencyContext } from "@/lib/competency";
+import { getLoopState as competencyState } from "@/lib/loop-store";
 import { learnerStorage, isPublicDemo } from "@/lib/demo-mode";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
@@ -161,6 +163,7 @@ export function MentorHome() {
     try {
       const result = await aiMentorChat({
         data: {
+          competencyContext: competencyContext(competencyState()),
           mentorName: "BuildMyLogic Mentor",
           mentorSpecialty: "Coding help, debugging, learning planning, and simple explanations",
           learnerMessage: withContext,
