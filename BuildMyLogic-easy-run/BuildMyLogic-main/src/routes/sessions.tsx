@@ -268,7 +268,14 @@ function Sessions() {
     let cancelled = false;
     const sync = async () => {
       try {
+        const epoch = getAuthEpoch();
         const auth = await getAuthSessionForApi();
+        if (
+          !auth ||
+          getAuthEpoch() !== epoch ||
+          getAuthSession()?.uid !== auth.uid
+        )
+          return;
         const response = await fetch(
           `/api/sessions/${encodeURIComponent(vscodeSession.sessionId)}/state`,
           {
@@ -282,6 +289,8 @@ function Sessions() {
           ok?: boolean;
           state?: RemoteSessionState;
         };
+        if (getAuthEpoch() !== epoch || getAuthSession()?.uid !== auth.uid)
+          return;
         if (!cancelled && result.ok && result.state) {
           setRemoteState(result.state);
           setVscodeSession((current) => {
@@ -316,17 +325,21 @@ function Sessions() {
   }, [vscodeSession?.sessionId]);
 
   useEffect(() => {
-    if (!remoteState || !activeMission) return;
+    if (!remoteState || !pairingAuth?.uid) return;
     const completed = remoteState.status === "completed";
     const shouldRetune =
       completed ||
       remoteState.status === "failed" ||
       Boolean(remoteState.potential_struggle);
-    if (!shouldRetune) return;
-    applyBuildSessionEvidence(remoteState);
+    if (
+      !shouldRetune &&
+      !PRACTICE_TASKS.some((t) => t.id === remoteState.challenge_id)
+    )
+      return;
+    applyBuildSessionEvidence(remoteState, pairingAuth.uid);
     // Ingest finite evidence only. Opening/polling Sessions must not spend AI
     // credits or rewrite the learner's roadmap from a passive event signal.
-  }, [activeMission, remoteState]);
+  }, [pairingAuth?.uid, remoteState]);
 
   const elapsed = Math.max(1, Math.round((startRef.current - seconds) / 60));
   const pct = startRef.current

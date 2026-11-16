@@ -354,14 +354,38 @@ export async function switchRecoveryAccount() {
   }
 }
 
+// One write lane for autosave, manual retry, recovery and sign-out in this tab.
+// A delayed older request must finish before a newer snapshot is submitted.
+let cloudWriteTail: Promise<void> = Promise.resolve();
 export async function saveLoopStateToCloud(
   state: unknown,
   expectedUid?: string,
 ): Promise<boolean> {
-  const current = getAuthSession();
+  const current = getAuthSession(),
+    epoch = authEpoch;
   if (!current?.uid || (expectedUid && current.uid !== expectedUid))
     return false;
-  return await saveLearnerStateToSupabase(current.uid, state as LoopState);
+  const owner = current.uid,
+    serialized = JSON.stringify(state);
+  const write = cloudWriteTail.then(async () => {
+    if (
+      authEpoch !== epoch ||
+      getAuthSession()?.uid !== owner ||
+      JSON.stringify(getLoopState()) !== serialized
+    )
+      return false;
+    return await saveLearnerStateToSupabase(
+      owner,
+      JSON.parse(serialized) as LoopState,
+    );
+  });
+  // Failed writes release the lane too. A queued obsolete snapshot is rejected
+  // at dequeue rather than written after the learner's newer current state.
+  cloudWriteTail = write.then(
+    () => {},
+    () => {},
+  );
+  return await write;
 }
 
 export async function loadLoopStateFromCloud(

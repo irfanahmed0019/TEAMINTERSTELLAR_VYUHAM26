@@ -3,10 +3,15 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
 import ts from "typescript";
+import { prepareSafeSignOut } from "./local-recovery.ts";
 
 // Execute the actual auth module with deterministic async provider boundaries.
 // No Supabase network calls, credentials or real learner storage.
 function harness() {
+  let work = false;
+  let local = {},
+    saveImplementation = async () => true;
+  const writes = [];
   const storage = new Map();
   let listener, resolveRead, resolveLogout;
   let cacheReady = true;
@@ -34,10 +39,10 @@ function harness() {
       setReadyCloudOwner: () => {},
     },
     "./local-recovery": {
-      prepareSafeSignOut: async () => true,
+      prepareSafeSignOut,
       RECOVERY_OWNER_KEY: "loop.recovery.owner",
       RETAINED_PREFIX: "retained.",
-      hasLocalWork: () => false,
+      hasLocalWork: () => work,
     },
     "./cloud-sync-uid": { LOOP_STATE_UID_KEY: "loop.state.uid" },
     "./demo-mode": { isPublicDemo: () => false },
@@ -45,7 +50,10 @@ function harness() {
     "./supabase": {
       supabase,
       hasSupabaseConfig: true,
-      saveLearnerStateToSupabase: async () => true,
+      saveLearnerStateToSupabase: async (owner, state) => {
+        writes.push({ owner, state });
+        return await saveImplementation(owner, state);
+      },
       loadLearnerStateFromSupabase: async () => null,
       signInWithSupabaseGoogle: async () => null,
     },
@@ -58,7 +66,7 @@ function harness() {
     },
     "./loop-store": {
       refreshLoopCacheFromStorage: () => cacheReady,
-      getLoopState: () => ({}),
+      getLoopState: () => local,
       resetLoop: () => storage.set("loop.state.v1", "{}"),
     },
   };
@@ -94,6 +102,13 @@ function harness() {
   listener("SIGNED_IN", user());
   return {
     auth,
+    writes,
+    enableWork: () => {
+      work = true;
+      storage.set("loop.state.uid", "owner-a");
+    },
+    setLocal: (value) => (local = value),
+    setSave: (fn) => (saveImplementation = fn),
     blockCache: () => {
       cacheReady = false;
     },
@@ -177,4 +192,74 @@ test("actual auth: blocked tab ignores refresh and signout broadcasts without re
   assert.equal(h.auth.getAuthSession(), null);
   assert.equal(h.storage.get("loop.auth.v1"), shared);
   assert.equal(await h.auth.getAuthSessionForApi(), null);
+});
+
+test("cloud writes serialize old in-flight write before newer snapshot and skip stale queued retry", async () => {
+  const h = harness();
+  let finishOld;
+  h.setSave(() => new Promise((r) => (finishOld = r)));
+  const first = { attempts: [1] },
+    second = { attempts: [1, 2] };
+  h.setLocal(first);
+  const old = h.auth.saveLoopStateToCloud(first, "owner-a");
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(h.writes.length, 1);
+  const obsolete = h.auth.saveLoopStateToCloud(first, "owner-a");
+  h.setLocal(second);
+  const latest = h.auth.saveLoopStateToCloud(second, "owner-a");
+  await Promise.resolve();
+  assert.equal(h.writes.length, 1);
+  h.setSave(async () => true);
+  finishOld(true);
+  assert.equal(await old, true);
+  assert.equal(await obsolete, false);
+  assert.equal(await latest, true);
+  assert.deepEqual(
+    h.writes.map((w) => JSON.stringify(w.state)),
+    [JSON.stringify(first), JSON.stringify(second)],
+  );
+});
+test("queued cloud snapshot cannot write after auth owner/epoch changes", async () => {
+  const h = harness();
+  let release;
+  h.setSave(() => new Promise((r) => (release = r)));
+  const state = { attempts: [1] };
+  h.setLocal(state);
+  const old = h.auth.saveLoopStateToCloud(state, "owner-a");
+  await Promise.resolve();
+  await Promise.resolve();
+  const queued = h.auth.saveLoopStateToCloud(state, "owner-a");
+  h.emit("SIGNED_IN", h.user("owner-b"));
+  release(true);
+  await old;
+  assert.equal(await queued, false);
+  assert.equal(h.writes.length, 1);
+});
+
+test("normal sign-out waits behind old autosave then flushes newest snapshot last before revoking auth", async () => {
+  const h = harness();
+  h.enableWork();
+  let release;
+  h.setSave(() => new Promise((r) => (release = r)));
+  const first = { attempts: [1] },
+    latest = { attempts: [1, 2] };
+  h.setLocal(first);
+  const pending = h.auth.saveLoopStateToCloud(first, "owner-a");
+  await Promise.resolve();
+  await Promise.resolve();
+  h.setLocal(latest);
+  const logout = h.auth.signOut();
+  await Promise.resolve();
+  assert.equal(h.auth.getAuthSession()?.uid, "owner-a");
+  assert.equal(h.writes.length, 1);
+  h.setSave(async () => true);
+  release(true);
+  await pending;
+  assert.equal(await logout, true);
+  assert.equal(h.auth.getAuthSession(), null);
+  assert.deepEqual(
+    h.writes.map((w) => JSON.stringify(w.state)),
+    [JSON.stringify(first), JSON.stringify(latest)],
+  );
 });

@@ -63,6 +63,8 @@ function AccountCloudSync() {
   const [hydratedUid, setHydratedUid] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
+  const [saveRetry, setSaveRetry] = useState(0);
+  const [saveFailure, setSaveFailure] = useState(false);
   const lastSaved = useRef("");
   const readyUid = useRef<string | null>(null);
   useEffect(() => {
@@ -77,6 +79,7 @@ function AccountCloudSync() {
     setHydratedUid(null);
     setHydrated(null);
     setFailure(null);
+    setSaveFailure(false);
     lastSaved.current = "";
     if (!uid || getAuthSession()?.uid !== uid) return;
     // A different account signing in on this browser without signing out must
@@ -150,33 +153,44 @@ function AccountCloudSync() {
     if (!uid || hydratedUid !== uid || readyUid.current !== uid) return;
     const serialized = JSON.stringify(state);
     if (serialized === lastSaved.current) return;
-    const timer = window.setTimeout(() => {
-      if (
-        readyUid.current !== uid ||
-        getAuthEpoch() !== epoch ||
-        getAuthSession()?.uid !== uid ||
-        learnerStorage.getItem(LOOP_STATE_UID_KEY) !== uid ||
-        learnerStorage.getItem(RECOVERY_OWNER_KEY)
-      )
+    let cancelled = false,
+      timer: number | undefined,
+      attempts = 0;
+    const current = () =>
+      !cancelled &&
+      readyUid.current === uid &&
+      getAuthEpoch() === epoch &&
+      getAuthSession()?.uid === uid &&
+      learnerStorage.getItem(LOOP_STATE_UID_KEY) === uid &&
+      !learnerStorage.getItem(RECOVERY_OWNER_KEY);
+    const save = async () => {
+      if (!current()) return;
+      attempts++;
+      let saved = false;
+      try {
+        saved = await saveLoopStateToCloud(state, uid);
+      } catch {
+        /* retry below without replacing local work */
+      }
+      if (!current()) return;
+      if (saved) {
+        lastSaved.current = serialized;
+        setSaveFailure(false);
+        void publishSavedConquests(state, uid).catch(() => {});
         return;
-      void saveLoopStateToCloud(state, uid)
-        .then((saved) => {
-          if (
-            saved &&
-            readyUid.current === uid &&
-            getAuthEpoch() === epoch &&
-            getAuthSession()?.uid === uid
-          ) {
-            lastSaved.current = serialized;
-            void publishSavedConquests(state, uid).catch(() => {});
-          }
-        })
-        .catch((error) =>
-          console.error("BuildMyLogic cloud save failed", error),
-        );
-    }, 700);
-    return () => window.clearTimeout(timer);
-  }, [uid, epoch, hydratedUid, state]);
+      }
+      setSaveFailure(true);
+      // Finite retry of the exact snapshot. Account, epoch, recovery and cleanup
+      // guards apply both before and after every write. Never restore over it.
+      if (attempts < 3)
+        timer = window.setTimeout(() => void save(), 1500 * attempts);
+    };
+    timer = window.setTimeout(() => void save(), 700);
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [uid, epoch, hydratedUid, state, saveRetry]);
 
   return failure ? (
     <div
@@ -190,6 +204,24 @@ function AccountCloudSync() {
         onClick={() => setRetry((n) => n + 1)}
       >
         Retry cloud restore
+      </button>
+    </div>
+  ) : saveFailure ? (
+    <div
+      role="alert"
+      className="sticky top-4 z-[100] mx-4 mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 shadow-lg"
+    >
+      <p>
+        Cloud saving has not succeeded. Your current progress is still kept in
+        this browser. Automatic retries are limited; keep this tab open until
+        saving succeeds.
+      </p>
+      <button
+        type="button"
+        className="mt-2 font-bold underline"
+        onClick={() => setSaveRetry((n) => n + 1)}
+      >
+        Retry cloud save
       </button>
     </div>
   ) : null;

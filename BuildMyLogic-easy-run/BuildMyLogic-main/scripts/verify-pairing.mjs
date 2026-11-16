@@ -113,6 +113,10 @@ const vite = await createServer({
 });
 try {
   const router = (await vite.ssrLoadModule("/src/server.ts")).default;
+  const { ingestPracticeEvidence } = await vite.ssrLoadModule(
+    "/src/lib/practice-evidence.ts",
+  );
+  let practiceCentral = { activity: [] };
   const call = async (path, body, auth) => {
     const r = await router.fetch(
       new Request("https://buildmylogicxyz.vercel.app" + path, {
@@ -423,6 +427,36 @@ try {
         const state = (await result.json()).state;
         assert.equal(result.status, 200);
         assert.equal(state.status === "completed", pass);
+        const boundResponse = await router.fetch(
+          new Request(
+            "https://buildmylogicxyz.vercel.app/api/sessions/" +
+              practice.body.session_id +
+              "/state",
+            { headers: { authorization: "Bearer owner" } },
+          ),
+          {},
+          {},
+        );
+        const bound = {
+          status: boundResponse.status,
+          body: await boundResponse.json(),
+        };
+        assert.equal(bound.status, 200);
+        practiceCentral = ingestPracticeEvidence(
+          practiceCentral,
+          bound.body.state,
+          owner,
+        );
+        assert.equal(
+          practiceCentral.struggle.attempts.filter(
+            (a) => a.topicId === bound.body.state.concept + ":owner:" + owner,
+          ).length,
+          pass ? 2 : 1,
+        );
+        assert.equal(
+          ingestPracticeEvidence(practiceCentral, bound.body.state, owner),
+          practiceCentral,
+        );
       }
       if (taskId === "python-loops-fibonacci-v1") {
         const previous =
@@ -442,6 +476,30 @@ try {
         assert.equal(change.body.state.task_generation, 1);
         assert.equal(change.body.state.attempts, 0);
         assert.equal(change.body.state.practice_history.length, 1);
+        const archivedResponse = await router.fetch(
+          new Request(
+            "https://buildmylogicxyz.vercel.app/api/sessions/" +
+              pendingId +
+              "/state",
+            { headers: { authorization: "Bearer owner" } },
+          ),
+          {},
+          {},
+        );
+        const archivedEnvelope = (await archivedResponse.json()).state;
+        const restoredCentral = ingestPracticeEvidence(
+          { activity: [] },
+          archivedEnvelope,
+          owner,
+        );
+        assert.equal(restoredCentral.struggle.attempts.length, 2);
+        assert.equal(
+          ingestPracticeEvidence(restoredCentral, archivedEnvelope, owner),
+          restoredCentral,
+        );
+        console.log(
+          "PASS actual Python fail/pass -> owner route -> central, archived pending question replay idempotent",
+        );
         assert.equal(change.body.state.practice_history[0].state.attempts, 2);
         assert.equal(
           change.body.state.practice_history[0].state.status,

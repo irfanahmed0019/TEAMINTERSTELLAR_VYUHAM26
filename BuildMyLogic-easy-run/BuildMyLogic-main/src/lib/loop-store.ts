@@ -1,3 +1,5 @@
+import { ingestPracticeEvidence } from "./practice-evidence.ts";
+import { PRACTICE_TASKS } from "./practice-task.ts";
 import {
   ingestProjectRechecks,
   reviewProjectRecovery,
@@ -376,8 +378,16 @@ export function recordMissionEvidence(missionId: string, amount = 2) {
 }
 
 /** Applies objective VS Code evidence to the learner dashboard immediately. */
-export function applyBuildSessionEvidence(remote: BuildSessionState) {
+export function applyBuildSessionEvidence(
+  remote: BuildSessionState,
+  currentOwner?: string,
+) {
   setLoopState((prev) => {
+    if (
+      PRACTICE_TASKS.some((t) => t.id === remote.challenge_id) ||
+      remote.practice_history?.length
+    )
+      return ingestPracticeEvidence(prev, remote, currentOwner);
     if (
       remote.challenge_id.startsWith("python-decimal-contract:") ||
       remote.challenge_id.startsWith("python-literal-repair:")

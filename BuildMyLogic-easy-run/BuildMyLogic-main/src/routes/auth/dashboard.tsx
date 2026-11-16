@@ -1,3 +1,4 @@
+import { PRACTICE_TASKS } from "@/lib/practice-task";
 import { getAuthSession, getAuthSessionForApi } from "@/lib/auth";
 import { learningSchedule } from "@/lib/learning-schedule";
 import { CompetencySummary } from "@/components/CompetencySummary";
@@ -13,15 +14,16 @@ import { learnerStorage, isPublicDemo } from "@/lib/demo-mode";
 
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
-import {
-  ArrowRight,
-  Calendar,
-  Check,
-  Code2,
-  Rocket,
-} from "lucide-react";
+import { ArrowRight, Calendar, Check, Code2, Rocket } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
-import { applyBuildSessionEvidence, applySarvamDashboardPlan, getLoopState, logActivity, setMissionProgress, useLoop } from "@/lib/loop-store";
+import {
+  applyBuildSessionEvidence,
+  applySarvamDashboardPlan,
+  getLoopState,
+  logActivity,
+  setMissionProgress,
+  useLoop,
+} from "@/lib/loop-store";
 import type { BuildSessionState } from "@/lib/loop-types";
 import { aiRetunePlan } from "@/lib/sarvam.functions";
 import { ScheduleModal } from "@/components/ScheduleModal";
@@ -36,7 +38,11 @@ export const Route = createFileRoute("/auth/dashboard")({
  */
 function greeting() {
   const hour = new Date().getHours();
-  return hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  return hour < 12
+    ? "Good morning"
+    : hour < 17
+      ? "Good afternoon"
+      : "Good evening";
 }
 
 const LOOP_STEPS: [string, string][] = [
@@ -54,11 +60,21 @@ function Dashboard() {
   const plan = competencyPlan(state);
   const name = state.profile?.name?.trim() || "Builder";
   const missions = plan?.missions ?? [];
-  const current = missions.find((m) => state.missionProgress[m.id]?.status === "active") ?? missions[0];
-  const doneCount = missions.filter((m) => state.missionProgress[m.id]?.status === "done").length;
-  const pct = missions.length ? Math.round((doneCount / missions.length) * 100) : 0;
-  const doneMissions = missions.filter((m) => state.missionProgress[m.id]?.status === "done");
-  const nextMission = current ? missions[missions.findIndex((m) => m.id === current.id) + 1] : undefined;
+  const current =
+    missions.find((m) => state.missionProgress[m.id]?.status === "active") ??
+    missions[0];
+  const doneCount = missions.filter(
+    (m) => state.missionProgress[m.id]?.status === "done",
+  ).length;
+  const pct = missions.length
+    ? Math.round((doneCount / missions.length) * 100)
+    : 0;
+  const doneMissions = missions.filter(
+    (m) => state.missionProgress[m.id]?.status === "done",
+  );
+  const nextMission = current
+    ? missions[missions.findIndex((m) => m.id === current.id) + 1]
+    : undefined;
 
   // Google Calendar scheduling modal state
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
@@ -78,40 +94,75 @@ function Dashboard() {
         if (!saved.sessionId) return;
         const auth = await getAuthSessionForApi();
         if (!isCurrent() || auth?.uid !== owner || !auth.idToken) return;
-        const response = await fetch(`/api/sessions/${encodeURIComponent(saved.sessionId)}/state`, { cache: "no-store", headers: { Authorization: `Bearer ${auth.idToken}` } });
+        const response = await fetch(
+          `/api/sessions/${encodeURIComponent(saved.sessionId)}/state`,
+          {
+            cache: "no-store",
+            headers: { Authorization: `Bearer ${auth.idToken}` },
+          },
+        );
         if (!response.ok) return;
-        const result = await response.json() as { ok?: boolean; state?: BuildSessionState };
+        const result = (await response.json()) as {
+          ok?: boolean;
+          state?: BuildSessionState;
+        };
         const remote = result.state;
         if (!isCurrent() || !result.ok || !remote) return;
-        const shouldRetune = remote.status === "completed" || remote.status === "failed" || Boolean(remote.potential_struggle);
-        if (!shouldRetune) return;
-        applyBuildSessionEvidence(remote);
+        const shouldRetune =
+          remote.status === "completed" ||
+          remote.status === "failed" ||
+          Boolean(remote.potential_struggle);
+        const finitePractice = PRACTICE_TASKS.some(
+          (t) => t.id === remote.challenge_id,
+        );
+        if (!shouldRetune && !finitePractice) return;
+        applyBuildSessionEvidence(remote, owner);
+        if (finitePractice) return; // Evidence sync is deterministic and never spends AI credits.
         const key = `${remote.session_id}:${remote.status}:${remote.attempts}:${remote.test_score?.passed ?? 0}:${remote.potential_struggle ? "struggle" : "normal"}`;
         if (dashboardRetuneKey.current === key) return;
         dashboardRetuneKey.current = key;
         const currentState = getLoopState();
         if (currentState.sampleProvenance) return;
         if (!currentState.profile || !currentState.plan) return;
-        void aiRetunePlan({ data: { profile: currentState.profile, plan: currentState.plan, activity: currentState.activity } }).then((suggested) => {
-          if (!isCurrent()) return;
-          applySarvamDashboardPlan(suggested);
-          logActivity({ kind: "ai", text: remote.status === "completed" ? "BuildMyLogic Mentor updated the dashboard after you proved the challenge." : "BuildMyLogic Mentor updated the dashboard with a focused recovery path." });
-        }).catch(() => {
-          // The deterministic dashboard adjustment remains available without AI provider.
-        });
+        void aiRetunePlan({
+          data: {
+            profile: currentState.profile,
+            plan: currentState.plan,
+            activity: currentState.activity,
+          },
+        })
+          .then((suggested) => {
+            if (!isCurrent()) return;
+            applySarvamDashboardPlan(suggested);
+            logActivity({
+              kind: "ai",
+              text:
+                remote.status === "completed"
+                  ? "BuildMyLogic Mentor updated the dashboard after you proved the challenge."
+                  : "BuildMyLogic Mentor updated the dashboard with a focused recovery path.",
+            });
+          })
+          .catch(() => {
+            // The deterministic dashboard adjustment remains available without AI provider.
+          });
       } catch {
         // The Sessions page displays the actionable expired-session message.
       }
     };
     void syncBuildSession();
     const timer = window.setInterval(() => void syncBuildSession(), 5000);
-    return () => { cancelled = true; window.clearInterval(timer); };
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, []);
 
   // Check if learner has booked a Google Calendar reminder recently
   useEffect(() => {
     if (isPublicDemo()) return;
-    const calendarPromptDismissed = window.sessionStorage.getItem("bml-calendar-dismissed");
+    const calendarPromptDismissed = window.sessionStorage.getItem(
+      "bml-calendar-dismissed",
+    );
     if (!calendarPromptDismissed && plan) {
       // Show subtle reminder banner to set their learning rhythm
       setShowPromptBanner(true);
@@ -127,7 +178,11 @@ function Dashboard() {
     <AppShell
       crumb="Dashboard"
       title={`${greeting()}, ${name}.`}
-      subtitle={plan ? `Let's continue your ${state.profile?.goal || plan.projectTitle} journey.` : "Your next skill is waiting to be proven."}
+      subtitle={
+        plan
+          ? `Let's continue your ${state.profile?.goal || plan.projectTitle} journey.`
+          : "Your next skill is waiting to be proven."
+      }
       quote={plan?.quote ?? "Small steps every day build big skills."}
       wide
     >
@@ -143,11 +198,17 @@ function Dashboard() {
       {!plan || !current ? (
         <section className="card-surface p-12 text-center">
           <Rocket className="mx-auto h-9 w-9 text-primary" />
-          <h2 className="display mt-4 text-2xl font-bold">Your build path is waiting.</h2>
+          <h2 className="display mt-4 text-2xl font-bold">
+            Your build path is waiting.
+          </h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            Tell BuildMyLogic what you want to achieve and we'll build the path around it.
+            Tell BuildMyLogic what you want to achieve and we'll build the path
+            around it.
           </p>
-          <Link to="/" className="btn-base btn-primary-solid mt-6 inline-flex items-center gap-2">
+          <Link
+            to="/"
+            className="btn-base btn-primary-solid mt-6 inline-flex items-center gap-2"
+          >
             <span>Start onboarding</span>
             <ArrowRight className="h-4 w-4" />
           </Link>
@@ -162,7 +223,9 @@ function Dashboard() {
                   <Calendar className="h-5 w-5" />
                 </div>
                 <div>
-                  <h4 className="text-[15px] font-bold text-foreground">Set your daily learning time</h4>
+                  <h4 className="text-[15px] font-bold text-foreground">
+                    Set your daily learning time
+                  </h4>
                   <p className="mt-0.5 text-[13px] text-muted-foreground">
                     {learningSchedule(state.profile).banner}
                   </p>
@@ -198,14 +261,18 @@ function Dashboard() {
                 <div className="flex items-center gap-2.5">
                   <span
                     className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
-                      i === 0 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                      i === 0
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground"
                     }`}
                   >
                     {i + 1}
                   </span>
                   <span className="text-[13px] font-bold">{label}</span>
                 </div>
-                <p className="mt-1.5 text-[11px] leading-4 text-muted-foreground">{caption}</p>
+                <p className="mt-1.5 text-[11px] leading-4 text-muted-foreground">
+                  {caption}
+                </p>
               </div>
             ))}
           </section>
@@ -215,9 +282,15 @@ function Dashboard() {
             <section className="card-surface p-6 sm:p-7 lg:col-span-7">
               <div className="flex h-full flex-col justify-between gap-6 sm:flex-row sm:items-center">
                 <div className="min-w-0">
-                  <span className="pill bg-primary-soft text-accent-foreground">Current Task</span>
-                  <h2 className="display mt-4 text-[24px] font-extrabold leading-tight tracking-[-0.02em]">{current.title}</h2>
-                  <p className="mt-2 max-w-md text-[14px] leading-6 text-muted-foreground">{current.description}</p>
+                  <span className="pill bg-primary-soft text-accent-foreground">
+                    Current Task
+                  </span>
+                  <h2 className="display mt-4 text-[24px] font-extrabold leading-tight tracking-[-0.02em]">
+                    {current.title}
+                  </h2>
+                  <p className="mt-2 max-w-md text-[14px] leading-6 text-muted-foreground">
+                    {current.description}
+                  </p>
                   <button
                     type="button"
                     className="btn-base btn-primary-solid mt-6"
@@ -246,25 +319,40 @@ function Dashboard() {
                 <span className="display text-[22px] font-black">{pct}%</span>
               </div>
               <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${pct}%` }}
+                />
               </div>
               <div className="mt-4 space-y-2">
                 {doneMissions.slice(-1).map((m) => (
-                  <div key={m.id} className="flex items-center gap-3 rounded-xl bg-emerald-50 px-3.5 py-3">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white"><Check className="h-3 w-3" strokeWidth={3.2} /></span>
-                    <p className="truncate text-[13px] font-semibold">{m.title}</p>
+                  <div
+                    key={m.id}
+                    className="flex items-center gap-3 rounded-xl bg-emerald-50 px-3.5 py-3"
+                  >
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
+                      <Check className="h-3 w-3" strokeWidth={3.2} />
+                    </span>
+                    <p className="truncate text-[13px] font-semibold">
+                      {m.title}
+                    </p>
                   </div>
                 ))}
                 <div className="flex items-center gap-3 rounded-xl bg-primary-soft px-3.5 py-3">
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-card" />
                   <p className="truncate text-[13px] font-semibold">
-                    {current.title} <span className="font-bold text-accent-foreground">(Current)</span>
+                    {current.title}{" "}
+                    <span className="font-bold text-accent-foreground">
+                      (Current)
+                    </span>
                   </p>
                 </div>
                 {nextMission && (
                   <div className="flex items-center gap-3 px-3.5 py-3">
                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-border" />
-                    <p className="truncate text-[13px] font-medium text-muted-foreground">Next: {nextMission.title}</p>
+                    <p className="truncate text-[13px] font-medium text-muted-foreground">
+                      Next: {nextMission.title}
+                    </p>
                   </div>
                 )}
               </div>
@@ -288,14 +376,21 @@ function Dashboard() {
             <div className="mt-8 overflow-x-auto pb-2">
               <div className="flex min-w-[640px] items-start">
                 {missions.slice(0, 9).map((mission, index) => {
-                  const status = state.missionProgress[mission.id]?.status ?? (index === 0 ? "active" : "locked");
+                  const status =
+                    state.missionProgress[mission.id]?.status ??
+                    (index === 0 ? "active" : "locked");
                   const isCurrent = mission.id === current.id;
                   const isDone = status === "done";
                   const last = index === Math.min(9, missions.length) - 1;
                   return (
-                    <div key={mission.id} className="flex flex-1 flex-col items-center text-center">
+                    <div
+                      key={mission.id}
+                      className="flex flex-1 flex-col items-center text-center"
+                    >
                       <div className="flex w-full items-center">
-                        <span className={`h-[3px] flex-1 ${index === 0 ? "bg-transparent" : isDone || isCurrent ? "bg-primary" : "bg-border"}`} />
+                        <span
+                          className={`h-[3px] flex-1 ${index === 0 ? "bg-transparent" : isDone || isCurrent ? "bg-primary" : "bg-border"}`}
+                        />
                         <span
                           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ${
                             isDone
@@ -305,13 +400,23 @@ function Dashboard() {
                                 : "border border-border bg-muted text-muted-foreground"
                           }`}
                         >
-                          {isDone ? <Check className="h-4 w-4" strokeWidth={3.2} /> : index + 1}
+                          {isDone ? (
+                            <Check className="h-4 w-4" strokeWidth={3.2} />
+                          ) : (
+                            index + 1
+                          )}
                         </span>
-                        <span className={`h-[3px] flex-1 ${last ? "bg-transparent" : isDone ? "bg-primary" : "bg-border"}`} />
+                        <span
+                          className={`h-[3px] flex-1 ${last ? "bg-transparent" : isDone ? "bg-primary" : "bg-border"}`}
+                        />
                       </div>
-                      <p className="mt-3 max-w-[110px] text-[11.5px] font-semibold leading-4">{mission.title}</p>
+                      <p className="mt-3 max-w-[110px] text-[11.5px] font-semibold leading-4">
+                        {mission.title}
+                      </p>
                       {isCurrent && (
-                        <span className="mt-1.5 rounded-full bg-primary-soft px-2.5 py-0.5 text-[10px] font-bold text-accent-foreground">Now</span>
+                        <span className="mt-1.5 rounded-full bg-primary-soft px-2.5 py-0.5 text-[10px] font-bold text-accent-foreground">
+                          Now
+                        </span>
                       )}
                     </div>
                   );
