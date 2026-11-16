@@ -17,7 +17,11 @@ import {
 } from "./supabase";
 import type { LoopState } from "./loop-types";
 import { signOutInOrder } from "./signout-order";
-import { getLoopState, resetLoop } from "./loop-store";
+import {
+  getLoopState,
+  resetLoop,
+  refreshLoopCacheFromStorage,
+} from "./loop-store";
 
 export type AuthUser = {
   uid: string;
@@ -40,6 +44,7 @@ let signingOut = false;
 // UID equality is insufficient across logout/login of the same account.
 let authEpoch = 0;
 let pendingRemoteSignOuts = 0;
+let localCacheBlocked = false;
 export function getAuthEpoch(): number {
   return authEpoch;
 }
@@ -73,7 +78,7 @@ export function useAuth() {
       return () => listeners.delete(listener);
     },
     () => {
-      if (isPublicDemo()) return null;
+      if (isPublicDemo() || localCacheBlocked) return null;
       load();
       return session;
     },
@@ -81,21 +86,32 @@ export function useAuth() {
   );
 }
 
+export function useLocalCacheBlocked(): boolean {
+  return useSyncExternalStore(
+    (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    () => localCacheBlocked,
+    () => false,
+  );
+}
+
 export function getAuthSession(): AuthSession | null {
-  if (isPublicDemo()) return null;
+  if (isPublicDemo() || localCacheBlocked) return null;
   load();
   return session;
 }
 
 /** Returns the current Supabase access token before calling an authenticated API. */
 export async function getAuthSessionForApi(): Promise<AuthSession | null> {
-  if (isPublicDemo()) return null;
+  if (isPublicDemo() || localCacheBlocked) return null;
   load();
-  if (signingOut) return null;
+  if (signingOut || localCacheBlocked) return null;
   if (!supabase) return session;
   const epoch = authEpoch;
   const { data } = await supabase.auth.getSession();
-  if (signingOut || epoch !== authEpoch) return null;
+  if (signingOut || localCacheBlocked || epoch !== authEpoch) return null;
   const current = data.session;
   if (!current?.user) return session;
   session = {
@@ -143,6 +159,19 @@ if (supabase) {
           session?.idToken !== supabaseSession?.access_token))
     )
       authEpoch++;
+    if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
+      localCacheBlocked = !refreshLoopCacheFromStorage();
+      if (localCacheBlocked) {
+        // Do not accept this tab's old unsaved memory into a new account, and
+        // do not overwrite the other tabs' shared auth record. The existing
+        // signed-out recovery boundary preserves and locks the local copy.
+        session = null;
+        setReadyCloudOwner(null);
+        notify();
+        return;
+      }
+    }
+    if (localCacheBlocked) return;
     if (supabaseSession?.user) {
       const u = supabaseSession.user;
       session = {

@@ -44,6 +44,7 @@ const KEY = "loop.state.v1";
 
 let state: LoopState = emptyState;
 let loaded = false;
+let unpersisted = false;
 const listeners = new Set<() => void>();
 
 function isLegacyStarterState(candidate: Partial<LoopState>): boolean {
@@ -116,12 +117,29 @@ function load(): LoopState {
 }
 
 /**
+ * Auth changes are broadcast to every tab, but this module's cache is per-tab.
+ * Refresh from the shared persisted snapshot before evaluating the new owner.
+ * This never writes, clears, reassigns or uploads a recovery copy.
+ */
+export function refreshLoopCacheFromStorage(): boolean {
+  // A quota/storage failure may leave the only copy in memory. Preserve it
+  // for the existing fail-closed recovery gate rather than silently dropping it.
+  if (unpersisted) return false;
+  loaded = false;
+  load();
+  listeners.forEach((listener) => listener());
+  return true;
+}
+
+/**
  * Synchronizes in-memory state to localStorage and notifies React subscribers
  */
 function persist() {
   try {
     learnerStorage.setItem(KEY, JSON.stringify(state));
+    unpersisted = false;
   } catch {
+    unpersisted = true;
     /* storage full or unavailable */
   }
   listeners.forEach((l) => l());

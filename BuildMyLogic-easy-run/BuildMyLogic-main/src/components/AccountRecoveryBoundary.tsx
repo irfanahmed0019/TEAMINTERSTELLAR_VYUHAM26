@@ -6,6 +6,7 @@ import {
   saveLoopStateToCloud,
   switchRecoveryAccount,
   useAuth,
+  useLocalCacheBlocked,
 } from "@/lib/auth";
 import { getLoopState, resetLoop, useLoop } from "@/lib/loop-store";
 import { LOOP_STATE_UID_KEY } from "@/lib/cloud-sync-uid";
@@ -18,6 +19,7 @@ import {
 } from "@/lib/local-recovery";
 export function AccountRecoveryBoundary({ children }: { children: ReactNode }) {
   const auth = useAuth();
+  const cacheBlocked = useLocalCacheBlocked();
   const state = useLoop();
   const [revision, setRevision] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -25,6 +27,24 @@ export function AccountRecoveryBoundary({ children }: { children: ReactNode }) {
   if (typeof window === "undefined") return <main>Loading account...</main>;
   const cached = localStorage.getItem(LOOP_STATE_UID_KEY);
   const pending = localStorage.getItem(RECOVERY_OWNER_KEY);
+  if (cacheBlocked) {
+    return (
+      <main className="mx-auto max-w-xl p-6" role="alert">
+        <h1 className="text-2xl font-black">Keep this tab open</h1>
+        <p className="my-4">
+          This tab could not save its latest local progress. Its memory copy has
+          been preserved, but it cannot safely join the current account.
+          Learning and cloud saving are paused in this tab. Other tabs are not
+          changed.
+        </p>
+        <p>
+          Do not reload or close this tab: unsaved progress could be lost.
+          Signing in again will not repair this storage problem. No local
+          recovery copy has been cleared or added to another account.
+        </p>
+      </main>
+    );
+  }
   if (!auth) {
     if (
       !blockSignedOutRecovery(pending, cached, state, Object.keys(localStorage))

@@ -307,3 +307,27 @@ The actual QA gate's creation sequence remains unresolved. Read-only probe
 history contains no localStorage writes. Normal production logout had visibly
 returned to the home sign-in page. No recovery guard has been relaxed, no pending
 flag auto-cleared, and no protected local copy exported or discarded.
+
+### Confirmed multi-tab logout/relogin cause and fix
+
+The ordinary production same-tab flow reproduced again after epoch hardening.
+Discovering inherited Learn tabs exposed the missing condition: Supabase
+broadcasts authentication between tabs, but each tab retains its own in-memory
+learner cache. A controlled two-tab real-app browser reproduction captured the
+second Learn tab's SIGNED_IN broadcast writing `pending=unbound` from stale
+in-memory learner work while the first tab had already cleared shared storage.
+The first tab then claimed the owner marker, reproducing matching owner plus
+unbound pending. One-tab and reload-only tests had missed this condition.
+
+Auth SIGNED_IN/SIGNED_OUT now refresh each tab's cache read-only from shared
+persisted storage before publishing the auth change. It never clears a pending
+copy, reassigns ownership or writes learner data. Failed persistence marks the
+only-memory copy dirty; that tab refuses cache refresh and auth/API access,
+leaves other tabs' shared auth untouched, and shows a specific "Keep this tab
+open" notice. No blind retry overwrites another account's shared cache.
+
+The local two-tab normal UI password-signin reproduction passes in both dev and
+minified production builds. Unknown-owner and seeded stale-pending controls
+still block. A simulated quota failure visibly shows the dedicated notice and
+retains the memory copy without restoring account/cloud authority. These local
+checks are distinct from the following live-deployment acceptance.

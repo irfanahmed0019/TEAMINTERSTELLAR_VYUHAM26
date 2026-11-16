@@ -183,3 +183,24 @@ test("owner-verified event import creates separate evidence without doubling old
  const old=next.struggle.misconceptions.find(m=>m.sourceSessionId==='history-qa'&&!m.recoveryOwnerId),verified=next.struggle.misconceptions.find(m=>m.sourceSessionId==='history-qa'&&m.recoveryOwnerId===owner);
  assert.ok(old);assert.ok(verified);assert.notEqual(old.id,verified.id);assert.equal(verified.occurrences,2);
 });
+
+test('cross-tab auth refresh reloads persisted snapshot without writing or changing unknown recovery ownership', async () => {
+  const {refreshLoopCacheFromStorage}=await import('./loop-store.testable.tmp.ts');
+  storage.set('loop.recovery.owner','unbound');
+  const next={...getLoopState(),profile:{fullName:'Other tab saved'},onboarded:false};
+  const serialized=JSON.stringify(next);
+  storage.set('loop.state.v1',serialized);
+  refreshLoopCacheFromStorage();
+  assert.equal(getLoopState().profile.fullName,'Other tab saved');
+  assert.equal(storage.get('loop.state.v1'),serialized);
+  assert.equal(storage.get('loop.recovery.owner'),'unbound');
+});
+test('cross-tab auth refresh preserves only-memory progress after local persistence failure', async () => {
+  const {refreshLoopCacheFromStorage}=await import('./loop-store.testable.tmp.ts');
+  const original=window.localStorage.setItem;
+  window.localStorage.setItem=()=>{throw Error('quota');};
+  setLoopState(prev=>({...prev,profile:{fullName:'Only memory copy'}}));
+  window.localStorage.setItem=original;
+  refreshLoopCacheFromStorage();
+  assert.equal(getLoopState().profile.fullName,'Only memory copy');
+});

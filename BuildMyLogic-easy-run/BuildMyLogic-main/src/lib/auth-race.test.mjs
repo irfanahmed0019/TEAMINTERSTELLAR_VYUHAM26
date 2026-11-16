@@ -9,6 +9,7 @@ import ts from "typescript";
 function harness() {
   const storage = new Map();
   let listener, resolveRead, resolveLogout;
+  let cacheReady = true;
   const read = new Promise((r) => {
     resolveRead = r;
   });
@@ -56,6 +57,7 @@ function harness() {
       },
     },
     "./loop-store": {
+      refreshLoopCacheFromStorage: () => cacheReady,
       getLoopState: () => ({}),
       resetLoop: () => storage.set("loop.state.v1", "{}"),
     },
@@ -92,6 +94,9 @@ function harness() {
   listener("SIGNED_IN", user());
   return {
     auth,
+    blockCache: () => {
+      cacheReady = false;
+    },
     storage,
     user,
     emit: (event, s) => listener(event, s),
@@ -148,4 +153,28 @@ test("actual auth: duplicate active SIGNED_IN notification does not restart clou
   const epoch = h.auth.getAuthEpoch();
   h.emit("SIGNED_IN", h.user());
   assert.equal(h.auth.getAuthEpoch(), epoch);
+});
+
+test("actual auth: failed persistence in this tab blocks new owner and API reauthentication without shared auth write", async () => {
+  const h = harness();
+  h.blockCache();
+  const old = h.storage.get("loop.auth.v1");
+  h.emit("SIGNED_IN", h.user("owner-b"));
+  assert.equal(h.auth.getAuthSession(), null);
+  assert.equal(h.storage.get("loop.auth.v1"), old);
+  assert.equal(await h.auth.getAuthSessionForApi(), null);
+});
+
+test("actual auth: blocked tab ignores refresh and signout broadcasts without rewriting shared auth", async () => {
+  const h = harness();
+  h.blockCache();
+  h.emit("SIGNED_IN", h.user("owner-b"));
+  const shared = h.storage.get("loop.auth.v1");
+  h.emit("TOKEN_REFRESHED", h.user("owner-b"));
+  assert.equal(h.auth.getAuthSession(), null);
+  assert.equal(h.storage.get("loop.auth.v1"), shared);
+  h.emit("SIGNED_OUT", null);
+  assert.equal(h.auth.getAuthSession(), null);
+  assert.equal(h.storage.get("loop.auth.v1"), shared);
+  assert.equal(await h.auth.getAuthSessionForApi(), null);
 });
