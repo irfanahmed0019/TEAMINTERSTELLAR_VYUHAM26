@@ -10,8 +10,19 @@ export type LearningSession = {
   /** Returned once to the authenticated creator, never persisted or included in state. */
   connectionToken?: string;
   expectedDurationMs?: number;
-  timing?: { activeMs: number; paused: boolean; lastSequence: number; lastReportAt?: number };
-  projectContext?: { inspected_files: string[]; languages: string[]; technologies: string[]; summary: string; at: string };
+  timing?: {
+    activeMs: number;
+    paused: boolean;
+    lastSequence: number;
+    lastReportAt?: number;
+  };
+  projectContext?: {
+    inspected_files: string[];
+    languages: string[];
+    technologies: string[];
+    summary: string;
+    at: string;
+  };
   evidenceProvenance?: "extension-reported" | "legacy-client-reported";
   sessionId: string;
   userId: string;
@@ -34,7 +45,11 @@ export type LearningSession = {
   potentialStruggle: boolean;
   struggleSignal?: string;
   checkpoints: Array<{
-    evaluator?: { id: string; command: string; expectedOutputIncludes: string[] };
+    evaluator?: {
+      id: string;
+      command: string;
+      expectedOutputIncludes: string[];
+    };
     index: number;
     title: string;
     detail: string;
@@ -240,10 +255,24 @@ function makeCheckpoints(body: Record<string, unknown>, instructions: string) {
         ? item
         : `${record["title"] ?? "Step ${index + 1}"}: ${record["detail"] ?? "Complete this step."}`;
     const [title, ...detailParts] = checkpointText(line).split(/:\s*/, 2);
-    const rawEvaluator = record["evaluator"] && typeof record["evaluator"] === "object" ? record["evaluator"] as Record<string, unknown> : {};
-    const expectedOutputIncludes = Array.isArray(rawEvaluator["expectedOutputIncludes"]) ? rawEvaluator["expectedOutputIncludes"].map(v => text(v, 180)).filter(Boolean).slice(0, 10) : [];
-    const command = text(rawEvaluator["command"], 500), evaluatorId = text(rawEvaluator["id"], 100);
-    const evaluator = command && evaluatorId && expectedOutputIncludes.length ? { id: evaluatorId, command, expectedOutputIncludes } : undefined;
+    const rawEvaluator =
+      record["evaluator"] && typeof record["evaluator"] === "object"
+        ? (record["evaluator"] as Record<string, unknown>)
+        : {};
+    const expectedOutputIncludes = Array.isArray(
+      rawEvaluator["expectedOutputIncludes"],
+    )
+      ? rawEvaluator["expectedOutputIncludes"]
+          .map((v) => text(v, 180))
+          .filter(Boolean)
+          .slice(0, 10)
+      : [];
+    const command = text(rawEvaluator["command"], 500),
+      evaluatorId = text(rawEvaluator["id"], 100);
+    const evaluator =
+      command && evaluatorId && expectedOutputIncludes.length
+        ? { id: evaluatorId, command, expectedOutputIncludes }
+        : undefined;
     return {
       ...(evaluator ? { evaluator } : {}),
       index,
@@ -300,9 +329,16 @@ export async function startLearningSession(
   };
   const secret = randomBytes(32).toString("base64url");
   session.connectionToken = secret;
-  session.connectionTokenHash = createHash("sha256").update(secret).digest("hex");
+  session.connectionTokenHash = createHash("sha256")
+    .update(secret)
+    .digest("hex");
   const expected = Number(body["expected_duration_ms"]);
-  if (Number.isFinite(expected) && expected >= 60_000 && expected <= 4 * 60 * 60_000) session.expectedDurationMs = Math.round(expected);
+  if (
+    Number.isFinite(expected) &&
+    expected >= 60_000 &&
+    expected <= 4 * 60 * 60_000
+  )
+    session.expectedDurationMs = Math.round(expected);
   session.timing = { activeMs: 0, paused: false, lastSequence: -1 };
   session.evidenceProvenance = "extension-reported";
   const configuredTest = text(body["test_command"], 500);
@@ -313,13 +349,23 @@ export async function startLearningSession(
 }
 
 /** Possession of a short display code is not permission to read or alter a learner. */
-export function sessionTokenValid(session: LearningSession, token: string | null | undefined): boolean {
-  if (!session.connectionTokenHash || !token || !/^[A-Za-z0-9_-]{43}$/.test(token)) return false;
+export function sessionTokenValid(
+  session: LearningSession,
+  token: string | null | undefined,
+): boolean {
+  if (
+    !session.connectionTokenHash ||
+    !token ||
+    !/^[A-Za-z0-9_-]{43}$/.test(token)
+  )
+    return false;
   const digest = createHash("sha256").update(token).digest();
   const saved = Buffer.from(session.connectionTokenHash, "hex");
   return digest.length === saved.length && timingSafeEqual(digest, saved);
 }
-export function takeSessionConnectionToken(session: LearningSession): string | undefined {
+export function takeSessionConnectionToken(
+  session: LearningSession,
+): string | undefined {
   const token = session.connectionToken;
   delete session.connectionToken;
   return token;
@@ -397,7 +443,18 @@ function compact(session: LearningSession) {
   return {
     rev: session.rev ?? 0,
     expected_duration_ms: session.expectedDurationMs,
-    timing: { active_ms: session.timing?.activeMs ?? 0, quality: session.timing?.lastReportAt ? "extension-observed" as const : "unavailable" as const, paused: session.timing?.paused ?? false, expected_ms: session.expectedDurationMs, ratio: session.expectedDurationMs && session.timing?.lastReportAt ? session.timing.activeMs / session.expectedDurationMs : undefined },
+    timing: {
+      active_ms: session.timing?.activeMs ?? 0,
+      quality: session.timing?.lastReportAt
+        ? ("extension-observed" as const)
+        : ("unavailable" as const),
+      paused: session.timing?.paused ?? false,
+      expected_ms: session.expectedDurationMs,
+      ratio:
+        session.expectedDurationMs && session.timing?.lastReportAt
+          ? session.timing.activeMs / session.expectedDurationMs
+          : undefined,
+    },
     evidence_provenance: session.evidenceProvenance ?? "legacy-client-reported",
     project_context: session.projectContext,
     session_id: session.sessionId,
@@ -506,7 +563,15 @@ function applyCheckpointResults(session: LearningSession, values: unknown) {
       break;
     checkpoint.attempts += 1;
     checkpoint.lastOutput = text(result["output"], 1200);
-    if (result["passed"] === true && result["evidence_kind"] === "assertion" && checkpoint.evaluator && result["evaluator_id"] === checkpoint.evaluator.id && checkpoint.evaluator.expectedOutputIncludes.every(expected => checkpoint.lastOutput?.includes(expected))) {
+    if (
+      result["passed"] === true &&
+      result["evidence_kind"] === "assertion" &&
+      checkpoint.evaluator &&
+      result["evaluator_id"] === checkpoint.evaluator.id &&
+      checkpoint.evaluator.expectedOutputIncludes.every((expected) =>
+        checkpoint.lastOutput?.includes(expected),
+      )
+    ) {
       checkpoint.status = "passed";
       checkpoint.evidence = "verified";
       const next = session.checkpoints[index + 1];
@@ -621,23 +686,59 @@ export function recordEvent(
   if (session.events.length > 200) session.events.shift();
   if (eventType === "test_result") {
     session.attempts += 1;
-    const results = Array.isArray(payload["checkpoint_results"]) ? payload["checkpoint_results"] as Record<string, unknown>[] : [];
+    const results = Array.isArray(payload["checkpoint_results"])
+      ? (payload["checkpoint_results"] as Record<string, unknown>[])
+      : [];
     // Progress (one successful step out of N) is not a failed assertion.
-    const failed = results.length ? results.some(r => r["passed"] === false) : Number(safePayload["passed"] ?? 0) < Number(safePayload["total"] ?? 0);
-    const assertions = results.filter(r => { const checkpoint = session.checkpoints[Number(r["index"])]; return r["evidence_kind"] === "assertion" && checkpoint?.evaluator && r["evaluator_id"] === checkpoint.evaluator.id && checkpoint.evaluator.expectedOutputIncludes.every(expected => String(r["output"] ?? "").includes(expected)); });
-    safePayload["passed"] = assertions.filter(r => r["passed"] === true).length;
-    safePayload["total"] = failed ? Math.max(1, assertions.length) : assertions.length;
-    const currentError = failed ? text(safePayload["error"] ?? safePayload["stderr"], 500) : "";
-    const previousFailures = session.events.filter(item => item.eventType === "test_result" && item.payload["status"] === "failed").length;
+    const failed = results.length
+      ? results.some((r) => r["passed"] === false)
+      : Number(safePayload["passed"] ?? 0) < Number(safePayload["total"] ?? 0);
+    const assertions = results.filter((r) => {
+      const checkpoint = session.checkpoints[Number(r["index"])];
+      return (
+        r["evidence_kind"] === "assertion" &&
+        checkpoint?.evaluator &&
+        r["evaluator_id"] === checkpoint.evaluator.id &&
+        checkpoint.evaluator.expectedOutputIncludes.every((expected) =>
+          String(r["output"] ?? "").includes(expected),
+        )
+      );
+    });
+    safePayload["passed"] = assertions.filter(
+      (r) => r["passed"] === true,
+    ).length;
+    safePayload["total"] = failed
+      ? Math.max(1, assertions.length)
+      : assertions.length;
+    const currentError = failed
+      ? text(safePayload["error"] ?? safePayload["stderr"], 500)
+      : "";
+    const previousFailures = session.events.filter(
+      (item) =>
+        item.eventType === "test_result" && item.payload["status"] === "failed",
+    ).length;
     safePayload["status"] = failed ? "failed" : "passed";
-    const sameError = currentError && session.events.slice(0, -1).some(item => item.payload["status"] === "failed" && text(item.payload["error"] ?? item.payload["stderr"], 500) === currentError);
+    const sameError =
+      currentError &&
+      session.events
+        .slice(0, -1)
+        .some(
+          (item) =>
+            item.payload["status"] === "failed" &&
+            text(item.payload["error"] ?? item.payload["stderr"], 500) ===
+              currentError,
+        );
     if (failed) {
       session.potentialStruggle = previousFailures >= 2 || Boolean(sameError);
-      if (session.potentialStruggle) session.struggleSignal = sameError ? "repeated_error" : "repeated_failed_tests";
+      if (session.potentialStruggle)
+        session.struggleSignal = sameError
+          ? "repeated_error"
+          : "repeated_failed_tests";
     }
     // No aggregate number or legacy /complete request can bypass sequential assertions.
     // Client-run assertions are still labeled extension-reported, never server-verified.
-    if (!results.length) session.testScore = { passed: 0, total: session.checkpoints.length };
+    if (!results.length)
+      session.testScore = { passed: 0, total: session.checkpoints.length };
   }
   if (eventType === "work_pause") {
     session.timing ??= { activeMs: 0, paused: false, lastSequence: -1 };
@@ -646,18 +747,45 @@ export function recordEvent(
   }
   if (eventType === "work_activity") {
     session.timing ??= { activeMs: 0, paused: false, lastSequence: -1 };
-    const timing = session.timing, sequence = Number(payload["sequence"]), delta = Number(payload["active_ms"]);
+    const timing = session.timing,
+      sequence = Number(payload["sequence"]),
+      delta = Number(payload["active_ms"]);
     const now = Date.now();
-    if (Number.isInteger(sequence) && sequence > timing.lastSequence && Number.isFinite(delta) && delta >= 0) {
-      const available = timing.lastReportAt ? Math.max(0, now - timing.lastReportAt) : 0;
-      if (!timing.paused) timing.activeMs += Math.round(Math.min(delta, available, 30_000));
+    if (
+      Number.isInteger(sequence) &&
+      sequence > timing.lastSequence &&
+      Number.isFinite(delta) &&
+      delta >= 0
+    ) {
+      const available = timing.lastReportAt
+        ? Math.max(0, now - timing.lastReportAt)
+        : 0;
+      if (!timing.paused)
+        timing.activeMs += Math.round(Math.min(delta, available, 30_000));
       timing.lastSequence = sequence;
       timing.lastReportAt = now;
     }
   }
   if (eventType === "project_context") {
-    const strings = (value: unknown, max: number) => Array.isArray(value) ? value.filter(v => typeof v === "string").slice(0, max).map(v => text(v, 180)) : [];
-    session.projectContext = { inspected_files: strings(payload["inspected_files"], 30).filter(p => !/(^|[\/])(?:\.env(?:\.|$)|\.git|node_modules|\.ssh)|(?:secret|credential|\.pem$|\.key$)/i.test(p)), languages: strings(payload["languages"], 12), technologies: strings(payload["technologies"], 20), summary: text(payload["summary"], 1800), at };
+    const strings = (value: unknown, max: number) =>
+      Array.isArray(value)
+        ? value
+            .filter((v) => typeof v === "string")
+            .slice(0, max)
+            .map((v) => text(v, 180))
+        : [];
+    session.projectContext = {
+      inspected_files: strings(payload["inspected_files"], 30).filter(
+        (p) =>
+          !/(^|[/])(?:\.env(?:\.|$)|\.git|node_modules|\.ssh)|(?:secret|credential|\.pem$|\.key$)/i.test(
+            p,
+          ),
+      ),
+      languages: strings(payload["languages"], 12),
+      technologies: strings(payload["technologies"], 20),
+      summary: text(payload["summary"], 1800),
+      at,
+    };
   }
   if (eventType === "session_ended") session.status = "expired";
   void persistSession(session);
@@ -728,6 +856,76 @@ export async function getRunPlan(session: LearningSession, platform: string) {
   } else session.runGuidance = fallback.guidance;
   await persistSession(session);
   return { command: fallback.command, guidance: session.runGuidance, platform };
+}
+
+/** A finite supported slice, derived from an inspected existing function, never a generic fallback. */
+export async function assignProjectChallenge(
+  session: LearningSession,
+  input: Record<string, unknown>,
+) {
+  if (
+    session.attempts ||
+    session.status === "completed" ||
+    session.status === "failed"
+  )
+    throw new Error(
+      "Start a fresh session before choosing another challenge. Prior evidence is preserved.",
+    );
+  const path = text(input["path"], 180),
+    source = text(input["source"], 600);
+  if (
+    !/^(?![./])(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.py$/.test(path) ||
+    /secret|credential|(?:^|\/)test/i.test(path)
+  )
+    throw new Error("Unsupported source path.");
+  const match =
+    /^def ([a-zA-Z_][a-zA-Z_0-9]*)\(([a-zA-Z_][a-zA-Z_0-9]*)\):\n[ \t]+return int\(\2\)$/.exec(
+      source,
+    );
+  if (!match || match[1]!.startsWith("_"))
+    throw new Error(
+      "No supported standalone decimal conversion function was inspected. No generic project task was assigned.",
+    );
+  const digest = createHash("sha256").update(source).digest("hex");
+  const id = "python-decimal-contract:" + digest.slice(0, 16);
+  session.challengeId = id;
+  session.language = "Python";
+  session.concept = "input validation";
+  session.expectedSkills = ["Python", "input validation", "edge cases"];
+  session.title = `Harden ${path}:${match[1]} against invalid numeric input`;
+  session.instructions = `Medium project challenge, opt-in scope: change the existing ${match[1]} function in ${path}. Keep accepting integers (except bool) and signed decimal strings, allowing surrounding whitespace. Reject booleans, floats, empty strings, decimal-point strings, and nonnumeric strings with ValueError. Do not change other project files or signatures. Keep the function standalone, with no imports or filesystem/network access. The evaluator extracts only this function AST; it does not import or run the whole module. Original inspected snippet SHA256: ${digest}. Expected duration is an authored 8-minute benchmark, not a measured population average. This proves only this contract, not the whole project.`;
+  session.expectedDurationMs = 8 * 60_000;
+  session.checkpoints = [
+    {
+      index: 0,
+      title: `Validate ${match[1]} input contract`,
+      detail: `Run the dedicated 14-case evaluator on ${path}:${match[1]}.`,
+      status: "active",
+      evidence: "not_verified",
+      attempts: 0,
+      evaluator: {
+        id,
+        command: "buildmylogic:python-decimal-contract",
+        expectedOutputIncludes: ["BML_DECIMAL_CONTRACT_14_PASS"],
+      },
+    },
+  ];
+  session.projectContext = {
+    inspected_files: [path],
+    languages: ["Python"],
+    technologies: [],
+    summary: `Inspected only the learner-approved function ${match[1]} in ${path}. Source digest ${digest}. Challenge selected after this inspection. Other module code and dependencies not understood.`,
+    at: new Date().toISOString(),
+  };
+  session.testCommand = "buildmylogic:python-decimal-contract";
+  session.rev = (session.rev ?? 0) + 1;
+  session.events.push({
+    eventType: "project_challenge_assigned",
+    at: new Date().toISOString(),
+    payload: { path, function: match[1], digest, evaluator: id },
+  });
+  await persistSession(session);
+  return stateOf(session);
 }
 
 export async function submitProject(session: LearningSession, files: unknown) {
@@ -804,7 +1002,10 @@ export async function submitProject(session: LearningSession, files: unknown) {
       session.projectReview = {
         ...fallback,
         ...answer,
-        score: Number.isFinite(Number(answer.score)) && answer.score !== null ? Math.max(0, Math.min(100, Number(answer.score))) : null,
+        score:
+          Number.isFinite(Number(answer.score)) && answer.score !== null
+            ? Math.max(0, Math.min(100, Number(answer.score)))
+            : null,
         status: "ai-estimated",
       };
     } catch {

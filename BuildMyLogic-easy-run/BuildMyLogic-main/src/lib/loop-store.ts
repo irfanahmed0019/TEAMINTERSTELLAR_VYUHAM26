@@ -1,3 +1,4 @@
+import { ingestProjectEvidence } from "./project-evidence.ts";
 import { makeSampleProgress } from "./sample-progress.ts";
 import { learnerStorage, isPublicDemo } from "./demo-mode.ts";
 /**
@@ -352,6 +353,8 @@ export function recordMissionEvidence(missionId: string, amount = 2) {
 /** Applies objective VS Code evidence to the learner dashboard immediately. */
 export function applyBuildSessionEvidence(remote: BuildSessionState) {
   setLoopState((prev) => {
+    if (remote.challenge_id.startsWith("python-decimal-contract:"))
+      return ingestProjectEvidence(prev, remote);
     if (!prev.plan) return prev;
     const plan = prev.plan;
     const mission = plan.missions.find(
@@ -520,7 +523,13 @@ export function applyBuildSessionEvidence(remote: BuildSessionState) {
       prev.struggle ?? emptyStruggleState,
       {
         sessionKey: signature,
-        performance:{expectedMs:remote.expected_duration_ms,activeMs:remote.timing?.active_ms,timingQuality:remote.timing?.quality??'unavailable',hintsUsed:remote.hints_used,attemptNumber:remote.attempts},
+        performance: {
+          expectedMs: remote.expected_duration_ms,
+          activeMs: remote.timing?.active_ms,
+          timingQuality: remote.timing?.quality ?? "unavailable",
+          hintsUsed: remote.hints_used,
+          attemptNumber: remote.attempts,
+        },
         verifiedOwnerId: remote.verified_owner_id,
         concept: remote.concept,
         sessionId: remote.session_id,

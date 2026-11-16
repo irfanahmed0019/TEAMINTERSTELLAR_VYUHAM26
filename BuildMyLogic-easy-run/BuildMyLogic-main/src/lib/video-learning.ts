@@ -6,6 +6,21 @@ export type VideoQuestion = {
 };
 /** Authored topic checks, not timestamp-aligned claims about a video's unseen transcript. */
 const banks: Record<string, VideoQuestion[]> = {
+  "input-validation": [
+    {
+      prompt:
+        "Why should a strict decimal parser check the entire input before conversion?",
+      options: [
+        "Conversion proves every input is allowed",
+        "A numeric prefix or an unexpected input type may violate the intended contract",
+        "All text is already an integer",
+        "It removes the need for tests",
+      ],
+      answer: 1,
+      explanation:
+        "A parser must enforce its own accepted format and type contract, then test valid and invalid cases.",
+    },
+  ],
   "first-program": [
     {
       prompt: "What does printing Hello World demonstrate?",

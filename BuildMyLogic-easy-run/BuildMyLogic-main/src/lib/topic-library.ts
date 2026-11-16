@@ -1,3 +1,4 @@
+import { INPUT_VALIDATION_TOPIC } from "./input-validation-topic.ts";
 /**
  * Study topic library for the Learn page.
  * Each topic carries simple-English notes, a code example, reference links,
@@ -66,6 +67,7 @@ export type StudyTopic = {
 };
 
 export const STUDY_TOPICS: StudyTopic[] = [
+  INPUT_VALIDATION_TOPIC,
   {
     id: "first-program",
     title: "Your First Program",

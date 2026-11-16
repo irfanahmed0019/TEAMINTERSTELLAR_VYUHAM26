@@ -20,6 +20,7 @@ import {
   submitProject,
   verifySession,
   sessionTokenValid,
+  assignProjectChallenge,
   takeSessionConnectionToken,
 } from "./lib/learning-sessions.server";
 
@@ -51,7 +52,8 @@ function corsHeaders(request?: Request): Record<string, string> {
     "access-control-allow-origin": origin,
     vary: "Origin",
     "access-control-allow-methods": "GET, POST, OPTIONS",
-    "access-control-allow-headers": "content-type, authorization, x-bml-session-token",
+    "access-control-allow-headers":
+      "content-type, authorization, x-bml-session-token",
   };
 }
 
@@ -258,9 +260,19 @@ async function handleBuildMyLogicApi(
         request,
       );
     const body = await readJson(request);
-    const candidate = await verifySession(clean(body["session_id"], 40).toUpperCase());
+    const candidate = await verifySession(
+      clean(body["session_id"], 40).toUpperCase(),
+    );
     const token = request.headers.get("x-bml-session-token");
-    if (!candidate || !sessionTokenValid(candidate, token)) return jsonResponse({ ok: false, error: "Use Open VS Code from the signed-in website to pair this session. The display code alone is not a credential." }, 403);
+    if (!candidate || !sessionTokenValid(candidate, token))
+      return jsonResponse(
+        {
+          ok: false,
+          error:
+            "Use Open VS Code from the signed-in website to pair this session. The display code alone is not a credential.",
+        },
+        403,
+      );
     const state = await connectLearningSession(body);
     return state
       ? jsonResponse({ ok: true, session: state })
@@ -275,7 +287,7 @@ async function handleBuildMyLogicApi(
   }
 
   const learningMatch = pathname.match(
-    /^\/api\/sessions\/([^/]+)(?:\/(events|test-result|hint|stuck|failed|complete|run-plan|submit|state|recovery-state|conquest))?$/,
+    /^\/api\/sessions\/([^/]+)(?:\/(events|project-challenge|test-result|hint|stuck|failed|complete|run-plan|submit|state|recovery-state|conquest))?$/,
   );
   if (learningMatch) {
     const session = await verifySession(
@@ -288,10 +300,28 @@ async function handleBuildMyLogicApi(
         401,
       );
     const action = learningMatch[2] ?? "state";
-    const scopedExtension = sessionTokenValid(session, request.headers.get("x-bml-session-token"));
-    const ownerId = scopedExtension ? undefined : await authenticatedUserId(request);
-    const owner = canReadRecoverySession(session.userId, ownerId, url.hostname, process.env["NODE_ENV"]);
-    if (!scopedExtension && !owner) return jsonResponse({ ok: false, error: "Sign in as the session owner or reconnect the extension from Sessions." }, 403);
+    const scopedExtension = sessionTokenValid(
+      session,
+      request.headers.get("x-bml-session-token"),
+    );
+    const ownerId = scopedExtension
+      ? undefined
+      : await authenticatedUserId(request);
+    const owner = canReadRecoverySession(
+      session.userId,
+      ownerId,
+      url.hostname,
+      process.env["NODE_ENV"],
+    );
+    if (!scopedExtension && !owner)
+      return jsonResponse(
+        {
+          ok: false,
+          error:
+            "Sign in as the session owner or reconnect the extension from Sessions.",
+        },
+        403,
+      );
 
     if (request.method === "GET" && action === "recovery-state") {
       const authenticatedId = await authenticatedUserId(request);
@@ -341,7 +371,15 @@ async function handleBuildMyLogicApi(
           );
         await refreshConquestReceipts(session);
       }
-      return jsonResponse({ ok: true, state: stateOf(session) });
+      return jsonResponse({
+        ok: true,
+        state: {
+          ...stateOf(session),
+          ...(ownerId && ownerId === session.userId
+            ? { verified_owner_id: ownerId }
+            : {}),
+        },
+      });
     }
     if (request.method !== "POST")
       return jsonResponse({ ok: false, error: "Method not allowed." }, 405);
@@ -434,6 +472,11 @@ async function handleBuildMyLogicApi(
               : {},
           ),
         });
+      if (action === "project-challenge")
+        return jsonResponse({
+          ok: true,
+          state: await assignProjectChallenge(session, body),
+        });
       if (action === "test-result")
         return jsonResponse({
           ok: true,
@@ -462,7 +505,15 @@ async function handleBuildMyLogicApi(
           ok: true,
           ...(await submitProject(session, body["files"])),
         });
-      if (action === "complete") return jsonResponse({ ok: false, error: "Completion requires passing every executable assertion checkpoint." }, 409);
+      if (action === "complete")
+        return jsonResponse(
+          {
+            ok: false,
+            error:
+              "Completion requires passing every executable assertion checkpoint.",
+          },
+          409,
+        );
       return jsonResponse({ ok: false, error: "Unknown session action." }, 404);
     } catch (error) {
       return jsonResponse(

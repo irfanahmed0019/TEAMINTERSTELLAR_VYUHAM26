@@ -90,10 +90,23 @@ export type SessionLog = {
   review?: SessionReview;
 };
 export type BuildSessionState = {
+  expected_skills?: string[];
   expected_duration_ms?: number;
-  timing?: {active_ms:number;quality:'extension-observed'|'unavailable';paused:boolean;expected_ms?:number;ratio?:number};
-  evidence_provenance?: 'extension-reported'|'legacy-client-reported';
-  project_context?: {inspected_files:string[];languages:string[];technologies:string[];summary:string;at:string};
+  timing?: {
+    active_ms: number;
+    quality: "extension-observed" | "unavailable";
+    paused: boolean;
+    expected_ms?: number;
+    ratio?: number;
+  };
+  evidence_provenance?: "extension-reported" | "legacy-client-reported";
+  project_context?: {
+    inspected_files: string[];
+    languages: string[];
+    technologies: string[];
+    summary: string;
+    at: string;
+  };
   verified_owner_id?: string | undefined;
   session_id: string;
   challenge_id: string;
@@ -107,10 +120,25 @@ export type BuildSessionState = {
   test_score?: { passed: number; total: number };
   latest_mentor_feedback?: string;
   recovery?: string;
-  attempt_history?: Array<{ attempt: number; at: number; passed: number; total: number; checkpoints: Array<{ title: string; status: string; lastOutput?: string | undefined }> }>;
+  attempt_history?: Array<{
+    attempt: number;
+    at: number;
+    passed: number;
+    total: number;
+    checkpoints: Array<{
+      title: string;
+      status: string;
+      lastOutput?: string | undefined;
+    }>;
+  }>;
   potential_struggle?: boolean;
   struggle_signal?: string;
   checkpoints?: Array<{
+    evaluator?: {
+      id: string;
+      command: string;
+      expectedOutputIncludes: string[];
+    };
     index: number;
     title: string;
     detail: string;
@@ -120,7 +148,7 @@ export type BuildSessionState = {
   }>;
   project_review?: {
     score: number | null;
-    status?: 'ai-estimated' | 'not-evaluated';
+    status?: "ai-estimated" | "not-evaluated";
     verdict: string;
     strengths: string[];
     issues: string[];

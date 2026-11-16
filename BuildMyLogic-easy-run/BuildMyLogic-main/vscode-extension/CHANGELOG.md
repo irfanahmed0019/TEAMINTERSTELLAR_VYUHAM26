@@ -1,3 +1,9 @@
+## 0.3.7
+
+- Opt-in source-grounded Python challenge for a supported existing standalone int(value) function only. Exact snippet review happens before task selection.
+- Dedicated 14-case evaluator checks signed decimal conversion and invalid-input handling. Only the chosen function AST runs, not the whole module. Local execution still needs workspace trust and exact-command consent.
+- Unsupported projects receive an explicit unsupported result, not a generic task presented as project-specific.
+
 ## 0.3.6
 
 - Pair sessions using a scoped credential kept in VS Code SecretStorage. Short display codes alone no longer authorize access. Install, reload VS Code and start a new session on the signed-in website. Existing saved learner history stays intact.
