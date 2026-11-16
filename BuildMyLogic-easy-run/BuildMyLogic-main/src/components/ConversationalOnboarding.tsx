@@ -205,7 +205,10 @@ function AccountOnboarding() {
     const techMatch = goal.match(
       /\b(python|javascript|typescript|java|c\+\+|c|react|django|html|css|machine learning|data science)\b/i,
     );
-    const tech = techMatch?.[0] ?? profile.technologies[0]?.name;
+    const tech =
+      profile.intakeTopic?.trim() ||
+      techMatch?.[0] ||
+      profile.technologies[0]?.name;
     const nextProfile: Profile = saveIntakeAnswers(
       {
         ...profile,
@@ -463,6 +466,28 @@ function AccountOnboarding() {
           learning path, and get you building real projects.
         </p>
 
+        {stage === "chat" && (
+          <label className="my-3 block w-full text-sm font-semibold">
+            Which language, tool or subject do you want to learn? (optional)
+            <input
+              aria-label="Language, tool or subject"
+              value={profile.intakeTopic ?? ""}
+              maxLength={80}
+              onChange={(e) =>
+                saveProfile({
+                  ...profileRef.current,
+                  intakeTopic: e.target.value,
+                })
+              }
+              placeholder="Type any: C++, Rust, Go, Kotlin, Excel, or something else"
+              className="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-base"
+            />
+            <span className="mt-1 block text-xs font-normal text-muted-foreground">
+              Any topic is welcome in chat. Code-running support is checked
+              separately.
+            </span>
+          </label>
+        )}
         {stage === "chat" && (
           <ResumeIntake
             onAnalyzed={(text, analysis) =>

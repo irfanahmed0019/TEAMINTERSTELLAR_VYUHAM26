@@ -11,6 +11,8 @@ export function ResumeIntake({
 }: {
   onAnalyzed: (text: string, result: Analysis) => void;
 }) {
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [fileName, setFileName] = useState("");
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -19,6 +21,7 @@ export function ResumeIntake({
   const epoch = useRef(0);
   async function readFile(file?: File) {
     if (!file) return;
+    setFileName(file.name);
     const id = ++epoch.current;
     setBusy(true);
     setError("");
@@ -106,50 +109,76 @@ export function ResumeIntake({
     }
   }
   return (
-    <details className="mb-4 w-full rounded-2xl border border-border bg-surface p-4">
-      <summary className="cursor-pointer py-2 text-sm font-bold">
-        Add your resume (optional)
-      </summary>
-      <p className="mt-2 text-xs leading-5 text-muted-foreground">
-        Use PDF, DOCX or TXT, up to 5 MB. Extraction happens here. Analyze sends
-        the reviewed text to the existing AI service; remove contact details or
-        other information you do not want to share. Claims are not verified
-        competency.
+    <section
+      className="mb-4 w-full rounded-2xl border border-border bg-surface p-4"
+      aria-label="Upload your resume"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-bold">Have a resume? Start here</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Upload it so we can ask questions about your experience. Or skip it
+            and chat below.
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => fileInput.current?.click()}
+          className="btn-base btn-primary-solid"
+        >
+          {busy ? "Reading..." : "Upload resume"}
+        </button>
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">
+        PDF, Word (.docx) or text (.txt), up to 5 MB.{" "}
+        {fileName || "No file selected."}
       </p>
       <input
+        ref={fileInput}
         aria-label="Resume file"
         type="file"
         accept=".pdf,.docx,.txt"
         disabled={busy}
-        className="mt-3 w-full text-xs"
+        className="sr-only"
         onChange={(e) => {
           void readFile(e.target.files?.[0]);
           e.currentTarget.value = "";
         }}
       />
-      <label className="mt-3 block text-xs font-semibold">
-        Review or paste resume text
-        <textarea
-          aria-label="Resume text"
-          maxLength={12000}
-          disabled={busy}
-          value={text}
-          onChange={(e) => {
-            setText(e.target.value);
-            setSummary("");
-          }}
-          rows={5}
-          className="mt-2 w-full rounded-xl border border-border bg-background p-3 text-sm"
-        />
-      </label>
-      <button
-        type="button"
-        disabled={busy || !text.trim()}
-        onClick={() => void analyze()}
-        className="btn-base btn-outline mt-3 disabled:opacity-50"
-      >
-        {busy ? "Working…" : "Analyze reviewed resume"}
-      </button>
+      <details className="mt-3" open={!!text}>
+        <summary className="cursor-pointer text-sm font-semibold">
+          {text ? "Review your resume text" : "Or paste resume text"}
+        </summary>
+        <p className="mt-2 text-xs text-muted-foreground">
+          We read the file on this device first. Check the text, then choose Use
+          this resume to send it to our AI service. Remove private details you
+          do not want to share. Resume claims are not verified skills.
+        </p>
+        <label className="mt-3 block text-xs font-semibold">
+          Review or paste resume text
+          <textarea
+            aria-label="Resume text"
+            maxLength={12000}
+            disabled={busy}
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+              setSummary("");
+            }}
+            rows={5}
+            className="mt-2 w-full rounded-xl border border-border bg-background p-3 text-sm"
+          />
+        </label>
+        <button
+          type="button"
+          disabled={busy || !text.trim()}
+          onClick={() => void analyze()}
+          className="btn-base btn-outline mt-3 disabled:opacity-50"
+        >
+          {busy ? "Working…" : "Use this resume"}
+        </button>
+      </details>
       {notice && (
         <p
           role="status"
@@ -164,6 +193,6 @@ export function ResumeIntake({
           {error}
         </p>
       )}
-    </details>
+    </section>
   );
 }

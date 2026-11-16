@@ -71,11 +71,11 @@ export function relevantIntakePrompt(
   if (index === 0)
     return "Tell me your background and goal: are you studying, working, changing careers, or exploring? What would you like to learn or build? You can skip any personal detail.";
   const stated = answers[0] ?? "";
-  const matched = stated.match(
-    /\b(python|javascript|typescript|java|react|django|html|css|machine learning|data science)\b/i,
-  )?.[0];
-  const topic = matched ?? profile?.technologies?.[0]?.name;
-  const context = topic ? ` with ${topic}` : " in the area you want to learn";
+  const topic =
+    profile?.intakeTopic?.trim() || profile?.technologies?.[0]?.name;
+  const context = topic
+    ? ` with ${topic}`
+    : ` toward your goal: "${stated.slice(0, 180)}"`;
   if (index === 1)
     return /\b(job|career|interview)\b/i.test(stated)
       ? `Which role are you aiming for, and what have you already built or practiced${context}? It's fine if you are starting from zero.`
