@@ -90,6 +90,10 @@ export type SessionLog = {
   review?: SessionReview;
 };
 export type BuildSessionState = {
+  expected_duration_ms?: number;
+  timing?: {active_ms:number;quality:'extension-observed'|'unavailable';paused:boolean;expected_ms?:number;ratio?:number};
+  evidence_provenance?: 'extension-reported'|'legacy-client-reported';
+  project_context?: {inspected_files:string[];languages:string[];technologies:string[];summary:string;at:string};
   verified_owner_id?: string | undefined;
   session_id: string;
   challenge_id: string;
@@ -115,7 +119,8 @@ export type BuildSessionState = {
     lastOutput?: string;
   }>;
   project_review?: {
-    score: number;
+    score: number | null;
+    status?: 'ai-estimated' | 'not-evaluated';
     verdict: string;
     strengths: string[];
     issues: string[];
@@ -228,6 +233,7 @@ export type LearningChat = {
 };
 
 export type LoopState = {
+  videoProgress?: Record<string, import("./video-learning").SavedVideoProgress>;
   sampleProvenance?: { version: 1; importedAt: number; label: string };
   onboarded: boolean;
   profile: Profile | null;

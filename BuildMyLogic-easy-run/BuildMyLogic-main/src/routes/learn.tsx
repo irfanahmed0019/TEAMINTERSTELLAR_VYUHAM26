@@ -255,12 +255,13 @@ function Learn() {
             <div className="flex items-center gap-2.5">
               <Camera className="h-[18px] w-[18px] text-primary" />
               <h2 className="text-[16px] font-extrabold">
-                Video lesson - watch with your camera on
+                Video lesson - camera optional
               </h2>
             </div>
             <p className="mt-1 text-[12.5px] text-muted-foreground">
-              The video pauses when you move away and resumes when you're back,
-              so you actually watch it.
+              The video pauses when you move away and resumes when you're back.
+              Away for more than 4 seconds? It replays from your last 2-minute
+              checkpoint. Topic questions check understanding, not independent coding mastery.
             </p>
             {videos.length > 1 && (
               <div className="mt-3 flex flex-wrap gap-2">
@@ -280,6 +281,7 @@ function Learn() {
               <CameraVideo
                 key={`${activeTopic.id}-${lang}-${video.id}`}
                 videoId={video.id}
+                topicId={activeTopic.id}
                 title={`${video.title} - ${video.channel}`}
               />
             </div>

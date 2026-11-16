@@ -1,18 +1,22 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, Mic, ShieldCheck } from "lucide-react";
+import { useAuth, getAuthSession } from "@/lib/auth";
+import { useCloudHydrated } from "@/lib/cloud-sync";
+import { getLoopState, setLoopState } from "@/lib/loop-store";
 import {
+  checkpointEnd,
+  completedCheckpoint,
+  videoQuestion,
+} from "@/lib/video-learning";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ShieldCheck } from "lucide-react";
+import {
+  absenceAction,
   initialVideoProgress,
-  rewindSection,
   sampleVideo,
-  sectionLength,
-  sectionStart,
 } from "@/lib/video-checkpoint";
 
 // Presence rules. The Vibe reference (MIT) only reports "face count" at about 3 checks a
 // second and does not define pause/resume/restart times, so these values are ours.
 const CHECKS_PER_SECOND = 3;
-const PAUSE_AFTER_MS = 2000; // no face for this long -> pause
-
 type Phase = "idle" | "starting" | "watching" | "denied" | "error";
 type YTPlayer = {
   playVideo(): void;
@@ -48,169 +52,211 @@ function loadYouTube(): Promise<YTApi> {
   });
 }
 
-/**
- * YouTube lesson player with on-device presence detection.
- * Frames stay in this tab: nothing is recorded, saved or uploaded.
- * Absence restarts only the current section. Forward seeks into unwatched
- * content are corrected; completed sections remain available during this visit.
- */
+/** Local presence detection with account-scoped question checkpoint recovery. */
 export function CameraVideo({
   videoId,
   title,
+  topicId = "python-foundations",
 }: {
   videoId: string;
   title: string;
+  topicId?: string;
 }) {
+  const auth = useAuth();
+  const hydrated = useCloudHydrated(auth?.uid);
   const [phase, setPhase] = useState<Phase>("idle");
   const [status, setStatus] = useState("Camera is off");
   const [message, setMessage] = useState("");
   const [sectionInfo, setSectionInfo] = useState(
-    "2-minute sections; hour-long videos use 4 minutes.",
+    "Every video has 120-second sections and a question gate.",
   );
+  const [pending, setPending] = useState<number | null>(null);
+  const pendingRef = useRef<number | null>(null);
+  const [feedback, setFeedback] = useState("");
+  const [mode, setMode] = useState<"camera" | "self_reported">("camera");
   const progressRef = useRef(initialVideoProgress());
-  const progressVideoRef = useRef(videoId);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const playerHost = useRef<HTMLDivElement | null>(null);
-  const playerRef = useRef<YTPlayer | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const completedRef = useRef(0);
+  const completedEndRef = useRef(0);
+  const videoRef = useRef<HTMLVideoElement | null>(null),
+    playerHost = useRef<HTMLDivElement | null>(null);
+  const playerRef = useRef<YTPlayer | null>(null),
+    streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<number | null>(null);
-  const detectorRef = useRef<{
-    detectForVideo(v: HTMLVideoElement): Promise<unknown>;
-    close(): void;
-  } | null>(null);
-
+  const epoch = useRef(0);
   const stop = useCallback(() => {
+    epoch.current++;
     if (timerRef.current) window.clearInterval(timerRef.current);
     timerRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
-    detectorRef.current?.close();
-    detectorRef.current = null;
     playerRef.current?.pauseVideo();
   }, []);
-  // A topic change must never reuse another video's watched range.
-  useEffect(() => {
-    if (progressVideoRef.current !== videoId) {
-      stop();
-      playerRef.current?.destroy();
-      playerRef.current = null;
-      progressRef.current = initialVideoProgress();
-      progressVideoRef.current = videoId;
-      setPhase("idle");
-      setStatus("Camera is off");
-    }
-  }, [videoId, stop]);
   useEffect(
     () => () => {
       stop();
       playerRef.current?.destroy();
     },
-    [stop],
+    [stop, videoId, auth?.uid],
   );
-
-  async function start() {
+  useEffect(() => {
+    stop();
+    playerRef.current?.destroy();
+    playerRef.current = null;
+    pendingRef.current = null;
+    setPending(null);
+    setPhase("idle");
+    setStatus("Camera is off");
+  }, [videoId, auth?.uid, stop]);
+  async function start(selectedMode: "camera" | "self_reported") {
+    if (!auth || !hydrated) {
+      setMessage("Wait for your signed-in account to finish loading.");
+      return;
+    }
+    stop();
+    playerRef.current?.destroy();
+    playerRef.current = null;
+    const token = epoch.current;
+    const ownerId = auth.uid;
+    setMode(selectedMode);
     setPhase("starting");
     setMessage("");
+    setFeedback("");
+    const saved = getLoopState().videoProgress?.[videoId];
+    const savedCount =
+      saved?.ownerId === ownerId ? completedCheckpoint(saved) : 0;
+    completedRef.current = savedCount;
+    progressRef.current = {
+      watched: savedCount * 120,
+      position: savedCount * 120,
+      sampledAt: null,
+    };
+    pendingRef.current = null;
+    setPending(null);
     try {
-      // The browser asks for camera permission here. The microphone is never
-      // requested: no audio is listened to, analysed or saved.
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user" },
-      });
-      streamRef.current = stream;
-      const video = videoRef.current;
-      if (video) {
-        video.srcObject = stream;
-        await video.play().catch(() => undefined);
-      }
-      setStatus("Loading face check on this device...");
-      const withTimeout = <T,>(p: Promise<T>, label: string) =>
+      let detect: (() => Promise<boolean>) | null = null;
+      const timeout = <T,>(p: Promise<T>, label: string) =>
         Promise.race([
           p,
-          new Promise<T>((_, rej) =>
-            window.setTimeout(() => rej(new Error(label)), 25000),
+          new Promise<T>((_, reject) =>
+            window.setTimeout(() => reject(new Error(label)), 25000),
           ),
         ]);
-      setStatus("Loading video player...");
-      const yt = await withTimeout(loadYouTube(), "youtube");
-      setStatus("Loading face check on this device...");
-      const faceapi = await withTimeout(
-        import("@vladmandic/face-api"),
-        "face-lib-import",
-      );
-      await withTimeout(
-        faceapi.nets.tinyFaceDetector.loadFromUri("/face-model"),
-        "face-model",
-      );
-      const opts = new faceapi.TinyFaceDetectorOptions({
-        inputSize: 224,
-        scoreThreshold: 0.4,
-      });
-      const detector = {
-        detectForVideo: async (v: HTMLVideoElement) =>
-          await faceapi.detectSingleFace(v, opts),
-        close: () => undefined,
-      };
-      detectorRef.current = detector;
-      const host = playerHost.current as HTMLDivElement;
+      if (selectedMode === "camera") {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user" },
+        });
+        if (epoch.current !== token) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+        }
+        setStatus("Loading local face check...");
+        const faceapi = await timeout(
+          import("@vladmandic/face-api"),
+          "Face check unavailable",
+        );
+        await timeout(
+          faceapi.nets.tinyFaceDetector.loadFromUri("/face-model"),
+          "Face model unavailable",
+        );
+        const opts = new faceapi.TinyFaceDetectorOptions({
+          inputSize: 224,
+          scoreThreshold: 0.4,
+        });
+        detect = async () =>
+          Boolean(
+            videoRef.current &&
+            (await faceapi.detectSingleFace(videoRef.current, opts)),
+          );
+      }
+      const yt = await timeout(loadYouTube(), "Video player unavailable");
+      if (epoch.current !== token) return;
+      const host = playerHost.current;
+      if (!host) throw new Error("Video host unavailable");
       host.innerHTML = "<div></div>";
-      let ready = false;
+      let ready = false,
+        started = false,
+        paused = false,
+        rewound = false,
+        busy = false,
+        lastSeen = Date.now();
       playerRef.current = new yt.Player(host.firstElementChild as HTMLElement, {
         videoId,
         width: "100%",
         height: "100%",
-        playerVars: { playsinline: 1, rel: 0, modestbranding: 1, controls: 1 },
+        playerVars: { playsinline: 1, rel: 0, controls: 1 },
         events: {
           onReady: () => {
             ready = true;
+            const duration = playerRef.current?.getDuration() ?? 0;
+            const end = Math.min(
+              savedCount * 120,
+              duration || savedCount * 120,
+            );
+            completedEndRef.current = end;
+            progressRef.current = {
+              watched: end,
+              position: end,
+              sampledAt: null,
+            };
+            playerRef.current?.seekTo(end, true);
           },
         },
       });
       setPhase("watching");
-      setStatus("Looking for you...");
-      // Presence loop. Frames stay in this tab: nothing is recorded, saved or uploaded.
-      let lastSeen = Date.now();
-      let paused = false;
-      let absenceRewound = false;
-      let started = false;
-      let busy = false;
+      setStatus(
+        selectedMode === "camera"
+          ? "Looking for your face..."
+          : "Camera-free mode: playback presence is self-reported, not measured.",
+      );
       timerRef.current = window.setInterval(async () => {
-        const v = videoRef.current;
         const player = playerRef.current;
-        if (!v || v.readyState < 2 || !ready || !player || busy) return;
-        busy = true;
-        let present: boolean | null = null;
-        try {
-          present = Boolean(await detector.detectForVideo(v));
-        } catch {
-          // A detector failure is not evidence the learner left.
+        if (!ready || !player || busy || epoch.current !== token) return;
+        if (getAuthSession()?.uid !== ownerId) {
+          stop();
+          return;
+        }
+        if (document.hidden || pendingRef.current !== null) {
           player.pauseVideo();
           paused = true;
+          progressRef.current = {
+            ...progressRef.current,
+            sampledAt: Date.now(),
+          };
+          return;
+        }
+        busy = true;
+        let present: boolean;
+        try {
+          present = detect ? await detect() : true;
+        } catch {
+          player.pauseVideo();
+          paused = true;
+          lastSeen = Date.now();
+          progressRef.current = { ...progressRef.current, sampledAt: lastSeen };
           setStatus(
-            "Face check interrupted. Video paused until detection returns.",
+            "Face check interrupted. No absence or watch credit recorded.",
           );
-        } finally {
           busy = false;
-        }
-        if (streamRef.current !== stream || playerRef.current !== player)
-          return;
-        const now = Date.now();
-        const duration = player.getDuration();
-        if (present === null) {
-          lastSeen = now;
-          progressRef.current = { ...progressRef.current, sampledAt: now };
           return;
         }
+        busy = false;
+        if (epoch.current !== token) return;
+        const now = Date.now(),
+          duration = player.getDuration();
         if (present) {
           lastSeen = now;
-          absenceRewound = false;
+          rewound = false;
           if (!started || paused) {
             started = true;
             paused = false;
             player.seekTo(progressRef.current.position, true);
             progressRef.current = { ...progressRef.current, sampledAt: now };
             player.playVideo();
-            setStatus("Watching. Video is playing.");
           }
           const result = sampleVideo(
             progressRef.current,
@@ -222,75 +268,119 @@ export function CameraVideo({
           progressRef.current = result.state;
           if (result.seek !== null) {
             player.seekTo(result.seek, true);
-            setStatus("Watch this section first. Skipping ahead is blocked.");
+            setStatus(
+              "Watch the unfinished section first. Forward skipping is blocked.",
+            );
           }
-          const length = sectionLength(duration);
-          const position = progressRef.current.position;
-          const current =
-            Math.floor(sectionStart(position, duration) / length) + 1;
-          const count = duration > 0 ? Math.ceil(duration / length) : "?";
-          const completed = Math.floor(progressRef.current.watched / length);
+          const end = checkpointEnd(completedRef.current, duration);
+          if (
+            duration > 0 &&
+            completedEndRef.current < duration &&
+            result.state.watched >= end - 0.2
+          ) {
+            player.pauseVideo();
+            player.seekTo(end, true);
+            progressRef.current = {
+              ...progressRef.current,
+              watched: end,
+              position: end,
+              sampledAt: null,
+            };
+            pendingRef.current = completedRef.current;
+            setPending(completedRef.current);
+            setFeedback("");
+            paused = true;
+            setStatus(
+              "Section finished. Answer the topic checkpoint to continue.",
+            );
+          }
+          const count = duration > 0 ? Math.ceil(duration / 120) : "?";
           setSectionInfo(
-            `Section ${current} of ${count} · ${length / 60}-minute sections · ${completed} completed`,
-          );
-        } else if (
-          started &&
-          !absenceRewound &&
-          now - lastSeen >= PAUSE_AFTER_MS
-        ) {
-          paused = true;
-          player.pauseVideo();
-          absenceRewound = true;
-          const rewind = rewindSection(progressRef.current, duration);
-          progressRef.current = rewind.state;
-          player.seekTo(rewind.seek, true);
-          setStatus(
-            "Paused. Current section restarted. Return to the camera to continue.",
+            `${completedRef.current} of ${count} sections completed · 120-second sections · ${selectedMode === "camera" ? "camera presence" : "self-reported presence"}`,
           );
         } else {
-          if (paused || !started) player.pauseVideo();
-          // Do not count the absence debounce as watched playback.
+          // No absent time is added, including the four-second grace period.
+          if (
+            started &&
+            absenceAction(now - lastSeen, { paused, rewound }) === "replay"
+          ) {
+            paused = true;
+            rewound = true;
+            player.pauseVideo();
+            progressRef.current = {
+              watched: completedEndRef.current,
+              position: completedEndRef.current,
+              sampledAt: null,
+            };
+            player.seekTo(completedEndRef.current, true);
+            setStatus(
+              "Paused after more than four seconds absent. Return to resume from your last completed question checkpoint.",
+            );
+          }
+          if (!started || paused) player.pauseVideo();
           progressRef.current = { ...progressRef.current, sampledAt: now };
         }
       }, 1000 / CHECKS_PER_SECOND);
     } catch (e) {
+      if (epoch.current !== token) return;
       stop();
-      const name = (e as DOMException)?.name;
-      if (name === "NotAllowedError" || name === "SecurityError") {
-        setPhase("denied");
-        setMessage(
-          "Camera access was blocked for this site. Tap the lock icon in the address bar, allow the camera, then tap Start video again.",
-        );
-      } else if (name === "NotFoundError" || name === "OverconstrainedError") {
-        setPhase("error");
-        setMessage("No camera was found on this device.");
-      } else if (name === "NotReadableError" || name === "AbortError") {
-        setPhase("error");
-        setMessage(
-          "The camera is busy in another app. Close the other app, then tap Start video again.",
-        );
-      } else {
-        setPhase("error");
-        setMessage(
-          `Could not start the camera check (${(e as Error)?.message || name || "unknown"}). Please try again.`,
-        );
-      }
+      setPhase(
+        (e as DOMException)?.name === "NotAllowedError" ? "denied" : "error",
+      );
+      setMessage(
+        `${(e as Error)?.message || "Unable to start"}. Retry with camera, or choose camera-free learning.`,
+      );
     }
   }
-
+  function answer(choice: number) {
+    const section = pendingRef.current;
+    if (section === null || !auth || getAuthSession()?.uid !== auth.uid) return;
+    const correct = choice === videoQuestion(topicId, section).answer;
+    const ownerId = auth.uid;
+    setLoopState((prev) => {
+      const old = prev.videoProgress?.[videoId];
+      const safe = old?.ownerId === ownerId ? old : undefined;
+      return {
+        ...prev,
+        videoProgress: {
+          ...prev.videoProgress,
+          [videoId]: {
+            ownerId,
+            completed: correct
+              ? Array.from(new Set([...(safe?.completed ?? []), section + 1]))
+              : (safe?.completed ?? []),
+            results: [
+              ...(safe?.results ?? []),
+              { section, correct, at: Date.now(), mode },
+            ].slice(-300),
+            updatedAt: Date.now(),
+          },
+        },
+      };
+    });
+    setFeedback(
+      `${correct ? "Correct." : "Try again."} ${videoQuestion(topicId, section).explanation}`,
+    );
+    if (correct) {
+      completedRef.current = section + 1;
+      completedEndRef.current = progressRef.current.position;
+      pendingRef.current = null;
+      setPending(null);
+      setStatus("Checkpoint saved. Continue from the completed section.");
+    }
+  }
   function end() {
     stop();
     playerRef.current?.destroy();
     playerRef.current = null;
-    if (playerHost.current) playerHost.current.innerHTML = "";
     setPhase("idle");
-    setStatus("Camera is off");
+    setStatus("Stopped. Completed question checkpoints are saved.");
   }
   const active = phase === "watching" || phase === "starting";
-
+  const question = pending === null ? null : videoQuestion(topicId, pending);
   return (
     <div className="space-y-3">
-      <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-black">
+      <div className="relative aspect-video overflow-hidden rounded-2xl bg-black">
         <div
           ref={playerHost}
           className="absolute inset-0 [&_iframe]:h-full [&_iframe]:w-full"
@@ -298,55 +388,83 @@ export function CameraVideo({
         {!active && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 p-4 text-center text-white">
             <p className="text-sm font-bold">{title}</p>
-            <p className="max-w-sm text-xs opacity-80">
-              Tap start and allow the camera. The video pauses when you move
-              away.
-            </p>
             <button
               type="button"
-              onClick={() => void start()}
-              className="btn-base btn-primary-solid text-sm font-bold"
+              disabled={!hydrated || !auth}
+              onClick={() => void start("camera")}
+              className="btn-base btn-primary-solid"
             >
-              Start video
+              Start with camera
+            </button>
+            <button
+              type="button"
+              disabled={!hydrated || !auth}
+              onClick={() => void start("self_reported")}
+              className="rounded-lg border border-white/50 px-3 py-2 text-xs"
+            >
+              Learn without camera
             </button>
           </div>
         )}
       </div>
-      <p
-        data-testid="video-section"
-        className="text-xs font-semibold text-muted-foreground"
-      >
+      <p data-testid="video-section" className="text-xs text-muted-foreground">
         {sectionInfo}
       </p>
+      <p
+        role="status"
+        aria-live="polite"
+        data-testid="presence-status"
+        className="text-sm font-semibold"
+      >
+        {status}
+      </p>
       {message && (
-        <p className="rounded-xl border p-3 text-[12.5px] font-semibold text-red-700">
+        <p role="alert" className="rounded-xl border p-3 text-sm text-red-700">
           {message}
         </p>
       )}
-      <div className="flex items-center gap-3 rounded-2xl border p-3">
+      {question && (
+        <section
+          aria-label="Section checkpoint"
+          className="rounded-xl border border-primary/30 p-4"
+        >
+          <h3 className="font-bold">
+            Section {(pending ?? 0) + 1} topic checkpoint
+          </h3>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Authored topic review, not a claim about this exact video segment.
+            Longer videos may repeat topic checks. This checks an answer, not
+            independent coding mastery.
+          </p>
+          <p className="my-3 text-sm">{question.prompt}</p>
+          <div className="grid gap-2">
+            {question.options.map((o, i) => (
+              <button
+                key={i}
+                type="button"
+                className="rounded-xl border p-3 text-left text-sm hover:border-primary"
+                onClick={() => answer(i)}
+              >
+                {o}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+      {feedback && (
+        <p role="status" className="rounded-xl bg-muted p-3 text-sm">
+          {feedback}
+        </p>
+      )}
+      <div className="flex items-center gap-3">
         <video
           ref={videoRef}
           muted
           playsInline
-          aria-label="Your camera"
-          className={`h-16 w-20 shrink-0 rounded-lg bg-black object-cover -scale-x-100 ${active ? "" : "hidden"}`}
+          aria-label="Your camera, processed locally"
+          className={`h-16 w-20 rounded-lg bg-black object-cover -scale-x-100 ${active && mode === "camera" ? "" : "hidden"}`}
         />
-        <div className="min-w-0 flex-1">
-          <p data-testid="presence-status" className="text-sm font-black">
-            {status}
-          </p>
-          <p className="flex items-center gap-3 text-[11px] font-semibold text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Camera className="h-3 w-3" />
-              {phase === "watching" ? "on" : "off"}
-            </span>
-            <span className="flex items-center gap-1">
-              <Mic className="h-3 w-3" />
-              mic not used
-            </span>
-          </p>
-        </div>
-        {phase === "watching" && (
+        {active && (
           <button
             type="button"
             onClick={end}
@@ -356,15 +474,16 @@ export function CameraVideo({
           </button>
         )}
       </div>
-      <p className="flex items-start gap-2 text-[11px] font-semibold text-muted-foreground">
-        <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        Face check runs on your device only. Nothing is recorded or uploaded.
-        The microphone is never requested: no audio is listened to, analysed or
-        saved. This only checks that a face is in view, not attention. Pauses
-        after 2s away and restarts only your current section when you return.
-        Skipping ahead is blocked; completed sections stay available during this
-        visit. Sections are 2 minutes, or 4 minutes for videos of an hour or
-        longer.
+      <p className="flex items-start gap-2 text-xs leading-5 text-muted-foreground">
+        <ShieldCheck className="mt-1 h-4 w-4 shrink-0" />
+        Camera consent is optional. Face checks run locally about three times
+        per second. No footage is recorded or uploaded, and the microphone is
+        never requested. Face presence does not prove attention or
+        understanding. More than four continuous seconds absent pauses playback
+        and returns to the last completed question checkpoint. Camera-free mode
+        uses self-reported presence. Hidden tabs pause. Completed sections and
+        question results are saved to your signed-in learner state; watching
+        alone never raises practical competency.
       </p>
     </div>
   );

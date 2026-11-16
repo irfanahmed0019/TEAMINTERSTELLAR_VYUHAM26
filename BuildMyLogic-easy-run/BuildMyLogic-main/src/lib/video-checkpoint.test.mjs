@@ -6,18 +6,19 @@ import {
   sectionStart,
   sampleVideo,
   rewindSection,
+  absenceAction,
 } from "./video-checkpoint.ts";
-test("40-minute videos use 2-minute sections, hour videos use 4", () => {
+test("every video uses 2-minute sections, whatever its length", () => {
   assert.equal(sectionLength(2400), 120);
-  assert.equal(sectionLength(3600), 240);
+  assert.equal(sectionLength(3600), 120);
   assert.equal(sectionStart(359, 2400), 240);
   assert.equal(sectionStart(359, 3600), 240);
-  assert.equal(sectionStart(239, 3600), 0);
+  assert.equal(sectionStart(239, 3600), 120);
 });
 test("first and final partial section bounds are safe", () => {
   assert.equal(sectionStart(0, 2400), 0);
   assert.equal(sectionStart(250, 250), 240);
-  assert.equal(sectionStart(3600, 3600), 3360);
+  assert.equal(sectionStart(3600, 3600), 3480);
   assert.equal(sectionLength(0), 120);
 });
 test("normal watched playback advances and permits replay", () => {
@@ -50,8 +51,38 @@ test("absence rewinds only current section and preserves completed playback", ()
   assert.equal(r.state.sampledAt, null);
   assert.equal(
     rewindSection({ watched: 385, position: 385, sampledAt: 1000 }, 3600).seek,
-    240,
+    360,
   );
+});
+test("video-scope replay restarts from the beginning", () => {
+  const r = rewindSection(
+    { watched: 385, position: 385, sampledAt: 1000 },
+    2400,
+    "video",
+  );
+  assert.equal(r.seek, 0);
+  assert.equal(r.state.position, 0);
+  assert.equal(r.state.watched, 385);
+});
+test("absence timing: no pause through 4s, replay only past 4s, once per absence", () => {
+  // Under the pause threshold nothing happens.
+  assert.equal(absenceAction(1000, { paused: false, rewound: false }), null);
+  // At the pause threshold the video pauses but does not rewind.
+  assert.equal(absenceAction(2000, { paused: false, rewound: false }), null);
+  assert.equal(absenceAction(3999, { paused: false, rewound: false }), null);
+  assert.equal(absenceAction(4000, { paused: false, rewound: false }), null);
+  // Between 2s and 4s a paused learner still resumes without a replay.
+  assert.equal(absenceAction(3999, { paused: true, rewound: false }), null);
+  // Past 4 seconds the section replays.
+  assert.equal(absenceAction(4000, { paused: true, rewound: false }), null);
+  assert.equal(absenceAction(4001, { paused: true, rewound: false }), "replay");
+  // A missed tick past both thresholds replays (the caller also pauses).
+  assert.equal(
+    absenceAction(5000, { paused: false, rewound: false }),
+    "replay",
+  );
+  // The replay fires once per absence, not on every tick.
+  assert.equal(absenceAction(5000, { paused: true, rewound: true }), null);
 });
 test("absence and pauses never advance watched range", () => {
   const s = { watched: 20, position: 20, sampledAt: 1000 };

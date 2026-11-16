@@ -1,4 +1,4 @@
-// Video-only, in-memory playback state. No learning, code or account data is changed.
+// Pure playback guards. Completed question checkpoints are persisted by the learner-state adapter.
 export type VideoProgress = {
   watched: number;
   position: number;
@@ -9,8 +9,10 @@ export const initialVideoProgress = (): VideoProgress => ({
   position: 0,
   sampledAt: null,
 });
-export function sectionLength(duration: number): number {
-  return Number.isFinite(duration) && duration >= 3600 ? 240 : 120;
+export function sectionLength(_duration: number): number {
+  // Irfan, 2026-11-16: every video is divided into 2-minute checkpoints,
+  // whatever its length.
+  return 120;
 }
 export function sectionStart(position: number, duration: number): number {
   const length = sectionLength(duration);
@@ -44,10 +46,27 @@ export function sampleVideo(
       : s.watched;
   return { state: { watched, position, sampledAt: now }, seek: null };
 }
+export type ReplayScope = "section" | "video";
+
+// Pause and recover only after strictly more than four continuous seconds absent.
+export const PAUSE_AFTER_MS = 4000;
+export const REPLAY_AFTER_MS = 4000;
+export type AbsenceState = { paused: boolean; rewound: boolean };
+export function absenceAction(
+  awayMs: number,
+  s: AbsenceState,
+): "pause" | "replay" | null {
+  // Replay wins when a missed tick jumps past both thresholds; the caller
+  // pauses first and never plays while the learner is away.
+  if (!s.rewound && awayMs > REPLAY_AFTER_MS) return "replay";
+  if (!s.paused && awayMs > PAUSE_AFTER_MS) return "pause";
+  return null;
+}
 export function rewindSection(
   s: VideoProgress,
   duration: number,
+  scope: ReplayScope = "section",
 ): { state: VideoProgress; seek: number } {
-  const seek = sectionStart(s.position, duration);
+  const seek = scope === "video" ? 0 : sectionStart(s.watched, duration);
   return { state: { ...s, position: seek, sampledAt: null }, seek };
 }

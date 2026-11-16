@@ -15,7 +15,7 @@ function Videos() {
     <AppShell
       crumb="Learn"
       title="Python video"
-      subtitle="Watch with your camera on. The video waits for you."
+      subtitle="Camera is optional. Two-minute sections and topic checkpoints save your progress."
       wide
     >
       <div className="mx-auto w-full max-w-3xl p-3 sm:p-5">
