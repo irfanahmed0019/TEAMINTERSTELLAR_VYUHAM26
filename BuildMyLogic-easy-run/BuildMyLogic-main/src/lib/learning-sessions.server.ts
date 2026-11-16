@@ -17,6 +17,13 @@ export type LearningSession = {
     lastReportAt?: number;
   };
   projectContext?: {
+    repair_contract?: {
+      version: 1;
+      function_name: string;
+      arguments: string[];
+      cases_digest: string;
+      source_digest: string;
+    };
     test_path?: string;
     test_digest?: string;
     test_cases?: number;
@@ -777,7 +784,7 @@ export function recordEvent(
   }
   if (
     eventType === "project_context" &&
-    !session.challengeId.startsWith("python-decimal-contract:")
+    !/^python-(decimal-contract|literal-repair):/.test(session.challengeId)
   ) {
     const strings = (value: unknown, max: number) =>
       Array.isArray(value)
@@ -843,6 +850,18 @@ function fallbackRunPlan(session: LearningSession, platform: string) {
 }
 
 export async function getRunPlan(session: LearningSession, platform: string) {
+  if (
+    [
+      "buildmylogic:python-literal-repair-v1",
+      "buildmylogic:python-decimal-contract",
+    ].includes(session.testCommand ?? "")
+  )
+    return {
+      command: session.testCommand!,
+      guidance:
+        "Run only the packaged pinned-contract evaluator after exact local command approval. No AI command proposal is needed.",
+      platform,
+    };
   const fallback = fallbackRunPlan(session, platform);
   const apiKey = isSampleAccount(session.userId)
     ? undefined
@@ -870,14 +889,184 @@ export async function getRunPlan(session: LearningSession, platform: string) {
   return { command: fallback.command, guidance: session.runGuidance, platform };
 }
 
-/** A finite supported slice, derived from an inspected existing function, never a generic fallback. */
-export async function assignProjectChallenge(
+/** Finite project-owned literal cases, not an inferred or AI-generated requirement oracle. */
+export async function assignLiteralProjectChallenge(
   session: LearningSession,
   input: Record<string, unknown>,
 ) {
   if (
     session.attempts ||
-    session.challengeId.startsWith("python-decimal-contract:") ||
+    session.status === "completed" ||
+    session.status === "failed" ||
+    /^python-(decimal-contract|literal-repair):/.test(session.challengeId)
+  )
+    throw new Error(
+      "Start a fresh session. Assigned source/test identity is pinned.",
+    );
+  const path = text(input["path"], 180),
+    testPath = text(input["test_path"], 180),
+    source = typeof input["source"] === "string" ? input["source"] : "",
+    name = text(input["function_name"], 80),
+    testDigest = text(input["test_digest"], 64),
+    casesJson =
+      typeof input["cases_json"] === "string" ? input["cases_json"] : "",
+    casesDigest = text(input["cases_digest"], 64),
+    args = input["arguments"],
+    failures = Number(input["baseline_failures"]);
+  const safePath = (p: string) =>
+    /^(?![./])(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.py$/.test(p) &&
+    !/secret|credential/i.test(p);
+  const reserved = new Set([
+    "abs",
+    "len",
+    "int",
+    "float",
+    "str",
+    "bool",
+    "_bml_bin",
+    "_bml_unary",
+    "_bml_call",
+    "_bml_method",
+    "__builtins__",
+  ]);
+  const safeName = (n: unknown): n is string =>
+    typeof n === "string" &&
+    /^[A-Za-z][A-Za-z_0-9]{0,79}$/.test(n) &&
+    !reserved.has(n);
+  if (
+    !safePath(path) ||
+    !safePath(testPath) ||
+    path === testPath ||
+    !safeName(name) ||
+    !Array.isArray(args) ||
+    args.length < 1 ||
+    args.length > 3 ||
+    !args.every(safeName) ||
+    new Set(args).size !== args.length ||
+    args.includes(name) ||
+    !source ||
+    source.length > 8000 ||
+    !source.startsWith(`def ${name}(${args.join(", ")}):\n`) ||
+    !/^[a-f0-9]{64}$/.test(testDigest) ||
+    !/^[a-f0-9]{64}$/.test(casesDigest) ||
+    !casesJson ||
+    casesJson.length > 2500 ||
+    createHash("sha256").update(casesJson).digest("hex") !== casesDigest
+  )
+    throw new Error("Invalid bounded literal-repair source/test contract.");
+  let cases: unknown;
+  try {
+    cases = JSON.parse(casesJson);
+  } catch {
+    throw new Error("Invalid approved cases JSON.");
+  }
+  const scalar = (v: unknown) =>
+    v === null ||
+    typeof v === "boolean" ||
+    (typeof v === "string" && v.length <= 256) ||
+    (typeof v === "number" && Number.isFinite(v) && Math.abs(v) <= 1000000);
+  if (
+    !Array.isArray(cases) ||
+    cases.length < 2 ||
+    cases.length > 32 ||
+    new Set(cases.map((c) => JSON.stringify(c))).size !== cases.length ||
+    !Number.isInteger(failures) ||
+    failures < 1 ||
+    failures > cases.length
+  )
+    throw new Error(
+      "Need2-32distinct approved cases and actual failing baseline evidence.",
+    );
+  for (const c of cases)
+    if (
+      !c ||
+      typeof c !== "object" ||
+      !Array.isArray(c.args) ||
+      c.args.length !== args.length ||
+      !c.args.every(scalar) ||
+      !Object.hasOwn(c, "expected") ||
+      !scalar(c.expected) ||
+      Object.keys(c).some((k) => !["args", "expected"].includes(k))
+    )
+      throw new Error("Only bounded scalar equality cases are supported.");
+  const sourceDigest = createHash("sha256").update(source).digest("hex"),
+    binding = createHash("sha256")
+      .update(source + "\n" + testDigest + "\n" + casesJson)
+      .digest("hex");
+  const id = "python-literal-repair:" + binding.slice(0, 24);
+  session.challengeId = id;
+  session.language = "Python";
+  session.concept = "project test repair";
+  session.expectedSkills = ["Python", "project test repair"];
+  session.title = `Repair ${path}:${name} against its approved project tests`;
+  session.instructions = `Medium project utility repair: fix only ${name}(${args.join(", ")}) in ${path} to satisfy these ${cases.length} approved existing literal cases from ${testPath}: ${casesJson}. Local inspection observed ${failures} baseline failures (extension-reported, not server-verified). Test SHA256 ${testDigest}. Function signature is pinned; repair body may change. Only the selected bounded scalar function runs; module/test imports and other code never run. Supported code: return/if/else, bounded numeric arithmetic/comparisons, scalar conversions and strip/lower/upper. No loops, imports, recursion, helpers, mutable state or framework dependency resolution. Unsupported code/provenance blocks evaluation without failed skill evidence. This is not a secure arbitrary-Python sandbox. Passing proves only these finite existing cases, not hidden requirements, independence, general mastery or whole-project correctness. Expected8minutes is an authored benchmark, not a measured population average.`;
+  session.expectedDurationMs = 480000;
+  session.checkpoints = [
+    {
+      index: 0,
+      title: `Pass approved project cases for ${name}`,
+      detail: `All ${cases.length} finite literal equality cases must pass with unchanged tests and signature.`,
+      status: "active",
+      evidence: "not_verified",
+      attempts: 0,
+      evaluator: {
+        id,
+        command: "buildmylogic:python-literal-repair-v1",
+        expectedOutputIncludes: [
+          "BML_LITERAL_REPAIR_V1_PASS",
+          "BML_PINNED_TEST_" + testDigest,
+        ],
+      },
+    },
+  ];
+  session.projectContext = {
+    inspected_files: [path],
+    languages: ["Python"],
+    technologies: [],
+    summary: `Inspected only learner-approved function ${name} in ${path}. Source digest ${sourceDigest}. Finite approved test contract ${testPath}, ${cases.length} cases, ${failures} observed baseline failures. Other module/dependency behavior not assessed.`,
+    at: new Date().toISOString(),
+    test_path: testPath,
+    test_digest: testDigest,
+    test_cases: cases.length,
+    baseline_failures: failures,
+    repair_contract: {
+      version: 1,
+      function_name: name,
+      arguments: args,
+      cases_digest: casesDigest,
+      source_digest: sourceDigest,
+    },
+  };
+  session.testCommand = "buildmylogic:python-literal-repair-v1";
+  session.rev = (session.rev ?? 0) + 1;
+  session.events.push({
+    eventType: "project_challenge_assigned",
+    at: new Date().toISOString(),
+    payload: {
+      kind: "python-literal-repair-v1",
+      path,
+      function: name,
+      source_digest: sourceDigest,
+      test_digest: testDigest,
+      cases_digest: casesDigest,
+      baseline_failures: failures,
+      evaluator: id,
+    },
+  });
+  await persistSession(session);
+  return stateOf(session);
+}
+
+/** A finite supported slice, derived from an inspected existing function, never a generic fallback. */
+export async function assignProjectChallenge(
+  session: LearningSession,
+  input: Record<string, unknown>,
+) {
+  if (input["kind"] === "python-literal-repair-v1")
+    return assignLiteralProjectChallenge(session, input);
+  if (
+    session.attempts ||
+    /^python-(decimal-contract|literal-repair):/.test(session.challengeId) ||
     session.status === "completed" ||
     session.status === "failed"
   )

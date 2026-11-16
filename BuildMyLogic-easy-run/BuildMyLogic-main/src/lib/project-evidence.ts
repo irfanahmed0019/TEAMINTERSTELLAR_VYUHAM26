@@ -3,8 +3,59 @@ import {
   emptyStruggleState,
   recordBuildSessionOutcome,
 } from "./struggle-engine.ts";
+const safeProjectPath = (path: string) =>
+  /^(?![./])(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.py$/.test(path);
+export function isLiteralRepairEvidence(remote: BuildSessionState): boolean {
+  const c = remote.project_context,
+    contract = c?.repair_contract,
+    e = remote.checkpoints?.[0]?.evaluator;
+  const paths = c?.inspected_files ?? [];
+  const markers = e?.expectedOutputIncludes ?? [];
+  return (
+    /^python-literal-repair:[a-f0-9]{24}$/.test(remote.challenge_id) &&
+    !!remote.verified_owner_id &&
+    remote.evidence_provenance === "extension-reported" &&
+    remote.language === "Python" &&
+    remote.concept === "project test repair" &&
+    remote.expected_skills?.length === 2 &&
+    remote.expected_skills[0] === "Python" &&
+    remote.expected_skills[1] === "project test repair" &&
+    Array.isArray(paths) &&
+    paths.length === 1 &&
+    safeProjectPath(paths[0]!) &&
+    !!c &&
+    safeProjectPath(c.test_path ?? "") &&
+    /^[a-f0-9]{64}$/.test(c.test_digest ?? "") &&
+    Number.isInteger(c.test_cases) &&
+    c.test_cases! >= 2 &&
+    c.test_cases! <= 32 &&
+    Number.isInteger(c.baseline_failures) &&
+    c.baseline_failures! >= 1 &&
+    c.baseline_failures! <= c.test_cases! &&
+    contract?.version === 1 &&
+    /^[A-Za-z_][A-Za-z0-9_]*$/.test(contract.function_name) &&
+    Array.isArray(contract.arguments) &&
+    contract.arguments.length >= 1 &&
+    contract.arguments.length <= 3 &&
+    new Set(contract.arguments).size === contract.arguments.length &&
+    contract.arguments.every((a) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(a)) &&
+    /^[a-f0-9]{64}$/.test(contract.cases_digest) &&
+    /^[a-f0-9]{64}$/.test(contract.source_digest) &&
+    typeof c.summary === "string" &&
+    c.summary.includes(`Source digest ${contract.source_digest}.`) &&
+    remote.checkpoints?.length === 1 &&
+    e?.id === remote.challenge_id &&
+    e.command === "buildmylogic:python-literal-repair-v1" &&
+    Array.isArray(markers) &&
+    markers.length === 2 &&
+    markers[0] === "BML_LITERAL_REPAIR_V1_PASS" &&
+    markers[1] === "BML_PINNED_TEST_" + c.test_digest
+  );
+}
 /** Recognized narrow task only. Context is provenance, not proof of server-side execution. */
 export function isSupportedProjectEvidence(remote: BuildSessionState): boolean {
+  if (remote.challenge_id.startsWith("python-literal-repair:"))
+    return isLiteralRepairEvidence(remote);
   if (
     !/^python-decimal-contract:[a-f0-9]{16}$/.test(remote.challenge_id) ||
     !remote.verified_owner_id ||
@@ -57,6 +108,12 @@ export function ingestProjectEvidence(
   remote: BuildSessionState,
 ): LoopState {
   if (!isSupportedProjectEvidence(remote) || remote.attempts < 1) return prev;
+  const utility = isLiteralRepairEvidence(remote);
+  const concept = utility ? "project test repair" : "input validation";
+  const topicId = utility ? "project-test-repair" : "input-validation";
+  const topicTitle = utility
+    ? "Python project test repair"
+    : "Python input validation";
   const events = [
     ...(remote.attempt_history ?? []).filter(
       (a) => a.attempt < remote.attempts,
@@ -85,16 +142,16 @@ export function ingestProjectEvidence(
       event.attempt < 1
     )
       continue;
-    // Count only the declared, finite input-validation evaluator. Never copy plan skills.
+    // Count only the declared finite evaluator. Never copy broad plan or project skills.
     const result = recordBuildSessionOutcome(struggle, {
       sessionKey: `project:${remote.session_id}:${event.attempt}:owner:${remote.verified_owner_id}`,
       sessionId: remote.session_id,
       verifiedOwnerId: remote.verified_owner_id,
-      topicId: "input-validation",
-      baseTopicId: "input-validation",
+      topicId,
+      baseTopicId: topicId,
       sourceChallengeId: remote.challenge_id,
-      topicTitle: "Python input validation",
-      concept: "input validation",
+      topicTitle,
+      concept,
       language: remote.language.toLowerCase(),
       exerciseTitle: remote.title,
       completed: event.passed === event.total,
@@ -127,7 +184,7 @@ export function ingestProjectEvidence(
       {
         at: Date.now(),
         kind: "skill" as const,
-        text: `Recorded extension-reported finite input-validation evidence from ${remote.title}. Original mission progress and unrelated skills unchanged.`,
+        text: `Recorded extension-reported finite ${concept} evidence from ${remote.title}. Original mission progress and unrelated skills unchanged.`,
       },
       ...prev.activity,
     ].slice(0, 40),

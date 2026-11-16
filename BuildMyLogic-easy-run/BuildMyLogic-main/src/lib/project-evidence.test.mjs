@@ -241,3 +241,129 @@ test("0.3.8 pinned existing-test decimal results enter narrow evidence; malforme
   );
   assert.equal(isSupportedProjectEvidence(remote), true);
 });
+
+test("utility-test repair has distinct finite provenance and never maps to decimal mastery or original mission", () => {
+  const digest = "a".repeat(64),
+    source = "b".repeat(64),
+    cases = "c".repeat(64),
+    id = "python-literal-repair:" + "d".repeat(24);
+  const utility = {
+    ...remote,
+    challenge_id: id,
+    concept: "project test repair",
+    expected_skills: ["Python", "project test repair"],
+    project_context: {
+      ...remote.project_context,
+      test_path: "tests/test_price.py",
+      test_digest: digest,
+      test_cases: 3,
+      baseline_failures: 1,
+      summary: `Source digest ${source}.`,
+      repair_contract: {
+        version: 1,
+        function_name: "discount",
+        arguments: ["price", "percent"],
+        cases_digest: cases,
+        source_digest: source,
+      },
+    },
+    checkpoints: [
+      {
+        title: "Declared project cases",
+        status: "passed",
+        evaluator: {
+          id,
+          command: "buildmylogic:python-literal-repair-v1",
+          expectedOutputIncludes: [
+            "BML_LITERAL_REPAIR_V1_PASS",
+            "BML_PINNED_TEST_" + digest,
+          ],
+        },
+      },
+    ],
+  };
+  assert.equal(isSupportedProjectEvidence(utility), true);
+  const next = ingestProjectEvidence(prev, utility);
+  assert.equal(next.plan, prev.plan);
+  assert.equal(next.missionProgress, prev.missionProgress);
+  assert.equal(
+    next.struggle.attempts[0].topicTitle,
+    "Python project test repair",
+  );
+  assert.match(
+    next.struggle.attempts[0].topicId,
+    /^project-test-repair:owner:/,
+  );
+  assert.equal(ingestProjectEvidence(next, utility), next);
+  for (const patch of [
+    { expected_skills: ["Python", "input validation"] },
+    { concept: "input validation" },
+    { challenge_id: "python-literal-repair:bad" },
+    {
+      project_context: {
+        ...utility.project_context,
+        repair_contract: {
+          ...utility.project_context.repair_contract,
+          source_digest: "e".repeat(64),
+        },
+      },
+    },
+    {
+      project_context: {
+        ...utility.project_context,
+        repair_contract: {
+          ...utility.project_context.repair_contract,
+          arguments: [],
+        },
+      },
+    },
+    {
+      project_context: {
+        ...utility.project_context,
+        repair_contract: {
+          ...utility.project_context.repair_contract,
+          arguments: undefined,
+        },
+      },
+    },
+    { project_context: { ...utility.project_context, test_cases: 1 } },
+    { project_context: { ...utility.project_context, baseline_failures: 0 } },
+    {
+      project_context: { ...utility.project_context, test_path: "../other.py" },
+    },
+    {
+      checkpoints: [
+        {
+          ...utility.checkpoints[0],
+          evaluator: {
+            ...utility.checkpoints[0].evaluator,
+            expectedOutputIncludes: [
+              "BML_DECIMAL_CONTRACT_14_PASS",
+              "BML_PINNED_TEST_" + digest,
+            ],
+          },
+        },
+      ],
+    },
+  ])
+    assert.equal(isSupportedProjectEvidence({ ...utility, ...patch }), false);
+  let failures = prev;
+  for (let i = 1; i <= 2; i++)
+    failures = ingestProjectEvidence(failures, {
+      ...utility,
+      attempts: i,
+      test_score: { passed: 0, total: 1 },
+      checkpoints: utility.checkpoints.map((c) => ({
+        ...c,
+        status: "failed",
+        lastOutput: "Declared cases did not all match",
+      })),
+    });
+  assert.ok(failures.struggle.misconceptions.length);
+  assert.equal(failures.struggle.misconceptions[0].transferTopicId, undefined);
+  assert.notEqual(
+    failures.struggle.misconceptions[0].topicId,
+    "input-validation",
+  );
+  assert.notEqual(failures.struggle.misconceptions[0].status, "conquered");
+});

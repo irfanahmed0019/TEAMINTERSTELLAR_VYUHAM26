@@ -558,3 +558,111 @@ test("server refuses builtin-shadowing project source before assigning", async (
     assert.equal(s.challengeId, "pending");
   }
 });
+
+test("literal project repair binds own finite oracle/signature separately from decimal", async () => {
+  const { createHash } = await import("node:crypto");
+  const s = await startLearningSession({
+    challenge_id: "project-context-pending",
+  });
+  const cases_json = JSON.stringify([
+    { args: [20, 5], expected: 15 },
+    { args: [4, 5], expected: 0 },
+  ]);
+  const input = {
+    kind: "python-literal-repair-v1",
+    path: "shop/prices.py",
+    source: "def sale_price(price, discount):\n    return price + discount",
+    function_name: "sale_price",
+    arguments: ["price", "discount"],
+    test_path: "test_prices.py",
+    test_digest: "b".repeat(64),
+    cases_json,
+    cases_digest: createHash("sha256").update(cases_json).digest("hex"),
+    baseline_failures: 2,
+    skipped: 0,
+  };
+  await assert.rejects(
+    assignProjectChallenge(s, { ...input, baseline_failures: 0 }),
+    /failing baseline/,
+  );
+  await assert.rejects(
+    assignProjectChallenge(s, { ...input, cases_digest: "a".repeat(64) }),
+    /Invalid/,
+  );
+  await assert.rejects(
+    assignProjectChallenge(s, { ...input, arguments: ["price", "int"] }),
+    /Invalid/,
+  );
+  await assert.rejects(
+    assignProjectChallenge(s, { ...input, test_path: "../tests.py" }),
+    /Invalid/,
+  );
+  const result = await assignProjectChallenge(s, input);
+  assert.match(result.challenge_id, /^python-literal-repair:[a-f0-9]{24}$/);
+  assert.equal(result.concept, "project test repair");
+  assert.deepEqual(result.expected_skills, ["Python", "project test repair"]);
+  assert.equal(result.expected_duration_ms, 480000);
+  assert.equal(
+    result.checkpoints[0].evaluator.command,
+    "buildmylogic:python-literal-repair-v1",
+  );
+  assert.deepEqual(result.project_context.repair_contract.arguments, [
+    "price",
+    "discount",
+  ]);
+  assert.equal(
+    result.project_context.repair_contract.cases_digest,
+    input.cases_digest,
+  );
+  assert.deepEqual(result.project_context.inspected_files, ["shop/prices.py"]);
+  assert.match(result.project_context.summary, /Source digest [a-f0-9]{64}\./);
+  assert.match(result.instructions, /finite existing cases/);
+  assert.ok(!result.instructions.includes("decimal"));
+  const { isSupportedProjectEvidence, ingestProjectEvidence } =
+    await import("./project-evidence.ts");
+  const utilityRemote = {
+    ...result,
+    verified_owner_id: "123e4567-e89b-42d3-a456-426614174000",
+    evidence_provenance: "extension-reported",
+    attempts: 1,
+    test_score: { passed: 1, total: 1 },
+    checkpoints: result.checkpoints.map((c) => ({ ...c, status: "passed" })),
+  };
+  assert.equal(isSupportedProjectEvidence(utilityRemote), true);
+  const original = {
+    plan: {
+      skills: [{ name: "React", level: 80 }],
+      missions: [{ id: "original" }],
+    },
+    missionProgress: { original: { status: "active" } },
+    activity: [],
+    struggle: {
+      attempts: [],
+      misconceptions: [],
+      ingestedSessions: [],
+      celebratedIds: [],
+    },
+  };
+  const recorded = ingestProjectEvidence(original, utilityRemote);
+  assert.equal(recorded.plan, original.plan);
+  assert.equal(recorded.missionProgress, original.missionProgress);
+  assert.equal(recorded.struggle.attempts.length, 1);
+  assert.equal(
+    recorded.struggle.attempts[0].topicTitle,
+    "Python project test repair",
+  );
+  assert.equal(ingestProjectEvidence(recorded, utilityRemote), recorded);
+  const pinned = structuredClone(result.project_context);
+  recordEvent(s, "project_context", {
+    inspected_files: ["other.py"],
+    summary: "overwrite",
+  });
+  assert.deepEqual(stateOf(s).project_context, pinned);
+  await assert.rejects(assignProjectChallenge(s, input), /fresh session/);
+  const callsBefore = paidCalls();
+  assert.equal(
+    (await getRunPlan(s, "linux")).command,
+    "buildmylogic:python-literal-repair-v1",
+  );
+  assert.equal(paidCalls(), callsBefore);
+});

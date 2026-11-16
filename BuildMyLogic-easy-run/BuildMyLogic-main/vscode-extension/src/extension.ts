@@ -733,17 +733,29 @@ class Sidebar implements vscode.WebviewViewProvider {
       !this.evidenceConsent ||
       !vscode.workspace.isTrusted ||
       this.session?.attempts ||
-      this.session?.challenge_id.startsWith("python-decimal-contract:")
+      /^python-(decimal-contract|literal-repair):/.test(
+        this.session?.challenge_id || "",
+      )
     )
       return;
+    const choice = await vscode.window.showQuickPick(
+      [
+        { label: "Project literal-test utility repair", flow: "literal" },
+        { label: "Decimal input-validation repair", flow: "decimal" },
+      ],
+      {
+        title:
+          "Choose bounded project assessment. Other project/framework code remains unsupported.",
+      },
+    );
+    if (!choice) return;
     const selected = await vscode.window.showOpenDialog({
       canSelectFiles: true,
       canSelectFolders: false,
       canSelectMany: false,
       defaultUri: root,
       filters: { Python: ["py"] },
-      title:
-        "Choose Python source module with standalone decimal-conversion function",
+      title: "Choose actual Python source module",
     });
     const test = selected?.[0]
       ? await vscode.window.showOpenDialog({
@@ -752,7 +764,8 @@ class Sidebar implements vscode.WebviewViewProvider {
           canSelectMany: false,
           defaultUri: root,
           filters: { Python: ["py"] },
-          title: "Choose its existing literal test file (not executed)",
+          title:
+            "Choose its existing literal test file (never executed/imported)",
         })
       : undefined;
     if (!selected?.[0] || !test?.[0] || this.connection !== connection) return;
@@ -761,6 +774,7 @@ class Sidebar implements vscode.WebviewViewProvider {
     const sourcePath = relative(selected[0]),
       testPath = relative(test[0]);
     if (
+      sourcePath === testPath ||
       ![selected[0], test[0]].every((uri) => this.isInActiveWorkspace(uri)) ||
       ![sourcePath, testPath].every(
         (p) =>
@@ -769,34 +783,36 @@ class Sidebar implements vscode.WebviewViewProvider {
       )
     )
       throw new Error(
-        "Select safe source and test files inside this workspace.",
+        "Choose different safe source/test files inside this workspace.",
       );
     if (
       (await vscode.workspace.fs.stat(selected[0])).size > 32000 ||
       (await vscode.workspace.fs.stat(test[0])).size > 32000
     )
-      throw new Error("Source/test file exceeds32KB inspection limit.");
+      throw new Error("Source/test exceeds32KBlimit.");
     const source = Buffer.from(
       await vscode.workspace.fs.readFile(selected[0]),
     ).toString("utf8");
-    const names = [
-      ...source.matchAll(
-        /^def ([A-Za-z][A-Za-z_0-9]*)\([A-Za-z_][A-Za-z_0-9]*\):/gm,
-      ),
-    ].map((m) => m[1]);
+    const names = [...source.matchAll(/^def ([A-Za-z][A-Za-z_0-9]*)\(/gm)].map(
+      (m) => m[1],
+    );
     const name = await vscode.window.showQuickPick(names, {
       title:
-        "Choose standalone function. Inspector accepts only int(arg) or int(arg.strip()) baseline.",
+        "Choose selected standalone utility. Inspector rejects dependencies/unsafe or unsupported syntax.",
     });
     if (!name || this.connection !== connection) return;
     const quote = (v: string) =>
       process.platform === "win32"
         ? '"' + v.replace(/"/g, "") + '"'
         : "'" + v.replace(/'/g, "'\\''") + "'";
+    const file =
+      choice.flow === "literal"
+        ? "python_literal_repair.py"
+        : "python_decimal_contract.py";
     const command =
       (process.platform === "win32" ? "py -3" : "python3") +
       " -I " +
-      quote(this.context.asAbsolutePath("media/python_decimal_contract.py")) +
+      quote(this.context.asAbsolutePath("media/" + file)) +
       " --inspect " +
       quote(sourcePath) +
       " " +
@@ -806,36 +822,33 @@ class Sidebar implements vscode.WebviewViewProvider {
     const run = await this.runCommand(command, root.fsPath, 10000);
     if (run.cancelled || this.connection !== connection) return;
     if (!run.passed)
-      return this.status(
-        "No supported failing project contract assigned: " + run.output,
-        true,
-      );
-    let context: {
-      path: string;
-      source: string;
-      test_path: string;
-      test_digest: string;
-      cases: unknown[];
-      skipped: number;
-      baseline_failures: number;
-    };
+      return this.status("No repair assigned: " + run.output, true);
+    let context: Record<string, unknown>;
     try {
       context = JSON.parse(run.output.trim());
     } catch {
-      throw new Error(
-        "Inspector returned no bounded contract. No task assigned.",
-      );
+      throw new Error("Inspector returned no bounded contract.");
     }
     if (
       context.path !== sourcePath ||
       context.test_path !== testPath ||
-      !Array.isArray(context.cases) ||
-      context.cases.length < 2 ||
-      context.cases.length > 32
+      typeof context.source !== "string" ||
+      context.source.length > 8000
     )
-      throw new Error("Inspector provenance mismatch. No task assigned.");
+      throw new Error("Inspector provenance mismatch.");
+    const literal = choice.flow === "literal";
+    if (
+      !literal &&
+      (!Array.isArray(context.cases) ||
+        context.cases.length < 2 ||
+        context.cases.length > 32)
+    )
+      throw new Error(
+        "Decimal inspector returned no bounded2-32case contract. No task assigned.",
+      );
+    const cases = literal ? context.cases_json : JSON.stringify(context.cases);
     const approved = await vscode.window.showInformationMessage(
-      `Assign a medium repair task for ${sourcePath}:${name}? Only the selected function runs, never module/test imports. Share this exact snippet and approved cases with BuildMyLogic. Existing tests: ${testPath}, SHA256 ${context.test_digest}. Accepted ${context.cases.length}; unsupported/skipped ${context.skipped}; actual baseline failures ${context.baseline_failures}. Agreed contract additionally rejects bool/float/malformed input with ValueError.\n${context.source}\n${JSON.stringify(context.cases)}`,
+      `Assign repair for ${sourcePath}:${name}? Only selected bounded function runs, never module/test imports. Not an arbitrary Python sandbox. Share exact snippet and approved finite cases. Test file ${testPath}, SHA256 ${context.test_digest}; skipped ${context.skipped}; observed baseline failures ${context.baseline_failures}. Passing these cases is not hidden-test/whole-project correctness or mastery.${literal ? " No extra oracle is invented." : " Additional authored decimal-input rules apply."}\n${context.source}\n${cases}`,
       { modal: true },
       "Assign inspected repair",
     );
@@ -846,13 +859,13 @@ class Sidebar implements vscode.WebviewViewProvider {
       return;
     const result = await this.api.projectChallenge(
       connection.sessionId,
-      context as unknown as Record<string, unknown>,
+      context,
     );
     if (this.connection === connection && result.state) {
       this.session = result.state;
       this.post({ type: "session", session: this.session });
       this.status(
-        "Source/test-grounded decimal repair assigned. Other Python/framework tasks remain unsupported.",
+        "Finite source/test-grounded repair assigned. Other projects and framework integration remain unassessed.",
       );
     }
   }
@@ -983,6 +996,53 @@ class Sidebar implements vscode.WebviewViewProvider {
     const text = `${checkpoint.title} ${checkpoint.detail}`.toLowerCase();
     let result: { passed: boolean; output: string; cancelled?: boolean };
     if (
+      checkpoint.evaluator?.command === "buildmylogic:python-literal-repair-v1"
+    ) {
+      const context = this.session.project_context,
+        contract = context?.repair_contract;
+      const relative = context?.inspected_files[0];
+      if (
+        !context?.test_path ||
+        !context.test_digest ||
+        !relative ||
+        !contract ||
+        contract.version !== 1 ||
+        !safeEvidencePath(relative) ||
+        !safeEvidencePath(context.test_path)
+      )
+        throw new Error(
+          "Literal repair provenance unavailable. Start a newly inspected session.",
+        );
+      const quote = (v: string) =>
+        process.platform === "win32"
+          ? '"' + v.replace(/"/g, "") + '"'
+          : "'" + v.replace(/'/g, "'\\''") + "'";
+      runCommand =
+        (process.platform === "win32" ? "py -3" : "python3") +
+        " -I " +
+        quote(this.context.asAbsolutePath("media/python_literal_repair.py")) +
+        " " +
+        quote(relative) +
+        " " +
+        quote(contract.function_name) +
+        " " +
+        quote(context.test_path) +
+        " " +
+        quote(context.test_digest) +
+        " " +
+        quote(contract.arguments.join(",")) +
+        " " +
+        quote(contract.cases_digest);
+      const evaluation = await this.runCommand(runCommand, folder, 10000);
+      if (evaluation.code === 3) {
+        this.status(
+          "Evaluation blocked, no attempt recorded: " + evaluation.output,
+          true,
+        );
+        return [];
+      }
+      result = evaluation;
+    } else if (
       checkpoint.evaluator?.command === "buildmylogic:python-decimal-contract"
     ) {
       const context = this.session.project_context;

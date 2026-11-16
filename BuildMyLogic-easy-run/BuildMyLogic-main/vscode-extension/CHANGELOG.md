@@ -1,3 +1,9 @@
+## 0.3.9
+
+- Added separate finite Python utility repair flow from the actual selected function and its own failing literal equality tests, not decimal-input rules. Supports 1-3 scalar parameters and finite return/if/else utilities with bounded arithmetic/conversions/string strip/lower/upper.
+- Pins signature, exact test digest and typed case digest. Repair body may change; test/signature drift blocks without failed skill evidence. No module/test imports, fixtures, loops, mutation, dependencies or general framework execution.
+- Explicit source/case consent and exact local command approval remain. Passing establishes only the approved finite project cases, not hidden correctness, independence or mastery. This is not a secure arbitrary-Python sandbox. Existing decimal sessions remain supported.
+
 ## 0.3.8
 
 - Choose an actual multi-function Python module and its own existing literal test file. Inspect only one standalone int(value) or int(value.strip()) baseline. Other module/test code is never imported or executed.

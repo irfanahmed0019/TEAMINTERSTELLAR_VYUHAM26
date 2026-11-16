@@ -13,6 +13,13 @@ export type RemoteSession = {
     ratio?: number;
   };
   project_context?: {
+    repair_contract?: {
+      version: 1;
+      function_name: string;
+      arguments: string[];
+      cases_digest: string;
+      source_digest: string;
+    };
     test_path?: string;
     test_digest?: string;
     test_cases?: number;

@@ -353,7 +353,10 @@ export function recordMissionEvidence(missionId: string, amount = 2) {
 /** Applies objective VS Code evidence to the learner dashboard immediately. */
 export function applyBuildSessionEvidence(remote: BuildSessionState) {
   setLoopState((prev) => {
-    if (remote.challenge_id.startsWith("python-decimal-contract:"))
+    if (
+      remote.challenge_id.startsWith("python-decimal-contract:") ||
+      remote.challenge_id.startsWith("python-literal-repair:")
+    )
       return ingestProjectEvidence(prev, remote);
     if (!prev.plan) return prev;
     const plan = prev.plan;
