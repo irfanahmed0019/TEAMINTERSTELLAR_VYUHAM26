@@ -77,6 +77,51 @@ global.fetch = async (url, options = {}) => {
   throw Error("Unexpected network " + url);
 };
 try {
+  const { curatedPlan } = await vite.ssrLoadModule(
+    "/src/lib/curated-fallback.ts",
+  );
+  const { defaultStarterProfile } = await vite.ssrLoadModule(
+    "/src/lib/loop-types.ts",
+  );
+  const basePlan = curatedPlan(defaultStarterProfile);
+  for (const [passed, hintsUsed, expected] of [
+    [0, 0, /One failed check is not a proven weakness/],
+    [3, 1, /without a hint/],
+    [3, 0, /not general mastery/],
+  ]) {
+    const profile = {
+      ...defaultStarterProfile,
+      initialCodingDiagnostic: {
+        version: 1,
+        language: "python",
+        topicId: "conditions",
+        submissions: [
+          {
+            taskId: "coding-v1:conditions:transfer",
+            topicId: "conditions",
+            language: "python",
+            passed,
+            total: 3,
+            at: 100,
+            hintsUsed,
+            evidenceId: "initial-coding:fixture",
+          },
+        ],
+      },
+    };
+    const plan = curatedPlan(profile);
+    assert.match(plan.session.tasks[0].title, expected);
+    assert.deepEqual(plan.missions, basePlan.missions);
+    assert.equal(plan.session.totalMinutes, basePlan.session.totalMinutes);
+    assert.equal(
+      plan.session.tasks.reduce((n, t) => n + t.minutes, 0),
+      basePlan.session.tasks.reduce((n, t) => n + t.minutes, 0),
+    );
+    assert.deepEqual(plan.skills, basePlan.skills);
+  }
+  console.log(
+    "PASS real fallback roadmap first review adapts failure/hints/pass, no invented skill scores/project generation or added time",
+  );
   const { handleMentorApi } = await vite.ssrLoadModule(
     "/src/lib/mentor/mentor.api.server.ts",
   );

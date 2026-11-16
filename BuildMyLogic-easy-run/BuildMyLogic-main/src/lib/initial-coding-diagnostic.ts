@@ -48,6 +48,7 @@ export type InitialCodingTask = {
   language: CodingLanguage;
   level: "basic" | "transfer";
   difficultyNote: string;
+  expectedMinutes: number;
   starterCode: string;
   hint: string;
   tests: Array<{
@@ -81,6 +82,7 @@ export function initialCodingTask(
     difficultyNote: transfer
       ? "Authored transfer task: changed requirements and boundary cases. Difficulty is an estimate, not population data."
       : "Authored basic scaffold on the same concept. Passing finite cases is not proof of general mastery.",
+    expectedMinutes: transfer ? 8 : 5,
     starterCode: transfer
       ? language === "c"
         ? "#include <stdio.h>\nint main(void) {\n  /* Write your program. */\n  return 0;\n}"

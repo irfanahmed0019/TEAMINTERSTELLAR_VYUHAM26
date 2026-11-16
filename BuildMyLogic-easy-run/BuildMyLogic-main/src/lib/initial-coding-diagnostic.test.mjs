@@ -33,6 +33,7 @@ for (const { id } of codingTopicOptions())
         const task = initialCodingTask(`coding-v1:${id}:${level}`, language);
         assert.ok(task);
         assert.ok(task.tests.length && task.tests.length <= 10);
+        assert.equal(task.expectedMinutes, level === "transfer" ? 8 : 5);
         const code =
           level === "transfer"
             ? refs[id][language]

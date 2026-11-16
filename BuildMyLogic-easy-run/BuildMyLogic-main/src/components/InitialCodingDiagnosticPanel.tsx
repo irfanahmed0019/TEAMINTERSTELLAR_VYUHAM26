@@ -259,6 +259,11 @@ export function InitialCodingDiagnosticPanel({
           <h4 className="font-semibold">{task.title}</h4>
           <p className="whitespace-pre-wrap text-sm leading-6">{task.task}</p>
           <p className="text-xs text-muted-foreground">{task.difficultyNote}</p>
+          <p className="text-xs text-muted-foreground">
+            Authored benchmark: {task.expectedMinutes} minutes, not a measured
+            population average. Active solving time is not measured here; no
+            timing-based skill penalty.
+          </p>
           <label className="block text-sm">
             Your program
             <textarea

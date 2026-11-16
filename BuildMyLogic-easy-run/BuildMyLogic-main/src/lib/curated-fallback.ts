@@ -1,3 +1,4 @@
+import { initialCodingTask, codingDiagnosticSummary } from "./initial-coding-diagnostic.ts";
 /**
  * Curated, human-authored onboarding fallbacks. When the AI service is
  * unavailable (for example a provider billing outage), onboarding must not
@@ -225,5 +226,42 @@ function curatedGenericPlan(profile: Profile): Plan {
 }
 
 export function curatedPlan(profile: Profile): Plan {
-  return profileIsC(profile) ? curatedCPlan(profile) : curatedGenericPlan(profile);
+  const plan = profileIsC(profile)
+    ? curatedCPlan(profile)
+    : curatedGenericPlan(profile);
+  const checks = profile.initialCodingDiagnostic?.submissions ?? [];
+  if (!checks.length) return plan;
+  const recent = checks.at(-1)!;
+  const assessed = initialCodingTask(recent.taskId, recent.language);
+  if (!assessed) return plan;
+  const next =
+    recent.passed < recent.total
+      ? `Review ${assessed.skill} (${recent.language.toUpperCase()}) in Learn, then submit its practice exercise. One failed check is not a proven weakness.`
+      : recent.hintsUsed > 0
+        ? `Try a fresh ${assessed.skill} (${recent.language.toUpperCase()}) exercise in Learn without a hint before increasing difficulty.`
+        : `Try a changed ${assessed.skill} (${recent.language.toUpperCase()}) exercise in Learn. A finite pass is not general mastery.`;
+  return {
+    ...plan,
+    profileSummary: `${plan.profileSummary} ${codingDiagnosticSummary(profile.initialCodingDiagnostic)}`,
+    session: {
+      ...plan.session,
+      focus: `First: a fresh ${assessed.skill} (${recent.language.toUpperCase()}) check`,
+      tasks: [
+        {
+          title: next,
+          minutes: plan.session.tasks[0]?.minutes ?? plan.session.totalMinutes,
+        },
+        ...plan.session.tasks.slice(1),
+      ],
+      tip: `${next} Project milestones remain the authored starter path, not AI-generated from these results.`,
+    },
+    progress: {
+      ...plan.progress,
+      insights: [
+        next,
+        "Initial coding output checks inform this first review only; untested languages and resume claims remain unverified.",
+        ...plan.progress.insights,
+      ],
+    },
+  };
 }
