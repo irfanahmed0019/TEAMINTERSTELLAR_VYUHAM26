@@ -208,3 +208,61 @@ test("finite loop practice evaluates real correct/wrong/missing/no-loop Python f
     rmSync(folder, { recursive: true, force: true });
   }
 });
+test("all catalog practice tasks accept real solutions and reject wrong answers, missing syntax and unsupported IDs", () => {
+  const script = resolve("media/python_loops_practice.py"),
+    dir = mkdtempSync(join(tmpdir(), "bml-practice-"));
+  try {
+    const tasks = [
+      [
+        "python-conditions-sign-v1",
+        'n=int(input())\nif n<0: print("negative")\nelif n==0: print("zero")\nelse: print("positive")',
+        'n=int(input())\nif n: print("positive")\nelse: print("zero")',
+        'print("negative")',
+      ],
+      [
+        "python-functions-double-v1",
+        "def double(n):\n return n*2\nprint(double(int(input())))",
+        "def double(n):\n return n*3\nprint(double(int(input())))",
+        "print(int(input())*2)",
+      ],
+      [
+        "python-strings-vowels-v1",
+        'n=0\nfor c in input():\n if c in "aeiou": n+=1\nprint(n)',
+        "n=0\nfor c in input(): n+=1\nprint(n)",
+        'print(sum(map(lambda c: c in "aeiou",input())))',
+      ],
+    ];
+    for (const [id, right, wrong, noConstruct] of tasks) {
+      for (const [source, expected] of [
+        [right, 0],
+        [wrong, 1],
+        [noConstruct, 1],
+      ]) {
+        writeFileSync(join(dir, "main.py"), source);
+        const r = spawnSync("python3", ["-I", script, id], {
+          cwd: dir,
+          encoding: "utf8",
+          timeout: 15000,
+        });
+        assert.equal(r.status, expected, id + ": " + r.stdout + r.stderr);
+        assert.equal(
+          r.stdout.includes("BML_PRACTICE_PASS:" + id),
+          expected === 0,
+        );
+      }
+    }
+    for (const args of [
+      ["unsupported-id"],
+      ["python-conditions-sign-v1", "customcase"],
+    ]) {
+      const r = spawnSync("python3", ["-I", script, ...args], {
+        cwd: dir,
+        encoding: "utf8",
+      });
+      assert.equal(r.status, 3);
+      assert.ok(!r.stdout.includes("BML_PRACTICE_PASS:"));
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

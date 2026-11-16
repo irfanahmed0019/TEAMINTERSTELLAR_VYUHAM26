@@ -1,3 +1,9 @@
+## 0.3.14
+
+- Adds explicit standalone Python conditions, functions and strings practice beside loops.
+- Each task runs fixed finite cases locally after workspace trust and command consent.
+- Unsupported task commands are blocked. No task is a general skill or sandbox claim.
+
 ## 0.3.13
 
 - Show short coding tasks and keep full requirements in a separate details area.

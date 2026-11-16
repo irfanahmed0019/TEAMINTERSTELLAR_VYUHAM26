@@ -583,3 +583,84 @@ test("loop practice requires explicit local-code consent before evaluator runs; 
   );
   assert.equal(runs, 1);
 });
+test("unknown internal practice command is blocked, never executed and never emits test evidence", async () => {
+  const f = await sidebarFixture();
+  f.sidebar.connection = { sessionId: "BML-ABCDE" };
+  f.sidebar.session = {
+    session_id: "BML-ABCDE",
+    checkpoints: [
+      {
+        index: 0,
+        status: "active",
+        title: "Unknown",
+        detail: "",
+        evaluator: {
+          id: "unsupported",
+          command: "buildmylogic:unsupported",
+          expectedOutputIncludes: ["FAKE"],
+        },
+      },
+    ],
+  };
+  let runs = 0;
+  f.sidebar.runCommand = async () => {
+    runs++;
+    throw Error("not allowed");
+  };
+  assert.deepEqual(await f.sidebar.runNextCheckpoint("/project", ""), []);
+  assert.equal(runs, 0);
+  assert.ok(!f.posts.some((p) => p.type === "tests"));
+});
+test("every allowlisted practice routes only its fixed ID after consent, cancels without running and does not replace practice with project repair", async () => {
+  for (const id of [
+    "python-loops-fibonacci-v1",
+    "python-conditions-sign-v1",
+    "python-functions-double-v1",
+    "python-strings-vowels-v1",
+  ]) {
+    const f = await sidebarFixture();
+    f.sidebar.connection = { sessionId: "BML-ABCDE" };
+    f.sidebar.session = {
+      session_id: "BML-ABCDE",
+      challenge_id: id,
+      checkpoints: [
+        {
+          index: 0,
+          status: "active",
+          title: "Practice",
+          detail: "",
+          evaluator: {
+            id,
+            command: "buildmylogic:" + id,
+            expectedOutputIncludes: ["BML_PRACTICE_PASS:" + id],
+          },
+        },
+      ],
+    };
+    let commands = [];
+    f.sidebar.runCommand = async (command) => {
+      commands.push(command);
+      return { code: 3, passed: false, output: "Missing main.py" };
+    };
+    f.vscode.window.showWarningMessage = async () => undefined;
+    assert.deepEqual(
+      await f.sidebar.runNextCheckpoint("/project", "ignored"),
+      [],
+    );
+    assert.equal(commands.length, 0);
+    f.vscode.window.showWarningMessage = async () => "Run my Python code";
+    f.context.asAbsolutePath = (p) => "/extension/" + p;
+    assert.deepEqual(
+      await f.sidebar.runNextCheckpoint("/project", "ignored"),
+      [],
+    );
+    assert.equal(commands.length, 1);
+    assert.ok(commands[0].endsWith("'" + id + "'"));
+    f.sidebar.evidenceConsent = true;
+    f.vscode.workspace.isTrusted = true;
+    f.vscode.window.showQuickPick = () => {
+      throw Error("practice must not be overwritten");
+    };
+    await f.sidebar.offerProjectChallenge();
+  }
+});

@@ -1,3 +1,4 @@
+import { PRACTICE_TASKS, practiceTaskBody } from "./practice-task.ts";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { ConquestReceipt } from "./shared-conquest";
 import { isSampleAccount } from "./sample-account.ts";
@@ -196,6 +197,7 @@ async function persistSession(
       );
     return;
   }
+  let existingRow = false;
   try {
     const current = await fetch(
       `${config.url}/rest/v1/learning_sessions?session_id=eq.${encodeURIComponent(session.sessionId)}&select=status,session_data`,
@@ -212,6 +214,7 @@ async function persistSession(
         status?: string;
         session_data?: LearningSession;
       }[];
+      existingRow = rows.length > 0;
       const receipts = new Map(
         [
           ...(rows[0]?.session_data?.conquestReceipts ?? []),
@@ -222,6 +225,7 @@ async function persistSession(
         session.conquestReceipts = [...receipts.values()].slice(-40);
       session.rev = Math.max(session.rev ?? 0, rows[0]?.session_data?.rev ?? 0);
       const savedSession = rows[0]?.session_data;
+      adoptAssignedPractice(session, savedSession);
       const binding = projectRecheckBinding(session);
       if (
         strict &&
@@ -267,34 +271,45 @@ async function persistSession(
       ? session.userId
       : null;
   try {
-    const response = await fetch(`${config.url}/rest/v1/learning_sessions`, {
-      method: "POST",
-      headers: {
-        apikey: config.key,
-        authorization: `Bearer ${config.key}`,
-        "content-type": "application/json",
-        prefer: "resolution=merge-duplicates,return=minimal",
-      },
-      body: JSON.stringify({
-        session_id: session.sessionId,
-        user_id: userId,
-        challenge_id: session.challengeId,
-        title: session.title,
-        language: session.language,
-        concept: session.concept,
-        instructions: session.instructions,
-        expected_skills: session.expectedSkills,
-        status: session.status,
-        started_at: session.startedAt,
-        connected_at: session.connectedAt ?? null,
-        attempts: session.attempts,
-        hints_used: session.hintsUsed,
-        test_score: session.testScore ?? null,
-        latest_mentor_feedback: session.latestFeedback ?? null,
-        recovery: session.recovery ?? null,
-        session_data: { ...session, connectionToken: undefined },
-      }),
+    const pending = session.challengeId === "project-context-pending";
+    const conditionalPending = pending && existingRow;
+    const pendingQuery = new URLSearchParams({
+      session_id: "eq." + session.sessionId,
+      challenge_id: "eq.project-context-pending",
     });
+    const response = await fetch(
+      `${config.url}/rest/v1/learning_sessions${conditionalPending ? "?" + pendingQuery : ""}`,
+      {
+        method: conditionalPending ? "PATCH" : "POST",
+        headers: {
+          apikey: config.key,
+          authorization: `Bearer ${config.key}`,
+          "content-type": "application/json",
+          prefer: pending
+            ? "resolution=ignore-duplicates,return=minimal"
+            : "resolution=merge-duplicates,return=minimal",
+        },
+        body: JSON.stringify({
+          session_id: session.sessionId,
+          user_id: userId,
+          challenge_id: session.challengeId,
+          title: session.title,
+          language: session.language,
+          concept: session.concept,
+          instructions: session.instructions,
+          expected_skills: session.expectedSkills,
+          status: session.status,
+          started_at: session.startedAt,
+          connected_at: session.connectedAt ?? null,
+          attempts: session.attempts,
+          hints_used: session.hintsUsed,
+          test_score: session.testScore ?? null,
+          latest_mentor_feedback: session.latestFeedback ?? null,
+          recovery: session.recovery ?? null,
+          session_data: { ...session, connectionToken: undefined },
+        }),
+      },
+    );
     if (strict && !response.ok)
       throw new Error("Cloud recheck save failed. No saved recheck evidence.");
     if (!response.ok)
@@ -555,7 +570,7 @@ function compact(session: LearningSession) {
     title: session.title,
     language: session.language,
     concept: session.concept,
-    instructions: `${session.instructions}${checkpointInstructions && session.challengeId !== "python-loops-fibonacci-v1" ? `\n\nSequential checkpoints:\n${checkpointInstructions}` : ""}`,
+    instructions: `${session.instructions}${checkpointInstructions && !PRACTICE_TASKS.some((task) => task.id === session.challengeId) ? `\n\nSequential checkpoints:\n${checkpointInstructions}` : ""}`,
     expected_skills: session.expectedSkills,
     test_command: session.testCommand,
     status: session.status,
@@ -934,7 +949,7 @@ function fallbackRunPlan(session: LearningSession, platform: string) {
 export async function getRunPlan(session: LearningSession, platform: string) {
   if (
     [
-      "buildmylogic:python-loops-fibonacci-v1",
+      ...PRACTICE_TASKS.map((task) => "buildmylogic:" + task.id),
       "buildmylogic:python-literal-repair-v1",
       "buildmylogic:python-decimal-contract",
     ].includes(session.testCommand ?? "")
@@ -1456,7 +1471,118 @@ export async function assignLiteralProjectChallenge(
   return stateOf(session);
 }
 
-/** A finite supported slice, derived from an inspected existing function, never a generic fallback. */
+/** Explicit standalone task assignment preserves a pending connection, not project assessment. */
+export async function assignPracticeTask(
+  session: LearningSession,
+  value: unknown,
+) {
+  await refreshConquestReceipts(session);
+  const task = practiceTaskBody(value);
+  if (!task) throw new Error("This practice task is not supported.");
+  if (
+    session.challengeId !== "project-context-pending" ||
+    session.attempts ||
+    session.checkpoints.some((checkpoint) => checkpoint.status === "passed") ||
+    !["active", "connected"].includes(session.status)
+  )
+    throw new Error(
+      "This session already has a task or evidence. Start a fresh session to keep it.",
+    );
+  const next = structuredClone(session);
+  next.challengeId = task.challenge_id;
+  next.title = task.title;
+  next.language = task.language;
+  next.concept = task.concept;
+  next.instructions = task.instructions;
+  next.expectedSkills = [...task.expected_skills];
+  next.expectedDurationMs = task.expected_duration_ms;
+  next.testCommand = task.test_command;
+  next.checkpoints = makeCheckpoints(task, task.instructions);
+  next.rev = (next.rev ?? 0) + 1;
+  next.events.push({
+    eventType: "practice_task_assigned",
+    at: new Date().toISOString(),
+    payload: { task: task.challenge_id },
+  });
+  const config = supabaseAdminConfig();
+  if (config) {
+    const query = new URLSearchParams({
+      session_id: "eq." + session.sessionId,
+      challenge_id: "eq.project-context-pending",
+      "session_data->>challengeId": "eq.project-context-pending",
+      "session_data->>rev":
+        session.rev === undefined ? "is.null" : "eq." + session.rev,
+      attempts: "eq.0",
+      status: "in.(active,connected)",
+      select: "session_id",
+    });
+    const response = await fetch(
+      `${config.url}/rest/v1/learning_sessions?${query}`,
+      {
+        method: "PATCH",
+        headers: {
+          apikey: config.key,
+          authorization: `Bearer ${config.key}`,
+          "content-type": "application/json",
+          prefer: "return=representation",
+        },
+        body: JSON.stringify({
+          challenge_id: next.challengeId,
+          title: next.title,
+          language: next.language,
+          concept: next.concept,
+          instructions: next.instructions,
+          expected_skills: next.expectedSkills,
+          session_data: { ...next, connectionToken: undefined },
+        }),
+      },
+    ).catch(() => {
+      throw Object.assign(
+        new Error("Task sync is unavailable. No saved task was confirmed."),
+        { statusCode: 503 },
+      );
+    });
+    if (!response.ok)
+      throw Object.assign(
+        new Error(
+          "Task could not be saved. The connected session was not changed. Try again.",
+        ),
+        { statusCode: 503 },
+      );
+    const rows = await response.json().catch(() => {
+      throw Object.assign(
+        new Error(
+          "Task save response could not be verified. Refresh the session before trying again.",
+        ),
+        { statusCode: 503 },
+      );
+    });
+    if (
+      !Array.isArray(rows) ||
+      rows.length !== 1 ||
+      rows[0]?.session_id !== session.sessionId
+    ) {
+      await refreshConquestReceipts(session);
+      throw Object.assign(
+        new Error(
+          "The session changed elsewhere. Refresh before choosing a task; existing evidence is kept.",
+        ),
+        { statusCode: 409 },
+      );
+    }
+  } else if (process.env["NODE_ENV"] === "production")
+    throw Object.assign(
+      new Error(
+        "Task sync is unavailable. The connected session was not changed.",
+      ),
+      { statusCode: 503 },
+    );
+  Object.assign(session, next);
+
+  return stateOf(session);
+}
+
+/** A finite supported slice derived from an inspected existing function. */
 export async function assignProjectChallenge(
   session: LearningSession,
   input: Record<string, unknown>,
@@ -1831,9 +1957,28 @@ export async function publishConquestReceipt(
   return stateOf(session);
 }
 
+function adoptAssignedPractice(
+  session: LearningSession,
+  saved: LearningSession | undefined,
+) {
+  if (
+    session.challengeId === "project-context-pending" &&
+    !session.attempts &&
+    saved?.userId === session.userId &&
+    (practiceTaskBody(saved.challengeId) ||
+      (saved.challengeId === "project-context-pending" &&
+        !saved.attempts &&
+        (saved.rev ?? 0) > (session.rev ?? 0)))
+  ) {
+    const localToken = session.connectionToken;
+    Object.assign(session, saved);
+    if (localToken) session.connectionToken = localToken;
+  }
+}
 export async function refreshConquestReceipts(session: LearningSession) {
   if (!supabaseAdminConfig()) return;
   const saved = await restoreSession(session.sessionId);
+  adoptAssignedPractice(session, saved);
   if (saved?.conquestReceipts) {
     session.rev = Math.max(session.rev ?? 0, saved.rev ?? 0);
     const receipts = new Map(

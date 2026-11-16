@@ -15,6 +15,9 @@ process.env.VITE_SUPABASE_URL = host;
 process.env.VITE_SUPABASE_ANON_KEY = "fixture";
 process.env.SUPABASE_SERVICE_ROLE_KEY = "fixture-only";
 delete process.env.SARVAM_API_KEY;
+let rejectAssignmentWrite = false;
+let onPendingRead = null,
+  onPendingHeartbeatWrite = null;
 global.fetch = async (input, o = {}) => {
   const u = new URL(input);
   assert.equal(u.origin, host);
@@ -26,13 +29,58 @@ global.fetch = async (input, o = {}) => {
           : "223e4567-e89b-42d3-a456-426614174000",
     });
   if (u.pathname.endsWith("/learning_sessions")) {
+    if (o.method === "PATCH") {
+      if (
+        !u.searchParams.has("session_data->>rev") &&
+        onPendingHeartbeatWrite
+      ) {
+        const done = onPendingHeartbeatWrite;
+        onPendingHeartbeatWrite = null;
+        queueMicrotask(done);
+      }
+      if (rejectAssignmentWrite === "network")
+        throw new Error("mock network failure");
+      if (rejectAssignmentWrite === "json")
+        return new Response("bad json", { status: 200 });
+      if (rejectAssignmentWrite)
+        return new Response("unavailable", { status: 503 });
+      const id = u.searchParams.get("session_id")?.slice(3),
+        row = sessions.get(id);
+      if (
+        !row ||
+        row.challenge_id !== "project-context-pending" ||
+        (u.searchParams.has("attempts") && row.attempts !== 0) ||
+        row.session_data.challengeId !== "project-context-pending" ||
+        (u.searchParams.has("session_data->>rev") &&
+          u.searchParams.get("session_data->>rev") !==
+            (row.session_data.rev === undefined
+              ? "is.null"
+              : "eq." + row.session_data.rev)) ||
+        !["active", "connected"].includes(row.status)
+      )
+        return Response.json([]);
+      Object.assign(row, JSON.parse(o.body));
+      return Response.json([{ session_id: id }]);
+    }
     if (o.method === "POST") {
       const row = JSON.parse(o.body);
-      sessions.set(row.session_id, row);
+      if (
+        !String(o.headers.prefer).includes("ignore-duplicates") ||
+        !sessions.has(row.session_id)
+      )
+        sessions.set(row.session_id, row);
       return new Response(null, { status: 204 });
     }
     const id = u.searchParams.get("session_id")?.slice(3);
-    return Response.json(sessions.has(id) ? [sessions.get(id)] : []);
+    const snapshot = structuredClone(
+      sessions.has(id) ? [sessions.get(id)] : [],
+    );
+    if (onPendingRead) {
+      const hook = onPendingRead;
+      onPendingRead = null;
+      await hook();
+    }
+    return Response.json(snapshot);
   }
   if (u.pathname.endsWith("/session_pairing_codes")) {
     if (o.method === "POST") {
@@ -96,76 +144,279 @@ try {
       "pending must not create false failure or paid call: " + action,
     );
   }
-  const practice = await call(
+  const persistenceFixture = await call(
     "/api/sessions/start",
-    {
-      user_id: owner,
-      practice_task: "python-loops-fibonacci-v1",
-      challenge_id: "ignored",
-      instructions: "untrusted override",
-    },
+    { user_id: owner, challenge_id: "project-context-pending" },
     "owner",
   );
-  assert.equal(practice.status, 200);
-  assert.equal(practice.body.state.challenge_id, "python-loops-fibonacci-v1");
-  assert.ok(practice.body.state.instructions.includes("Fibonacci"));
-  assert.equal(practice.body.state.instructions.split("\n").length, 2);
-  const dir = mkdtempSync(join(tmpdir(), "bml-fib-connected-"));
-  try {
-    for (const [source, pass] of [
-      ["for n in range(10): print(n)", false],
-      ["a,b=0,1\nfor _ in range(10):\n print(a,end=' ')\n a,b=b,a+b", true],
-    ]) {
-      writeFileSync(join(dir, "main.py"), source);
-      const local = spawnSync(
-        "python3",
-        [
-          "-I",
-          join(
-            process.cwd(),
-            "vscode-extension/media/python_loops_practice.py",
-          ),
-        ],
-        { cwd: dir, encoding: "utf8", timeout: 5000 },
-      );
-      assert.equal(local.status === 0, pass);
-      const result = await router.fetch(
-        new Request(
-          "https://buildmylogicxyz.vercel.app/api/sessions/" +
-            practice.body.session_id +
-            "/test-result",
-          {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-              "x-bml-session-token": practice.body.connection_token,
-            },
-            body: JSON.stringify({
-              status: pass ? "passed" : "failed",
-              checkpoint_results: [
-                {
-                  index: 0,
-                  passed: pass,
-                  output: local.stdout,
-                  evaluator_id: "python-loops-fibonacci-v1",
-                  evidence_kind: "assertion",
-                },
-              ],
-            }),
-          },
-        ),
-        {},
-        {},
-      );
-      const state = (await result.json()).state;
-      assert.equal(result.status, 200);
-      assert.equal(state.status === "completed", pass);
-    }
-    console.log(
-      "PASS explicit task -> actual packaged Python wrong fails -> corrected Fibonacci passes -> actual route finite receipt complete; no AI, mock REST.",
+  const failureId = persistenceFixture.body.session_id,
+    failurePath = "/api/sessions/" + failureId + "/practice-task";
+  rejectAssignmentWrite = true;
+  assert.equal(
+    (
+      await call(
+        failurePath,
+        { practice_task: "python-loops-fibonacci-v1" },
+        "owner",
+      )
+    ).status,
+    503,
+  );
+  assert.equal(
+    globalThis.__buildMyLogicLearningSessions.get(failureId).challengeId,
+    "project-context-pending",
+  );
+  assert.equal(sessions.get(failureId).challenge_id, "project-context-pending");
+  for (const mode of ["network", "json"]) {
+    rejectAssignmentWrite = mode;
+    assert.equal(
+      (
+        await call(
+          failurePath,
+          { practice_task: "python-loops-fibonacci-v1" },
+          "owner",
+        )
+      ).status,
+      503,
     );
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
+    assert.equal(
+      globalThis.__buildMyLogicLearningSessions.get(failureId).challengeId,
+      "project-context-pending",
+    );
+    assert.equal(
+      sessions.get(failureId).challenge_id,
+      "project-context-pending",
+    );
+  }
+  rejectAssignmentWrite = false;
+  sessions.get(failureId).session_data.rev = 5;
+  const newerPending = await call(
+    failurePath,
+    { practice_task: "python-loops-fibonacci-v1" },
+    "owner",
+  );
+  assert.equal(
+    newerPending.status,
+    200,
+    "newer cloud pending revision must refresh, not permanently conflict",
+  );
+  const raceFixture = await call(
+    "/api/sessions/start",
+    { user_id: owner, challenge_id: "project-context-pending" },
+    "owner",
+  );
+  const raceId = raceFixture.body.session_id,
+    racePath = "/api/sessions/" + raceId + "/practice-task";
+  const raced = await Promise.all([
+    call(racePath, { practice_task: "python-loops-fibonacci-v1" }, "owner"),
+    call(racePath, { practice_task: "python-functions-double-v1" }, "owner"),
+  ]);
+  assert.deepEqual(raced.map((r) => r.status).sort(), [200, 409]);
+  const winner = raced.find((r) => r.status === 200).body.state.challenge_id;
+  assert.equal(sessions.get(raceId).challenge_id, winner);
+  assert.equal(
+    globalThis.__buildMyLogicLearningSessions.get(raceId).challengeId,
+    winner,
+  );
+  console.log(
+    "PASS cloud write503 keeps pending memory+cloud unchanged; concurrent owner choices get one conditional winner, no overwrite.",
+  );
+  const heartbeatFixture = await call(
+    "/api/sessions/start",
+    { user_id: owner, challenge_id: "project-context-pending" },
+    "owner",
+  );
+  const heartbeatId = heartbeatFixture.body.session_id;
+  const staleHeartbeat = structuredClone(
+    globalThis.__buildMyLogicLearningSessions.get(heartbeatId),
+  );
+  const heartbeatWritten = new Promise((resolve) => {
+    onPendingHeartbeatWrite = resolve;
+  });
+  onPendingRead = async () => {
+    const assigned = await call(
+      "/api/sessions/" + heartbeatId + "/practice-task",
+      { practice_task: "python-loops-fibonacci-v1" },
+      "owner",
+    );
+    assert.equal(assigned.status, 200);
+  };
+  const learning = await vite.ssrLoadModule(
+    "/src/lib/learning-sessions.server.ts",
+  );
+  learning.recordEvent(staleHeartbeat, "heartbeat", {});
+  await Promise.race([
+    heartbeatWritten,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(Error("heartbeat interleave timeout")), 2000),
+    ),
+  ]);
+  assert.equal(
+    sessions.get(heartbeatId).challenge_id,
+    "python-loops-fibonacci-v1",
+    "old pending read before assignment, conditional heartbeat write after it cannot undo task",
+  );
+  console.log(
+    "PASS delayed stale heartbeat read-before / write-after assignment cannot revert cloud task.",
+  );
+  const pendingId = pending.body.session_id,
+    pendingToken = pending.body.connection_token;
+  const assignmentPath = "/api/sessions/" + pendingId + "/practice-task";
+  assert.equal(
+    (
+      await call(
+        assignmentPath,
+        { practice_task: "python-loops-fibonacci-v1" },
+        "other",
+      )
+    ).status,
+    403,
+  );
+  const stalePending = structuredClone(
+    globalThis.__buildMyLogicLearningSessions.get(pendingId),
+  );
+  const assigned = await call(
+    assignmentPath,
+    { practice_task: "python-loops-fibonacci-v1" },
+    "owner",
+  );
+  assert.equal(assigned.status, 200);
+  assert.equal(assigned.body.session_id, pendingId);
+  assert.equal(assigned.body.state.challenge_id, "python-loops-fibonacci-v1");
+  assert.ok(assigned.body.state.rev > 0);
+  globalThis.__buildMyLogicLearningSessions.set(pendingId, stalePending);
+  const sameToken = await router.fetch(
+    new Request(
+      "https://buildmylogicxyz.vercel.app/api/sessions/" + pendingId + "/state",
+      { headers: { "x-bml-session-token": pendingToken } },
+    ),
+    {},
+    {},
+  );
+  assert.equal(sameToken.status, 200);
+  assert.equal(
+    (await sameToken.json()).state.challenge_id,
+    "python-loops-fibonacci-v1",
+  );
+  assert.equal(
+    (
+      await call(
+        assignmentPath,
+        { practice_task: "python-functions-double-v1" },
+        "owner",
+      )
+    ).status,
+    400,
+  );
+  console.log(
+    "PASS stale-instance pending refreshed from cloud; existing pending ID+token kept; owner assigns task; same extension token reads new question; wrong owner and task overwrite blocked.",
+  );
+  for (const [taskId, keyword, wrong, correct] of [
+    [
+      "python-loops-fibonacci-v1",
+      "Fibonacci",
+      "for n in range(10): print(n)",
+      "a,b=0,1\nfor _ in range(10):\n print(a,end=' ')\n a,b=b,a+b",
+    ],
+    [
+      "python-conditions-sign-v1",
+      "if/else",
+      "n=int(input())\nif n<0: print('positive')\nelse: print('zero')",
+      "n=int(input())\nif n<0: print('negative')\nelif n==0: print('zero')\nelse: print('positive')",
+    ],
+    [
+      "python-functions-double-v1",
+      "double(n)",
+      "def double(n): return n+2\nprint(double(int(input())))",
+      "def double(n): return n*2\nprint(double(int(input())))",
+    ],
+    [
+      "python-strings-vowels-v1",
+      "count",
+      "s=input()\nn=0\nfor c in s: n+=1\nprint(n)",
+      "s=input()\nn=0\nfor c in s:\n if c in 'aeiou': n+=1\nprint(n)",
+    ],
+  ]) {
+    const practice =
+      taskId === "python-loops-fibonacci-v1"
+        ? {
+            status: 200,
+            body: { ...assigned.body, connection_token: pendingToken },
+          }
+        : await call(
+            "/api/sessions/start",
+            {
+              user_id: owner,
+              practice_task: taskId,
+              challenge_id: "ignored",
+              instructions: "untrusted override",
+            },
+            "owner",
+          );
+    assert.equal(practice.status, 200);
+    assert.equal(practice.body.state.challenge_id, taskId);
+    assert.ok(practice.body.state.instructions.includes(keyword));
+    assert.equal(practice.body.state.instructions.split("\n").length, 2);
+    const dir = mkdtempSync(join(tmpdir(), "bml-fib-connected-"));
+    try {
+      for (const [source, pass] of [
+        [wrong, false],
+        [correct, true],
+      ]) {
+        writeFileSync(join(dir, "main.py"), source);
+        const local = spawnSync(
+          "python3",
+          [
+            "-I",
+            join(
+              process.cwd(),
+              "vscode-extension/media/python_loops_practice.py",
+            ),
+            taskId,
+          ],
+          { cwd: dir, encoding: "utf8", timeout: 5000 },
+        );
+        assert.equal(local.status === 0, pass);
+        const result = await router.fetch(
+          new Request(
+            "https://buildmylogicxyz.vercel.app/api/sessions/" +
+              practice.body.session_id +
+              "/test-result",
+            {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+                "x-bml-session-token": practice.body.connection_token,
+              },
+              body: JSON.stringify({
+                status: pass ? "passed" : "failed",
+                checkpoint_results: [
+                  {
+                    index: 0,
+                    passed: pass,
+                    output: local.stdout,
+                    evaluator_id: taskId,
+                    evidence_kind: "assertion",
+                  },
+                ],
+              }),
+            },
+          ),
+          {},
+          {},
+        );
+        const state = (await result.json()).state;
+        assert.equal(result.status, 200);
+        assert.equal(state.status === "completed", pass);
+      }
+      console.log(
+        "PASS " +
+          taskId +
+          " -> actual packaged Python wrong fails -> corrected code passes -> actual route finite receipt complete; no AI, mock REST.",
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   }
 
   assert.equal((await call(create, { connection_token: token })).status, 401);

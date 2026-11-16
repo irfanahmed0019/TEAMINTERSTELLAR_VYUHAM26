@@ -1,3 +1,4 @@
+import { PRACTICE_TASKS, suggestedPracticeId } from "@/lib/practice-task";
 import { learningSchedule } from "@/lib/learning-schedule";
 import { learnerStorage } from "@/lib/demo-mode";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -121,6 +122,20 @@ function Sessions() {
     null,
   );
   const [pickerError, setPickerError] = useState("");
+  const [practiceNotice, setPracticeNotice] = useState("");
+  const [practiceSelection, setPracticeSelection] = useState("");
+  const practiceStarting = useRef(false);
+  const [practiceBusy, setPracticeBusy] = useState(false);
+  const statedContext = [
+    state.profile?.goalDetail,
+    state.profile?.experienceDetail,
+    ...(state.profile?.followUps ?? []).map((item) => item.answer),
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const suggestedPractice = PRACTICE_TASKS.find(
+    (task) => task.id === suggestedPracticeId(statedContext),
+  );
   const [copyNotice, setCopyNotice] = useState("");
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const startRef = useRef(planned * 60);
@@ -134,8 +149,12 @@ function Sessions() {
     setPairingExpiry("");
     setPairingError("");
   }, [pairingAuth?.uid, vscodeSession?.sessionId]);
+  useEffect(() => {
+    setPracticeNotice("");
+    setPracticeSelection("");
+  }, [pairingAuth?.uid]);
   async function showPairingCode() {
-    if (pairingBusy) return;
+    if (pairingBusy || practiceStarting.current) return;
     setPairingBusy(true);
     setPairingError("");
     setPairingCode("");
@@ -381,28 +400,37 @@ function Sessions() {
       "Content-Type": "application/json",
     };
     if (auth?.idToken) headers["Authorization"] = `Bearer ${auth.idToken}`;
-    const response = await fetch("/api/sessions/start", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        ...(practiceTask ? { practice_task: practiceTask } : {}),
-        challenge_id: "project-context-pending",
-        user_id: userId,
-        title: "Inspect your project before choosing a challenge",
-        language: "Unassessed",
-        concept: "unassessed project",
-        instructions:
-          "This is a secure pairing container, not an assigned coding assessment. In VS Code, consent to bounded project inspection before any project-specific task is selected. Unsupported source contexts remain explicitly unassessed. Existing roadmap missions are unchanged.",
-        expected_skills: [],
-        checkpoints: [
-          {
-            title: "Project inspection pending",
-            detail:
-              "No challenge or evaluator has been selected. Inspect supported source in VS Code first.",
-          },
-        ],
-      }),
-    });
+    const existingPending =
+      practiceTask &&
+      vscodeSession?.sessionId &&
+      remoteState?.challenge_id === "project-context-pending";
+    const response = await fetch(
+      existingPending
+        ? `/api/sessions/${encodeURIComponent(vscodeSession!.sessionId)}/practice-task`
+        : "/api/sessions/start",
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          ...(practiceTask ? { practice_task: practiceTask } : {}),
+          challenge_id: "project-context-pending",
+          user_id: userId,
+          title: "Inspect your project before choosing a challenge",
+          language: "Unassessed",
+          concept: "unassessed project",
+          instructions:
+            "This is a secure pairing container, not an assigned coding assessment. In VS Code, consent to bounded project inspection before any project-specific task is selected. Unsupported source contexts remain explicitly unassessed. Existing roadmap missions are unchanged.",
+          expected_skills: [],
+          checkpoints: [
+            {
+              title: "Project inspection pending",
+              detail:
+                "No challenge or evaluator has been selected. Inspect supported source in VS Code first.",
+            },
+          ],
+        }),
+      },
+    );
     const result = (await response.json()) as {
       connection_token?: string;
       ok?: boolean;
@@ -418,6 +446,10 @@ function Sessions() {
       throw new Error(
         result.error || "Could not create the BuildMyLogic VS Code session.",
       );
+    if (existingPending) {
+      setRemoteState(result.state ?? null);
+      return { sessionId: result.session_id, status: result.state?.status };
+    }
     connectionTokenRef.current = result.connection_token;
     const session = { sessionId: result.session_id, status: "waiting" };
     setVscodeSession(session);
@@ -1204,17 +1236,65 @@ function Sessions() {
               and choose Enter pairing code. Type the code shown here. It
               expires in five minutes and works once. Keep it private.
             </p>
+            <label className="mb-3 block text-xs font-bold">
+              What do you want to practice in Python?
+              <select
+                aria-label="Python practice topic"
+                disabled={pairingBusy || practiceBusy}
+                value={practiceSelection}
+                onChange={(e) => {
+                  setPracticeSelection(e.target.value);
+                  setPracticeNotice("");
+                }}
+                className="mt-2 w-full rounded-xl border border-border bg-background p-2 text-sm"
+              >
+                <option value="">Choose a topic</option>
+                {PRACTICE_TASKS.map((task) => (
+                  <option key={task.id} value={task.id}>
+                    {task.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {suggestedPractice && (
+              <p className="mb-3 text-xs text-muted-foreground">
+                Based on what you told us: {suggestedPractice.title}. Choose it
+                if it fits. This is not a skill score.
+              </p>
+            )}
+            {practiceSelection && (
+              <p className="mb-3 whitespace-pre-line text-xs">
+                {
+                  PRACTICE_TASKS.find((task) => task.id === practiceSelection)
+                    ?.question
+                }
+              </p>
+            )}
             <button
               type="button"
-              disabled={pairingBusy}
+              disabled={
+                pairingBusy ||
+                practiceBusy ||
+                !practiceSelection ||
+                Boolean(vscodeSession && !remoteState)
+              }
               className="btn-base btn-outline mb-3 w-full"
               onClick={async () => {
+                if (practiceStarting.current || !practiceSelection) return;
+                practiceStarting.current = true;
+                setPracticeBusy(true);
+                setPracticeNotice("");
+                setPickerError("");
                 setPairingCode("");
                 setPairingError("");
                 try {
-                  await createVscodeSession("python-loops-fibonacci-v1");
-                  setPickerError(
-                    "Loop practice selected. Create a pairing code, then open main.py in VS Code.",
+                  await createVscodeSession(practiceSelection);
+                  setPickerError("");
+                  setPracticeNotice(
+                    vscodeSession &&
+                      remoteState?.challenge_id === "project-context-pending"
+                      ? "Task sent to this session. In connected VS Code, open main.py."
+                      : "Practice selected. Create a pairing code, then open main.py in VS Code.",
                   );
                 } catch (e) {
                   setPickerError(
@@ -1222,19 +1302,31 @@ function Sessions() {
                       ? e.message
                       : "Could not select practice.",
                   );
+                } finally {
+                  practiceStarting.current = false;
+                  setPracticeBusy(false);
                 }
               }}
             >
-              Practice loops in Python
+              {practiceBusy ? "Selecting task..." : "Use this Python task"}
             </button>
+            {practiceNotice && (
+              <p
+                role="status"
+                className="mb-3 rounded-xl bg-primary-soft p-3 text-xs text-foreground"
+              >
+                {practiceNotice}
+              </p>
+            )}
             <p className="mb-3 text-xs text-muted-foreground">
-              Standalone practice, not a test of your project. Choose it if you
-              want help with loops. Requires the updated extension and Python.
+              Standalone practice, not a test of your project. Choose a topic
+              you want help with. Requires Python. Loops works with v0.3.13; the
+              other tasks need v0.3.14.
             </p>
             <button
               type="button"
               className="btn-base btn-primary mt-3 w-full"
-              disabled={pairingBusy}
+              disabled={pairingBusy || practiceBusy}
               onClick={() => void showPairingCode()}
             >
               {pairingBusy ? "Creating code..." : "Create pairing code"}

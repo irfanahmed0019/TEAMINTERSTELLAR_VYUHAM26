@@ -16,6 +16,14 @@ import {
   ToolId,
 } from "./environmentSetup";
 
+const practiceTaskIds = [
+  "python-loops-fibonacci-v1",
+  "python-conditions-sign-v1",
+  "python-functions-double-v1",
+  "python-strings-vowels-v1",
+] as const;
+const isPracticeTask = (id: string | undefined): boolean =>
+  practiceTaskIds.some((task) => task === id);
 const viewId = "buildMyLogic.sidebar";
 type Connection = { sessionId: string };
 type Message = {
@@ -862,7 +870,7 @@ class Sidebar implements vscode.WebviewViewProvider {
       !this.evidenceConsent ||
       !vscode.workspace.isTrusted ||
       this.session?.attempts ||
-      this.session?.challenge_id === "python-loops-fibonacci-v1" ||
+      isPracticeTask(this.session?.challenge_id) ||
       /^python-(decimal-contract|literal-repair):/.test(
         this.session?.challenge_id || "",
       )
@@ -1236,14 +1244,26 @@ class Sidebar implements vscode.WebviewViewProvider {
       checkpoints.find((item) => item.status !== "passed") ||
       checkpoints[checkpoints.length - 1];
     if (checkpoint.evaluator) runCommand = checkpoint.evaluator.command;
+    if (
+      runCommand.startsWith("buildmylogic:") &&
+      !isPracticeTask(runCommand.slice("buildmylogic:".length)) &&
+      ![
+        "buildmylogic:python-literal-repair-v1",
+        "buildmylogic:python-decimal-contract",
+      ].includes(runCommand)
+    )
+      return (this.status("Unsupported local task. No attempt recorded."), []);
     const text = `${checkpoint.title} ${checkpoint.detail}`.toLowerCase();
     let result: { passed: boolean; output: string; cancelled?: boolean };
     if (
-      checkpoint.evaluator?.command === "buildmylogic:python-loops-fibonacci-v1"
+      isPracticeTask(
+        checkpoint.evaluator?.command.replace(/^buildmylogic:/, ""),
+      ) &&
+      checkpoint.evaluator?.command.startsWith("buildmylogic:")
     ) {
       const connection = this.connection;
       const yes = await vscode.window.showWarningMessage(
-        "Run main.py on your computer for this loop exercise? It can read or change files and use the network. This is not a sandbox. Nothing is read until you agree.",
+        "Run main.py on your computer for this practice task? It can read or change files and use the network. This is not a sandbox. Nothing is read until you agree.",
         { modal: true },
         "Run my Python code",
       );
@@ -1256,9 +1276,11 @@ class Sidebar implements vscode.WebviewViewProvider {
       const evaluation = await this.runCommand(
         (process.platform === "win32" ? "py -3" : "python3") +
           " -I " +
-          quote(this.context.asAbsolutePath("media/python_loops_practice.py")),
+          quote(this.context.asAbsolutePath("media/python_loops_practice.py")) +
+          " " +
+          quote(checkpoint.evaluator!.command.slice("buildmylogic:".length)),
         folder,
-        8000,
+        15000,
       );
       if (
         evaluation.cancelled ||

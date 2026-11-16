@@ -30,6 +30,7 @@ import {
   verifySession,
   sessionTokenValid,
   assignProjectChallenge,
+  assignPracticeTask,
   takeSessionConnectionToken,
 } from "./lib/learning-sessions.server";
 
@@ -404,7 +405,7 @@ async function handleBuildMyLogicApi(
   }
 
   const learningMatch = pathname.match(
-    /^\/api\/sessions\/([^/]+)(?:\/(events|project-challenge|test-result|hint|stuck|failed|complete|run-plan|submit|state|recovery-state|conquest|project-recheck|project-recheck-ready))?$/,
+    /^\/api\/sessions\/([^/]+)(?:\/(events|practice-task|project-challenge|test-result|hint|stuck|failed|complete|run-plan|submit|state|recovery-state|conquest|project-recheck|project-recheck-ready))?$/,
   );
   if (learningMatch) {
     const session = await verifySession(
@@ -706,6 +707,21 @@ async function handleBuildMyLogicApi(
         request,
       );
     try {
+      if (action === "practice-task") {
+        if (!owner)
+          return jsonResponse(
+            {
+              ok: false,
+              error: "Sign in as the session owner to choose a task.",
+            },
+            403,
+          );
+        return jsonResponse({
+          ok: true,
+          session_id: session.sessionId,
+          state: await assignPracticeTask(session, body["practice_task"]),
+        });
+      }
       if (action === "events")
         return jsonResponse({
           ok: true,
@@ -769,7 +785,12 @@ async function handleBuildMyLogicApi(
               ? error.message
               : "Could not update session.",
         },
-        400,
+        action === "practice-task" &&
+          error instanceof Error &&
+          "statusCode" in error &&
+          (error.statusCode === 503 || error.statusCode === 409)
+          ? error.statusCode
+          : 400,
       );
     }
   }
