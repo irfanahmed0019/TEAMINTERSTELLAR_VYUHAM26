@@ -5,7 +5,7 @@ import fs from "node:fs";
 const source = fs
   .readFileSync(new URL("./assessment-evidence.ts", import.meta.url), "utf8")
   .replace(
-    "import { LESSONS } from './mentor/curriculum';",
+    /import \{ LESSONS \} from ["']\.\/mentor\/curriculum["'];/,
     "const LESSONS=[{id:'l1',skill:'output'}];",
   );
 const url = new URL("./.qa-assessment-adapter.ts", import.meta.url);
