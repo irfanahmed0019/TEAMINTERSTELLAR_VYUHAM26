@@ -118,8 +118,9 @@ export function AppShell({
             <button
               type="button"
               onClick={() => {
-                void signOut();
-                void navigate({ to: "/" });
+                void signOut().then((done) => {
+                  if (done) void navigate({ to: "/" });
+                });
               }}
               aria-label="Log out"
               title="Log out"

@@ -1,3 +1,11 @@
+import { isReadyCloudOwner } from "./cloud-readiness";
+import {
+  prepareSafeSignOut,
+  RECOVERY_OWNER_KEY,
+  RETAINED_PREFIX,
+  hasLocalWork,
+} from "./local-recovery";
+import { LOOP_STATE_UID_KEY } from "./cloud-sync-uid";
 import { isPublicDemo } from "./demo-mode";
 import { useSyncExternalStore } from "react";
 import {
@@ -9,7 +17,7 @@ import {
 } from "./supabase";
 import type { LoopState } from "./loop-types";
 import { signOutInOrder } from "./signout-order";
-import { resetLoop } from "./loop-store";
+import { getLoopState, resetLoop } from "./loop-store";
 
 export type AuthUser = {
   uid: string;
@@ -202,6 +210,43 @@ export async function signInWithGoogleCredential(credential: string) {
 }
 
 export async function signOut() {
+  const owner = getAuthSession()?.uid;
+  if (
+    owner &&
+    hasLocalWork(getLoopState()) &&
+    window.localStorage.getItem(LOOP_STATE_UID_KEY) !== owner
+  ) {
+    window.alert(
+      "Local recovery belongs to another or unknown account. Use the recovery screen to switch accounts without clearing it.",
+    );
+    return false;
+  }
+  if (owner && hasLocalWork(getLoopState()) && !isReadyCloudOwner(owner)) {
+    window.alert(
+      "Cloud restore is not ready. Your local progress has not been cleared. Wait for restore or use the recovery screen, then retry sign-out.",
+    );
+    return false;
+  }
+  if (owner && hasLocalWork(getLoopState())) {
+    const before = JSON.stringify(getLoopState());
+    const ok = await prepareSafeSignOut({
+      unchanged: () => JSON.stringify(getLoopState()) === before,
+      owner,
+      current: () => getAuthSession()?.uid,
+      save: () => saveLoopStateToCloud(getLoopState(), owner),
+      confirmDiscard: () =>
+        window.confirm(
+          "Cloud saving failed. Sign out and permanently discard unsaved local progress? Cancel keeps you signed in so you can retry.",
+        ),
+    });
+    if (!ok) return false;
+  }
+  if (owner && window.localStorage.getItem(RETAINED_PREFIX + owner)) {
+    window.alert(
+      "Recover or explicitly clear your older local backup before signing out.",
+    );
+    return false;
+  }
   await signOutInOrder({
     revoke: () => {
       signingOut = true;
@@ -209,7 +254,11 @@ export async function signOut() {
       session = null;
       persist();
     },
-    clear: resetLoop,
+    clear: () => {
+      resetLoop();
+      window.localStorage.removeItem(LOOP_STATE_UID_KEY);
+      window.localStorage.removeItem(RECOVERY_OWNER_KEY);
+    },
     remote: async () => {
       try {
         if (supabase) await supabase.auth.signOut({ scope: "local" });
@@ -220,6 +269,22 @@ export async function signOut() {
       }
     },
   });
+  return true;
+}
+
+/** Recovery navigation revokes auth but deliberately does not clear the blocked local copy. */
+export async function switchRecoveryAccount() {
+  signingOut = true;
+  loaded = true;
+  session = null;
+  persist();
+  try {
+    if (supabase) await supabase.auth.signOut({ scope: "local" });
+  } finally {
+    session = null;
+    persist();
+    signingOut = false;
+  }
 }
 
 export async function saveLoopStateToCloud(

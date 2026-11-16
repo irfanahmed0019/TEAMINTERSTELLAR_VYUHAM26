@@ -1,3 +1,9 @@
+import { setReadyCloudOwner } from "./cloud-readiness";
+import {
+  RECOVERY_OWNER_KEY,
+  RETAINED_PREFIX,
+  requiresAccountRecovery,
+} from "./local-recovery";
 import { publishSavedConquests } from "./publish-conquest";
 import { isPublicDemo, learnerStorage } from "./demo-mode";
 import {
@@ -26,6 +32,7 @@ import {
 let hydratedUidStore: string | null = null;
 const hydrationListeners = new Set<() => void>();
 function setHydrated(uid: string | null) {
+  setReadyCloudOwner(uid);
   if (hydratedUidStore === uid) return;
   hydratedUidStore = uid;
   hydrationListeners.forEach((l) => l());
@@ -56,6 +63,11 @@ function AccountCloudSync() {
   const [retry, setRetry] = useState(0);
   const lastSaved = useRef("");
   const readyUid = useRef<string | null>(null);
+  useEffect(() => {
+    const retry = () => setRetry((n) => n + 1);
+    window.addEventListener("bml-recovery-changed", retry);
+    return () => window.removeEventListener("bml-recovery-changed", retry);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,14 +86,26 @@ function AccountCloudSync() {
         uid,
       )
     ) {
-      // Preserve old local records without attributing them to the incoming account.
-      // No cloud upload is attempted until the incoming owner's hydration completes.
-      const previousOwner =
-        learnerStorage.getItem(LOOP_STATE_UID_KEY) || "unbound";
-      const prior = JSON.stringify(getLoopState());
-      learnerStorage.setItem(`loop.state.retained.${previousOwner}`, prior);
+      if (
+        requiresAccountRecovery(
+          learnerStorage.getItem(LOOP_STATE_UID_KEY),
+          uid,
+          getLoopState(),
+        )
+      ) {
+        learnerStorage.setItem(
+          RECOVERY_OWNER_KEY,
+          learnerStorage.getItem(LOOP_STATE_UID_KEY) || "unbound",
+        );
+        return;
+      }
       resetLoop();
     }
+    if (
+      learnerStorage.getItem(RECOVERY_OWNER_KEY) ||
+      learnerStorage.getItem(RETAINED_PREFIX + uid)
+    )
+      return;
     // From here the local cache is dedicated to this uid.
     learnerStorage.setItem(LOOP_STATE_UID_KEY, uid);
     const current = () => !cancelled && getAuthSession()?.uid === uid;
