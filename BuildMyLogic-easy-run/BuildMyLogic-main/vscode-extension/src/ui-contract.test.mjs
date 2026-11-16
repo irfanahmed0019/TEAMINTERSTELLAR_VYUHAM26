@@ -28,3 +28,10 @@ test('unscored prior output is labeled historical; changed task generation clear
  panel.update({session_id:'same',challenge_id:'old',task_generation:0,attempts:1,test_score:{passed:1,total:1},checkpoints:[]},'OLD_PRIVATE_OUTPUT');assert.ok(!view.webview.html.includes('Previous command output only'));
  panel.update({session_id:'same',challenge_id:'new',task_generation:1,attempts:0,checkpoints:[]});assert.ok(!view.webview.html.includes('OLD_PRIVATE_OUTPUT'));assert.match(view.webview.html,/No test results yet/);
 });
+import {mentorPreview} from './webviewHtml.ts';
+test('mentor preview is two short sentences with optional detail kept out of default view',()=>{
+ assert.equal(mentorPreview('**Check zero.** Then try again.\n\nLong explanation stays optional.'),'**Check zero.** Then try again.');
+ assert.equal(mentorPreview('First. Second. Third.'),'First. Second.');
+ assert.ok(mentorPreview('Long useful words '.repeat(30)).length<=180);
+ const html=sidebarHtml('');new Function(html.match(/<script>([\s\S]*)<\/script>/)[1]);assert.ok(html.includes("document.createElement('strong')"));assert.ok(html.includes('document.createTextNode(part)'));assert.ok(!html.includes('body.innerHTML=text'));
+});

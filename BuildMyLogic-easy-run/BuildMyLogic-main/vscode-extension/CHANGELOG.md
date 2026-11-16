@@ -1,3 +1,8 @@
+## 0.3.18
+
+- Shows very short Mentor feedback with safe bold key phrases and optional local detail.
+- Asks for simple English and a helpful emoji without claiming unrun tests passed.
+
 ## 0.3.17
 
 - Adds paired-session Mentor chat inside VS Code with short replies, Explain more and Skip.

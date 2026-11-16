@@ -150,6 +150,28 @@ try {
   assert.equal((await call(route, q, null, token)).status, 401);
   current.status = "completed";
   const chat = await vite.ssrLoadModule("/src/lib/session-mentor.server.ts");
+  assert.equal(
+    chat.formatSessionMentorReply({
+      guidance: "  💡 **Check zero.**\nTry that case. ",
+      explanation: "Only divide after this check.",
+    }),
+    "💡 **Check zero.** Try that case.\n\nOnly divide after this check.",
+  );
+  assert.equal(
+    chat.formatSessionMentorReply({ guidance: "Try **zero** first. 💡" }),
+    "Try **zero** first. 💡",
+  );
+  assert.throws(() =>
+    chat.formatSessionMentorReply({ guidance: "x".repeat(181) }),
+  );
+  assert.throws(() => chat.formatSessionMentorReply({ guidance: "  " }));
+  assert.throws(() => chat.formatSessionMentorReply({ guidance: 42 }));
+  assert.ok(
+    chat.formatSessionMentorReply({
+      guidance: "a".repeat(180),
+      explanation: "b".repeat(2000),
+    }).length <= 1200,
+  );
   const paidBefore = aiCalls;
   await assert.rejects(
     chat.sessionMentorChat(
