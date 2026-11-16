@@ -1,3 +1,4 @@
+import { practiceTaskBody } from "./lib/practice-task";
 import {
   createPairingCode,
   claimPairingCode,
@@ -238,6 +239,15 @@ async function handleBuildMyLogicApi(
       );
     body["user_id"] = authenticatedId ?? (requestedId || "local-builder");
     try {
+      if (body["practice_task"] !== undefined) {
+        const task = practiceTaskBody(body["practice_task"]);
+        if (!task)
+          return jsonResponse(
+            { ok: false, error: "This practice task is not supported." },
+            400,
+          );
+        Object.assign(body, task);
+      }
       const session = await startLearningSession(body);
       return jsonResponse({
         ok: true,
@@ -668,6 +678,33 @@ async function handleBuildMyLogicApi(
         request,
       );
     const body = await readJson(request);
+    if (
+      session.challengeId === "project-context-pending" &&
+      ([
+        "test-result",
+        "run-plan",
+        "submit",
+        "failed",
+        "hint",
+        "stuck",
+      ].includes(action) ||
+        (action === "events" &&
+          [
+            "test_result",
+            "build_result",
+            "runtime_error",
+            "compiler_error",
+          ].includes(String(body["event_type"]))))
+    )
+      return jsonResponse(
+        {
+          ok: false,
+          error:
+            "No coding task is assigned yet. Choose a practice task or inspect your project first. No attempt was recorded.",
+        },
+        409,
+        request,
+      );
     try {
       if (action === "events")
         return jsonResponse({

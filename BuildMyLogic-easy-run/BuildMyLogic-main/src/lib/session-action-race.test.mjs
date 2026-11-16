@@ -8,7 +8,7 @@ const route = fs.readFileSync(
   "utf8",
 );
 const source = route.slice(
-  route.indexOf("  async function createVscodeSession()"),
+  route.indexOf("  async function createVscodeSession("),
   route.indexOf("  async function connectExtension("),
 );
 const js = ts.transpileModule(source, {

@@ -555,7 +555,7 @@ function compact(session: LearningSession) {
     title: session.title,
     language: session.language,
     concept: session.concept,
-    instructions: `${session.instructions}${checkpointInstructions ? `\n\nSequential checkpoints:\n${checkpointInstructions}` : ""}`,
+    instructions: `${session.instructions}${checkpointInstructions && session.challengeId !== "python-loops-fibonacci-v1" ? `\n\nSequential checkpoints:\n${checkpointInstructions}` : ""}`,
     expected_skills: session.expectedSkills,
     test_command: session.testCommand,
     status: session.status,
@@ -934,6 +934,7 @@ function fallbackRunPlan(session: LearningSession, platform: string) {
 export async function getRunPlan(session: LearningSession, platform: string) {
   if (
     [
+      "buildmylogic:python-loops-fibonacci-v1",
       "buildmylogic:python-literal-repair-v1",
       "buildmylogic:python-decimal-contract",
     ].includes(session.testCommand ?? "")

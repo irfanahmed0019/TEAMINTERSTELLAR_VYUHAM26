@@ -1,3 +1,9 @@
+## 0.3.13
+
+- Show short coding tasks and keep full requirements in a separate details area.
+- Block tests, failure reports and source submission until a task is assigned.
+- Add explicit Python loop practice with a finite local output check. Runs only after consent and is not a sandbox or proof of mastery.
+
 ## 0.3.12
 
 - Stop stale connects after disconnect or website changes at every asynchronous boundary.

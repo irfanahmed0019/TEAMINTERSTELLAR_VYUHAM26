@@ -211,6 +211,14 @@ class Sidebar implements vscode.WebviewViewProvider {
           session: this.session,
         });
       }
+      if (
+        ["runTests", "submit", "failed"].includes(m.command) &&
+        this.session?.challenge_id === "project-context-pending"
+      ) {
+        return this.status(
+          "No coding task yet. Choose a task on the website first.",
+        );
+      }
       if (m.command === "failed") {
         const connection = this.connection;
         const yes = await vscode.window.showWarningMessage(
@@ -392,7 +400,12 @@ class Sidebar implements vscode.WebviewViewProvider {
       if (!current()) return;
       this.post({ type: "session", session: this.session });
       void this.notifyConquests(this.session);
-      this.status("Connected. Your challenge is ready.", false);
+      this.status(
+        this.session?.challenge_id === "project-context-pending"
+          ? "Connected. No coding task yet."
+          : "Connected. Task loaded.",
+        false,
+      );
       this.startLiveSync();
       await this.consentEvidence();
       if (!current()) return;
@@ -519,7 +532,11 @@ class Sidebar implements vscode.WebviewViewProvider {
         });
         if (!this.live || token !== this.loopToken) return;
         this.post({ type: "connection", connected: true });
-        this.status("Connected. Your challenge is ready.");
+        this.status(
+          this.session?.challenge_id === "project-context-pending"
+            ? "Connected. No coding task yet."
+            : "Connected. Task loaded.",
+        );
         const next = response.state;
         if (next) await this.notifyConquests(next);
         if (
@@ -845,6 +862,7 @@ class Sidebar implements vscode.WebviewViewProvider {
       !this.evidenceConsent ||
       !vscode.workspace.isTrusted ||
       this.session?.attempts ||
+      this.session?.challenge_id === "python-loops-fibonacci-v1" ||
       /^python-(decimal-contract|literal-repair):/.test(
         this.session?.challenge_id || "",
       )
@@ -1127,6 +1145,10 @@ class Sidebar implements vscode.WebviewViewProvider {
   }
   private async test() {
     if (!this.session || !this.connection) return;
+    if (this.session.challenge_id === "project-context-pending")
+      return this.status(
+        "No coding task yet. Choose a task on the website first.",
+      );
     const connection = this.connection;
     const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     if (!folder)
@@ -1217,6 +1239,40 @@ class Sidebar implements vscode.WebviewViewProvider {
     const text = `${checkpoint.title} ${checkpoint.detail}`.toLowerCase();
     let result: { passed: boolean; output: string; cancelled?: boolean };
     if (
+      checkpoint.evaluator?.command === "buildmylogic:python-loops-fibonacci-v1"
+    ) {
+      const connection = this.connection;
+      const yes = await vscode.window.showWarningMessage(
+        "Run main.py on your computer for this loop exercise? It can read or change files and use the network. This is not a sandbox. Nothing is read until you agree.",
+        { modal: true },
+        "Run my Python code",
+      );
+      if (yes !== "Run my Python code" || this.connection !== connection)
+        return [];
+      const quote = (v: string) =>
+        process.platform === "win32"
+          ? '"' + v.replace(/"/g, "") + '"'
+          : "'" + v.replace(/'/g, "'\\''") + "'";
+      const evaluation = await this.runCommand(
+        (process.platform === "win32" ? "py -3" : "python3") +
+          " -I " +
+          quote(this.context.asAbsolutePath("media/python_loops_practice.py")),
+        folder,
+        8000,
+      );
+      if (
+        evaluation.cancelled ||
+        evaluation.code === 3 ||
+        /not found|not recognized|No Python|was not found/i.test(
+          evaluation.output,
+        )
+      ) {
+        this.status("Check blocked. No attempt recorded. " + evaluation.output);
+        return [];
+      }
+      if (this.connection !== connection) return [];
+      result = evaluation;
+    } else if (
       checkpoint.evaluator?.command === "buildmylogic:python-literal-repair-v1"
     ) {
       const context = this.session.project_context,
@@ -1450,6 +1506,10 @@ class Sidebar implements vscode.WebviewViewProvider {
 
   private async submitProject() {
     if (!this.connection) return;
+    if (this.session?.challenge_id === "project-context-pending")
+      return this.status(
+        "No coding task yet. Choose a task on the website first.",
+      );
     const connection = this.connection;
     if (!vscode.workspace.isTrusted)
       throw new Error("Trust this workspace before submitting files.");

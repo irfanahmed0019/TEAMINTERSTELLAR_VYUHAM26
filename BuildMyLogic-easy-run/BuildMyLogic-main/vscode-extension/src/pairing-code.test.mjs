@@ -476,10 +476,18 @@ test("actual desktop event flow: only connected consented safe-workspace edits c
     );
     now += 10000;
     f.events.edit({ document: doc("/project/main.py") });
-    assert.equal(f.sidebar.activityAt, 0, "programmatic hidden edit cannot start clock");
+    assert.equal(
+      f.sidebar.activityAt,
+      0,
+      "programmatic hidden edit cannot start clock",
+    );
     f.events.focus({ focused: false });
     await settle();
-    assert.equal(activity.at(-1).payload.active_ms, 0, "repeated blur cannot credit hidden edit");
+    assert.equal(
+      activity.at(-1).payload.active_ms,
+      0,
+      "repeated blur cannot credit hidden edit",
+    );
     await f.sidebar.flushActivity();
     assert.equal(activity.at(-1).payload.active_ms, 0, "hidden time excluded");
     f.vscode.window.state.focused = true;
@@ -510,4 +518,68 @@ test("actual desktop event flow: only connected consented safe-workspace edits c
     f.sidebar.clearEvidenceSubscriptions();
     Date.now = oldNow;
   }
+});
+
+test("pending container blocks Run, Submit and Failed without any API evidence or file upload", async () => {
+  const f = await sidebarFixture();
+  f.sidebar.connection = { sessionId: "BML-ABCDE" };
+  f.sidebar.session = {
+    session_id: "BML-ABCDE",
+    challenge_id: "project-context-pending",
+    attempts: 0,
+  };
+  const calls = [];
+  for (const name of ["runPlan", "test", "submit", "fail"])
+    f.api[name] = async () => {
+      calls.push(name);
+      throw Error("must not call " + name);
+    };
+  for (const command of ["runTests", "submit", "failed"])
+    await f.sidebar.handle({ command });
+  await f.sidebar.test();
+  await f.sidebar.submitProject();
+  assert.deepEqual(calls, []);
+  assert.equal(f.sidebar.session.attempts, 0);
+  assert.equal(f.posts.filter((p) => p.type === "status").length, 5);
+  assert.ok(f.posts.every((p) => p.type !== "tests"));
+});
+test("loop practice requires explicit local-code consent before evaluator runs; blocked read records nothing", async () => {
+  const f = await sidebarFixture();
+  f.sidebar.connection = { sessionId: "BML-ABCDE" };
+  f.sidebar.session = {
+    session_id: "BML-ABCDE",
+    checkpoints: [
+      {
+        index: 0,
+        title: "Loops",
+        detail: "",
+        status: "active",
+        evaluator: {
+          id: "python-loops-fibonacci-v1",
+          command: "buildmylogic:python-loops-fibonacci-v1",
+          expectedOutputIncludes: [
+            "BML_PRACTICE_PASS:python-loops-fibonacci-v1",
+          ],
+        },
+      },
+    ],
+  };
+  let runs = 0;
+  f.sidebar.runCommand = async () => {
+    runs++;
+    return { code: 3, passed: false, output: "Missing main.py" };
+  };
+  f.vscode.window.showWarningMessage = async () => undefined;
+  assert.deepEqual(
+    await f.sidebar.runNextCheckpoint("/project", "DO NOT EXECUTE"),
+    [],
+  );
+  assert.equal(runs, 0);
+  f.vscode.window.showWarningMessage = async () => "Run my Python code";
+  f.context.asAbsolutePath = (p) => "/extension/" + p;
+  assert.deepEqual(
+    await f.sidebar.runNextCheckpoint("/project", "DO NOT EXECUTE"),
+    [],
+  );
+  assert.equal(runs, 1);
 });

@@ -183,3 +183,28 @@ test("builtin shadowing, recursion and local binding routes reject before timeou
       );
     }
   }));
+test("finite loop practice evaluates real correct/wrong/missing/no-loop Python files", () => {
+  const script = resolve("media/python_loops_practice.py");
+  const folder = mkdtempSync(join(tmpdir(), "bml-loop-"));
+  try {
+    for (const [code, source] of [
+      [
+        0,
+        'a,b=0,1\nfor i in range(10):\n print(a,end=" " if i<9 else "")\n a,b=b,a+b\n',
+      ],
+      [1, 'for i in range(10): print(i,end=" ")'],
+      [1, 'print("0 1 1 2 3 5 8 13 21 34")'],
+    ]) {
+      writeFileSync(join(folder, "main.py"), source);
+      const r = spawnSync("python3", ["-I", script], {
+        cwd: folder,
+        encoding: "utf8",
+        timeout: 6000,
+      });
+      assert.equal(r.status, code, r.stdout + r.stderr);
+      assert.equal(r.stdout.includes("BML_PRACTICE_PASS:"), code === 0);
+    }
+  } finally {
+    rmSync(folder, { recursive: true, force: true });
+  }
+});

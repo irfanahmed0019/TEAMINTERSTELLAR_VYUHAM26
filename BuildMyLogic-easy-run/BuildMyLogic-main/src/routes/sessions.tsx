@@ -364,7 +364,7 @@ function Sessions() {
       .reduce((sum, s) => sum + s.minutes, 0) +
     (running || seconds < startRef.current ? elapsed : 0);
 
-  async function createVscodeSession() {
+  async function createVscodeSession(practiceTask?: string) {
     const epoch = getAuthEpoch();
     if (!activeMission) throw new Error("No active mission is selected.");
     const auth = await getAuthSessionForApi();
@@ -385,6 +385,7 @@ function Sessions() {
       method: "POST",
       headers,
       body: JSON.stringify({
+        ...(practiceTask ? { practice_task: practiceTask } : {}),
         challenge_id: "project-context-pending",
         user_id: userId,
         title: "Inspect your project before choosing a challenge",
@@ -1202,6 +1203,33 @@ function Sessions() {
               No launcher or folder picker needed. In VS Code, open BuildMyLogic
               and choose Enter pairing code. Type the code shown here. It
               expires in five minutes and works once. Keep it private.
+            </p>
+            <button
+              type="button"
+              disabled={pairingBusy}
+              className="btn-base btn-outline mb-3 w-full"
+              onClick={async () => {
+                setPairingCode("");
+                setPairingError("");
+                try {
+                  await createVscodeSession("python-loops-fibonacci-v1");
+                  setPickerError(
+                    "Loop practice selected. Create a pairing code, then open main.py in VS Code.",
+                  );
+                } catch (e) {
+                  setPickerError(
+                    e instanceof Error
+                      ? e.message
+                      : "Could not select practice.",
+                  );
+                }
+              }}
+            >
+              Practice loops in Python
+            </button>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Standalone practice, not a test of your project. Choose it if you
+              want help with loops. Requires the updated extension and Python.
             </p>
             <button
               type="button"
