@@ -133,3 +133,13 @@ the entire product journey: real sign-in and cloud deployment, a user's actual
 VS Code pairing, generated resume/onboarding/roadmap behavior, camera absence and
 video restoration, and arbitrary framework project correctness still require
 separate connected acceptance. Passing this harness is not a full delivery claim.
+
+## Connected intake retention and route acceptance (2026-11-16)
+
+Fixed the actual delayed-diagnostic race: a question-bank response previously overwrote coding submissions saved while the bank was pending. The callback now merges the current profile, with current-owner/mount guards on profile and plan writes. Weekly availability is retained as reported text, not silently converted to 19:00-21:00 daily. Existing explicit time preferences remain; fallback task duration without a chosen window is an authored 30-minute estimate. Calendar writes were not performed in acceptance.
+
+The real Dashboard session poll now refreshes and supplies the signed-in owner's bearer token. Delayed remote results and AI retunes cannot apply after route unmount or an owner change. The owner is checked on every poll and again after each async boundary.
+
+Reproducible: `python scripts/verify-onboarding-browser.py` (Python Playwright, python-docx, reportlab and local Chrome required); `BML_QA_UNMOUNT=1` covers stale onboarding completion. The browser path uses actual PDF/DOCX/TXT extraction, reviewed resume, chat, six answers across four question formats, two actual diagnostic-handler submissions with local Python, evidence retention/reload, plan inputs, reveal, real Dashboard/Learn/Mentor routes, bearer-poll inspection, shared mentor context and delayed Dashboard-retune unmount protection. Auth, cloud REST/restore, AI outputs and runner transport are explicit fixtures. No paid provider calls. Local pixels inspected at mobile width.
+
+Independent review: 335 app tests, 30 extension tests and TypeScript pass; DOCX/TXT connected browser race/restore and unmount negative independently pass. This environment also passes actual PDF extraction. The independent environment's PDF path still reports `Invalid workerSrc type` with a symlinked dependency tree, so independent PDF browser acceptance remains unresolved. Do not describe this as a real authenticated account, real cloud persistence, physical-camera, real YouTube or installed laptop-extension acceptance. The earlier project loop has its own separate acceptance and limitations above.

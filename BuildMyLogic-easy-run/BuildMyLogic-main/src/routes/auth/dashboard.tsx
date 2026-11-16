@@ -1,3 +1,5 @@
+import { getAuthSession, getAuthSessionForApi } from "@/lib/auth";
+import { learningSchedule } from "@/lib/learning-schedule";
 import { CompetencySummary } from "@/components/CompetencySummary";
 import { competencyPlan, competencyView } from "@/lib/competency";
 import { learnerStorage, isPublicDemo } from "@/lib/demo-mode";
@@ -66,16 +68,21 @@ function Dashboard() {
   useEffect(() => {
     let cancelled = false;
     const syncBuildSession = async () => {
+      const owner = getAuthSession()?.uid;
+      if (!owner || cancelled) return;
+      const isCurrent = () => !cancelled && getAuthSession()?.uid === owner;
       const raw = learnerStorage.getItem("bml-vscode-session");
       if (!raw) return;
       try {
         const saved = JSON.parse(raw) as { sessionId?: string };
         if (!saved.sessionId) return;
-        const response = await fetch(`/api/sessions/${encodeURIComponent(saved.sessionId)}/state`, { cache: "no-store" });
+        const auth = await getAuthSessionForApi();
+        if (!isCurrent() || auth?.uid !== owner || !auth.idToken) return;
+        const response = await fetch(`/api/sessions/${encodeURIComponent(saved.sessionId)}/state`, { cache: "no-store", headers: { Authorization: `Bearer ${auth.idToken}` } });
         if (!response.ok) return;
         const result = await response.json() as { ok?: boolean; state?: BuildSessionState };
         const remote = result.state;
-        if (cancelled || !result.ok || !remote) return;
+        if (!isCurrent() || !result.ok || !remote) return;
         const shouldRetune = remote.status === "completed" || remote.status === "failed" || Boolean(remote.potential_struggle);
         if (!shouldRetune) return;
         applyBuildSessionEvidence(remote);
@@ -86,6 +93,7 @@ function Dashboard() {
         if (currentState.sampleProvenance) return;
         if (!currentState.profile || !currentState.plan) return;
         void aiRetunePlan({ data: { profile: currentState.profile, plan: currentState.plan, activity: currentState.activity } }).then((suggested) => {
+          if (!isCurrent()) return;
           applySarvamDashboardPlan(suggested);
           logActivity({ kind: "ai", text: remote.status === "completed" ? "BuildMyLogic Mentor updated the dashboard after you proved the challenge." : "BuildMyLogic Mentor updated the dashboard with a focused recovery path." });
         }).catch(() => {
@@ -156,7 +164,7 @@ function Dashboard() {
                 <div>
                   <h4 className="text-[15px] font-bold text-foreground">Set your daily learning time</h4>
                   <p className="mt-0.5 text-[13px] text-muted-foreground">
-                    Block {state.profile?.startTime || "19:00"} – {state.profile?.endTime || "21:00"} on Google Calendar so you never miss your build streak.
+                    {learningSchedule(state.profile).banner}
                   </p>
                 </div>
               </div>

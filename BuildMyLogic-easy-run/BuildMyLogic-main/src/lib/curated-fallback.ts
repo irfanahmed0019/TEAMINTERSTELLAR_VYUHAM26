@@ -1,3 +1,4 @@
+import { learningSchedule } from "./learning-schedule.ts";
 import { initialCodingTask, codingDiagnosticSummary } from "./initial-coding-diagnostic.ts";
 /**
  * Curated, human-authored onboarding fallbacks. When the AI service is
@@ -7,7 +8,7 @@ import { initialCodingTask, codingDiagnosticSummary } from "./initial-coding-dia
  * one carries `fallback: true` so the UI can say so honestly.
  */
 import type { Mission, Plan, Profile } from "./loop-types";
-import { LESSONS, SKILLS } from "./mentor/curriculum";
+import { LESSONS, SKILLS } from "./mentor/curriculum.ts";
 
 export const CURATED_FOLLOW_UPS: { question: string; placeholder: string }[] = [
   {
@@ -95,6 +96,8 @@ export function curatedProjects(profile: Profile): CuratedProject[] {
 }
 
 function dailyMinutes(profile: Profile): number {
+  // Authored task estimate only, not a daily time commitment.
+  if (!learningSchedule(profile).exact) return 30;
   const parse = (t: string) => {
     const m = /^(\d{1,2}):(\d{2})/.exec(t.trim());
     return m ? Number(m[1]) * 60 + Number(m[2]) : NaN;
@@ -152,7 +155,7 @@ function curatedCPlan(profile: Profile): Plan {
           : []),
       ],
       totalMinutes: minutes,
-      tip: "Stop when the window ends. Tomorrow's mission picks up exactly here.",
+      tip: learningSchedule(profile).exact ? "Stop when your preferred window ends. Your next session picks up here." : "This task length is an estimate. Stop when needed; your next session picks up here.",
     },
     progress: {
       momentum: 0,
@@ -201,9 +204,9 @@ function curatedGenericPlan(profile: Profile): Plan {
   return {
     headline: "Your build path is ready.",
     profileSummary:
-      "The AI service is offline right now, so this is BuildMyLogic's curated starter path, not a personalised one. It follows the proven beginner ladder and is sized to your daily window.",
+      "The AI service is offline right now, so this is BuildMyLogic's curated starter path, not a personalised one. It follows the proven beginner ladder. Task lengths are authored estimates, not calendar commitments.",
     projectTitle: idea.length > 80 ? idea.slice(0, 77) + "..." : idea,
-    projectPitch: `A staged build of ${idea} using ${stack}, one tested step per day.`,
+    projectPitch: `A staged build of ${idea} using ${stack}, one tested step per session.`,
     quote: "Start small, finish big.",
     skills: [{ name: stack, level: 0, note: "No BuildMyLogic evidence yet. Build and prove it." }],
     missions,
@@ -211,7 +214,7 @@ function curatedGenericPlan(profile: Profile): Plan {
       focus: first?.title ?? "Get started",
       tasks: (first?.steps ?? []).map((s) => ({ title: s.title, minutes: Math.max(10, Math.round(minutes / 3)) })),
       totalMinutes: minutes,
-      tip: "Stop when the window ends. Tomorrow's mission picks up exactly here.",
+      tip: learningSchedule(profile).exact ? "Stop when your preferred window ends. Your next session picks up here." : "This task length is an estimate. Stop when needed; your next session picks up here.",
     },
     progress: {
       momentum: 0,

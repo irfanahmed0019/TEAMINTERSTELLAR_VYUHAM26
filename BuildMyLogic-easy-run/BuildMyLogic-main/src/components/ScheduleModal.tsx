@@ -1,3 +1,4 @@
+import { learningSchedule } from "@/lib/learning-schedule";
 import { useState, useEffect } from "react";
 import { Calendar, Clock, Check, Bell, ExternalLink, Download, Sparkles, X, ChevronRight } from "lucide-react";
 import { buildGoogleCalendarUrl, downloadIcsFile, syncSchedule, type ScheduleConfig } from "@/lib/google-calendar";
@@ -79,11 +80,12 @@ export function ScheduleModal({ isOpen, onClose, missionTitle, missionDescriptio
           </div>
           <div>
             <h3 className="display text-xl font-extrabold tracking-tight">Set Your Build Time</h3>
-            <p className="text-xs text-muted-foreground">Book your daily slot & sync reminders to Google Calendar</p>
+            <p className="text-xs text-muted-foreground">Review your chosen time and recurrence before saving a reminder</p>
           </div>
         </div>
 
         <div className="mt-5 space-y-4">
+          {!learningSchedule(profile).exact && <p className="text-xs text-muted-foreground">These are editable suggested times, not a schedule you previously chose. Review both times and recurrence before saving.</p>}
           {/* Mission preview badge */}
           {currentMissionTitle && (
             <div className="rounded-xl border border-border bg-muted/40 p-3 text-xs">
@@ -215,7 +217,7 @@ export function ScheduleSyncCard({ onOpenModal }: { onOpenModal: () => void }) {
           <div>
             <h3 className="text-sm font-bold">Daily Build Rhythm</h3>
             <p className="text-xs text-muted-foreground">
-              {startTime} – {endTime} {profile?.repeatDaily !== false ? "(Daily)" : "(Custom)"}
+              {learningSchedule(profile).exact ? `${startTime} - ${endTime} ${profile?.repeatDaily !== false ? "(Daily preference)" : "(Custom)"}` : learningSchedule(profile).banner}
             </p>
           </div>
         </div>

@@ -1,3 +1,4 @@
+import { learningSchedule } from "@/lib/learning-schedule";
 import { learnerStorage } from "@/lib/demo-mode";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
@@ -1234,7 +1235,7 @@ function Sessions() {
                   <p className="text-sm font-black">{mission.title}</p>
                   <p className="mt-1 text-xs font-semibold">
                     {mission.stack} · Difficulty {mission.difficulty} ·
-                    Tomorrow, {state.profile?.startTime ?? "19:00"}
+                    {learningSchedule(state.profile).next}
                   </p>
                   <p className="mt-1 text-xs font-semibold">
                     {mission.description}

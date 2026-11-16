@@ -6,6 +6,8 @@ export type TechItem = {
 };
 export type FollowUpAnswer = { question: string; answer: string };
 export type Profile = {
+  availabilityText?: string;
+  scheduleUnspecified?: boolean;
   initialCodingDiagnostic?: import("./initial-coding-diagnostic").InitialCodingDiagnostic;
   initialDiagnostic?: import("./initial-diagnostic").InitialDiagnostic;
   resumeClaims?: import("./resume-intake").ResumeClaims;

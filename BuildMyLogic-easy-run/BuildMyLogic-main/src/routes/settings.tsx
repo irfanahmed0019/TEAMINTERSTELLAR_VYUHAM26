@@ -52,6 +52,7 @@ function Settings() {
               startTime,
               endTime,
               repeatDaily,
+              scheduleUnspecified:!(startTime && endTime),
               technologies: tech,
             },
           }

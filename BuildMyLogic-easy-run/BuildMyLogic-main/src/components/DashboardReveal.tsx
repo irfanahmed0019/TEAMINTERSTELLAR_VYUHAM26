@@ -1,3 +1,4 @@
+import { learningSchedule } from "@/lib/learning-schedule";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
@@ -100,8 +101,7 @@ export function DashboardReveal({
   const missions = plan?.missions ?? [];
   const current = missions[0];
   const next = missions[1];
-  const startTime = profile.startTime || "19:00";
-  const endTime = profile.endTime || "21:00";
+  const schedule=learningSchedule(profile);
   const lastStage = REVEAL_STAGES.length - 1;
   const baseCaption = REVEAL_STAGES[Math.min(stage, lastStage)]?.caption ?? "Preparing your dashboard…";
   const caption =
@@ -180,7 +180,7 @@ export function DashboardReveal({
                     <div>
                       <h4 className="text-[15px] font-bold text-foreground">Set your daily learning time</h4>
                       <p className="mt-0.5 text-[13px] text-muted-foreground">
-                        Block {startTime} – {endTime} on Google Calendar so you never miss your build streak.
+                        {schedule.banner}
                       </p>
                     </div>
                   </div>

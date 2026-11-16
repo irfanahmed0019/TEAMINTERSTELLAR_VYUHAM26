@@ -149,6 +149,7 @@ export async function syncSchedule(config: ScheduleConfig): Promise<boolean> {
     profile: prev.profile
       ? {
           ...prev.profile,
+          scheduleUnspecified:false,
           startTime: config.startTime,
           endTime: config.endTime,
           repeatDaily: config.repeatDaily,

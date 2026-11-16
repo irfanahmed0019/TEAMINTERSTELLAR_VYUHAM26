@@ -41,9 +41,10 @@ const initialProfile: Profile = {
   goalDetail: "",
   experience: "First time building",
   experienceDetail: "",
-  startTime: "19:00",
-  endTime: "21:00",
-  repeatDaily: true,
+  startTime: "",
+  endTime: "",
+  repeatDaily: false,
+  scheduleUnspecified: true,
   followUps: [],
   projectIdea: "",
   challenge: "Guide me",
@@ -63,7 +64,14 @@ function AccountOnboarding() {
   const cloudReady = hasCloudConfig();
   const hydrated = useCloudHydrated(auth?.uid);
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const activeMount = useRef(true);
+  useEffect(() => {
+    activeMount.current = true;
+    setMounted(true);
+    return () => {
+      activeMount.current = false;
+    };
+  }, []);
   const [signingIn, setSigningIn] = useState(false);
   const [authError, setAuthError] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -112,7 +120,13 @@ function AccountOnboarding() {
   }, [auth, hydrated, loop.onboarded, loop.profile]);
 
   function saveProfile(updated: Profile) {
-    if (!auth || !hydrated || getAuthSession()?.uid !== auth.uid) return;
+    if (
+      !activeMount.current ||
+      !auth ||
+      !hydrated ||
+      getAuthSession()?.uid !== auth.uid
+    )
+      return;
     setProfile(updated);
     setLoopState((prev) =>
       prev.onboarded ? prev : { ...prev, profile: updated },
@@ -190,6 +204,17 @@ function AccountOnboarding() {
         goalDetail: goal,
         experience: isBeginner ? "First time building" : "Yes, but got stuck",
         experienceDetail: experienceText,
+        availabilityText: scheduleText,
+        // This chat asks for weekly availability, not an exact daily window.
+        ...(profile.scheduleUnspecified !== false &&
+        (!profile.startTime || !profile.endTime)
+          ? {
+              scheduleUnspecified: true,
+              startTime: "",
+              endTime: "",
+              repeatDaily: false,
+            }
+          : {}),
         technologies: [
           {
             name: tech,
@@ -224,7 +249,14 @@ function AccountOnboarding() {
   }
 
   function startLearning() {
-    if (stage !== "plan") return;
+    if (
+      stage !== "plan" ||
+      !activeMount.current ||
+      !auth ||
+      !hydrated ||
+      getAuthSession()?.uid !== auth.uid
+    )
+      return;
     setStage("reveal");
     void runResearch();
   }
@@ -239,9 +271,10 @@ function AccountOnboarding() {
     setGenError("");
     try {
       const owner = auth?.uid;
-      if (!owner || getAuthSession()?.uid !== owner) return;
+      if (!activeMount.current || !owner || getAuthSession()?.uid !== owner)
+        return;
       const generated = (await aiGeneratePlan({ data: { profile } })) as Plan;
-      if (getAuthSession()?.uid !== owner) return;
+      if (!activeMount.current || getAuthSession()?.uid !== owner) return;
       setPlan(generated);
       // Persist the researched plan right away: topics, missions and progress
       // tracking are saved to local state and the cloud while the reveal is
@@ -484,6 +517,7 @@ function AccountOnboarding() {
                   profile={profile}
                   onChange={(initialCodingDiagnostic, evidence) => {
                     if (
+                      !activeMount.current ||
                       !auth ||
                       !hydrated ||
                       getAuthSession()?.uid !== auth.uid
@@ -522,7 +556,7 @@ function AccountOnboarding() {
                 <InitialDiagnosticPanel
                   profile={profile}
                   onChange={(initialDiagnostic) => {
-                    saveProfile({ ...profile, initialDiagnostic });
+                    saveProfile({ ...profileRef.current, initialDiagnostic });
                   }}
                   onContinue={startLearning}
                 />

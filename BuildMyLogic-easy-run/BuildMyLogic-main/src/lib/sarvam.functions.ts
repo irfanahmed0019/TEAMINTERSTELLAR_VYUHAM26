@@ -1,3 +1,4 @@
+import { learningSchedule } from "./learning-schedule";
 import { codingDiagnosticSummary } from "./initial-coding-diagnostic";
 import { diagnosticQuestions, diagnosticSummary } from "./initial-diagnostic";
 import { normalizeResumeAnalysis } from "./resume-intake";
@@ -39,7 +40,7 @@ function profileBrief(profile: Profile): string {
     `Reported technologies (unverified until assessed): ${profile.technologies.map((t) => `${t.name} (${t.level})`).join(", ") || "not stated"}`,
     `Primary goal: ${profile.goal}${profile.goalDetail ? ` — ${profile.goalDetail}` : ""}`,
     `Building experience: ${profile.experience}${profile.experienceDetail ? ` — ${profile.experienceDetail}` : ""}`,
-    `Daily build window: ${profile.startTime}–${profile.endTime}${profile.repeatDaily ? " (every day)" : ""}`,
+    learningSchedule(profile).brief,
     `Challenge preference: ${profile.challenge || "balanced"}`,
     `Chosen project: ${profile.projectIdea || "not chosen yet"}`,
     profile.resumeSummary ? `Resume claims, NOT verified skills: ${profile.resumeSummary}` : "",
@@ -217,7 +218,7 @@ DO NOT jump to advanced architecture or complex algorithms in early missions.
 
 Return JSON exactly in this shape:
 ${PLAN_SHAPE}`
-      : `Design a complete personalised build path for this person. Every mission must be a step toward shipping their chosen project in the selected stack, sized to their daily window. Do not substitute another stack.
+      : `Design a complete personalised build path for this person. Every mission must be a step toward shipping their chosen project in the selected stack, sized to their reported availability. Do not invent daily times or commitments when no exact window was chosen. Do not substitute another stack.
 Return JSON exactly in this shape:
 ${PLAN_SHAPE}`;
 
