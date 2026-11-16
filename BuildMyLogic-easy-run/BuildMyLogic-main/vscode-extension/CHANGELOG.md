@@ -1,3 +1,9 @@
+## 0.3.20
+
+- Shows the existing consented 30-second foreground activity idle window as a visible AFK countdown.
+- Shows a local large-code-insertion notice, not a claim of AI use or a submission block.
+- Does not read the clipboard, upload insertion contents, alter passed results or add AI requests.
+
 ## 0.3.18
 
 - Shows very short Mentor feedback with safe bold key phrases and optional local detail.

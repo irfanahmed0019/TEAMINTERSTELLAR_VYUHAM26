@@ -1398,7 +1398,7 @@ function Sessions() {
                     (t) => t.id === remoteState?.challenge_id,
                   ) &&
                   !window.confirm(
-                    "Change to this question? Earlier attempts will stay in task history. Requires extension v0.3.19.",
+                    "Change to this question? Earlier attempts will stay in task history. Requires extension v0.3.19 or newer.",
                   )
                 )
                   return;
@@ -1418,7 +1418,7 @@ function Sessions() {
                         PRACTICE_TASKS.some(
                           (t) => t.id === remoteState?.challenge_id,
                         ))
-                      ? "Task sent to this session. In VS Code, open your Python file. Changing questions needs v0.3.19."
+                      ? "Task sent to this session. In VS Code, open your Python file. Changing questions needs v0.3.19 or newer."
                       : "Practice selected. Create a pairing code, then open your Python file in VS Code.",
                   );
                 } catch (e) {
@@ -1460,7 +1460,7 @@ function Sessions() {
                     if (practiceStarting.current || !remoteState) return;
                     if (
                       !window.confirm(
-                        "Choose a different question on this topic? Earlier attempts stay saved. Requires extension v0.3.19.",
+                        "Choose a different question on this topic? Earlier attempts stay saved. Requires extension v0.3.19 or newer.",
                       )
                     )
                       return;
@@ -1473,7 +1473,7 @@ function Sessions() {
                         remoteState.concept,
                       );
                       setPracticeNotice(
-                        "Different question sent. Earlier attempts stay in history. Use extension v0.3.19.",
+                        "Different question sent. Earlier attempts stay in history. Use extension v0.3.19 or newer.",
                       );
                     } catch (e) {
                       setPickerError(
@@ -1542,7 +1542,8 @@ function Sessions() {
             <p className="mb-3 text-xs text-muted-foreground">
               Standalone practice, not a test of your project. Choose a topic
               you want help with. Requires Python. All 12 questions and correct
-              run disclosures need extension v0.3.19.
+              run disclosures need extension v0.3.19 or newer. AFK countdown and local
+              insertion notices need v0.3.20.
             </p>
             <button
               type="button"
