@@ -260,16 +260,19 @@ export function CameraVideo({
             progressRef.current = { ...progressRef.current, sampledAt: now };
             player.playVideo();
           }
+          const position = player.getCurrentTime();
+          const playerState = player.getPlayerState();
           const result = sampleVideo(
             progressRef.current,
-            player.getCurrentTime(),
+            position,
             now,
-            player.getPlayerState() === 1 ||
+            playerState === 1 ||
               canCreditEnded(
                 progressRef.current,
-                player.getCurrentTime(),
+                position,
                 duration,
-                player.getPlayerState(),
+                playerState,
+                now,
               ),
             true,
           );

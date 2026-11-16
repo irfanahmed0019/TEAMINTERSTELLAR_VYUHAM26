@@ -42,13 +42,46 @@ test("authored questions keep correct answer after rotation and never claim exec
 
 test("ended playback grants only a bounded final fraction, never an unwatched jump", () => {
   const s = { watched: 249.5, position: 249.5, sampledAt: 1000 };
-  assert.equal(canCreditEnded(s, 250, 250, 0), true);
+  assert.equal(canCreditEnded(s, 250, 250, 0, 1333), true);
   assert.equal(
-    sampleVideo(s, 250, 1333, canCreditEnded(s, 250, 250, 0), true).state
+    sampleVideo(s, 250, 1333, canCreditEnded(s, 250, 250, 0, 1333), true).state
       .watched,
     250,
   );
-  assert.equal(canCreditEnded({ ...s, watched: 240 }, 250, 250, 0), false);
-  assert.equal(canCreditEnded({ ...s, watched: 0 }, 0.5, 0.5, 0), true);
-  assert.equal(canCreditEnded(s, 250, 250, 2), false);
+  assert.equal(
+    canCreditEnded({ ...s, watched: 240 }, 250, 250, 0, 1333),
+    false,
+  );
+  assert.equal(canCreditEnded({ ...s, watched: 0 }, 0.5, 0.5, 0, 1333), true);
+  assert.equal(canCreditEnded(s, 250, 250, 2, 1333), false);
+});
+
+test("ended samples use normal elapsed allowance at 1s and 2s cadence, not an end bonus", () => {
+  for (const delta of [0.333, 1, 2, 4]) {
+    const s = { watched: 250 - delta, position: 250 - delta, sampledAt: 1000 };
+    const now = 1000 + delta * 500;
+    assert.equal(canCreditEnded(s, 250, 250, 0, now), true);
+    assert.equal(
+      sampleVideo(s, 250, now, canCreditEnded(s, 250, 250, 0, now), true).state
+        .watched,
+      250,
+    );
+    assert.equal(
+      sampleVideo(s, 250, now, true, false).state.watched,
+      s.watched,
+    );
+  }
+  const s = { watched: 249, position: 249, sampledAt: 1000 };
+  assert.equal(canCreditEnded(s, 250, 250, 0, 1000), false);
+  assert.equal(
+    canCreditEnded({ ...s, sampledAt: null }, 250, 250, 0, 2000),
+    false,
+  );
+  assert.equal(
+    canCreditEnded({ ...s, watched: 240, position: 240 }, 250, 250, 0, 600000),
+    false,
+  );
+  assert.equal(canCreditEnded(s, 250, 250, 0, NaN), false);
+  assert.equal(canCreditEnded(s, 250, 250, 0, 999), false);
+  assert.equal(canCreditEnded(s, 250, 250, 2, 2000), false);
 });
