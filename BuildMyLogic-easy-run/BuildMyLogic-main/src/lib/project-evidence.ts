@@ -16,6 +16,27 @@ export function isSupportedProjectEvidence(remote: BuildSessionState): boolean {
     /Source digest ([a-f0-9]{64})\./,
   )?.[1];
   const paths = remote.project_context?.inspected_files ?? [];
+  const markers = evaluator?.expectedOutputIncludes ?? [];
+  const tests = remote.project_context;
+  const pinnedTests =
+    markers.length === 2 &&
+    /^[a-f0-9]{64}$/.test(tests?.test_digest ?? "") &&
+    markers[1] === "BML_PINNED_TEST_" + tests?.test_digest &&
+    /^(?![./])(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.py$/.test(
+      tests?.test_path ?? "",
+    ) &&
+    Number.isInteger(tests?.test_cases) &&
+    tests!.test_cases! >= 2 &&
+    tests!.test_cases! <= 32 &&
+    Number.isInteger(tests?.baseline_failures) &&
+    tests!.baseline_failures! >= 1 &&
+    tests!.baseline_failures! <= tests!.test_cases!;
+  const legacy =
+    markers.length === 1 &&
+    !tests?.test_digest &&
+    !tests?.test_path &&
+    !tests?.test_cases &&
+    !tests?.baseline_failures;
   return (
     remote.language === "Python" &&
     remote.concept === "input validation" &&
@@ -25,7 +46,7 @@ export function isSupportedProjectEvidence(remote: BuildSessionState): boolean {
     !!evaluator &&
     evaluator.id === remote.challenge_id &&
     evaluator.command === "buildmylogic:python-decimal-contract" &&
-    evaluator.expectedOutputIncludes.length === 1 &&
+    (legacy || pinnedTests) &&
     evaluator.expectedOutputIncludes[0] === "BML_DECIMAL_CONTRACT_14_PASS" &&
     paths.length === 1 &&
     /^(?![./])(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.py$/.test(paths[0]!)

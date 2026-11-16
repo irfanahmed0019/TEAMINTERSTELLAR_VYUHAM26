@@ -197,3 +197,47 @@ test("executed fresh diagnostic transfer can create only matching owner/source c
     null,
   );
 });
+
+test("0.3.8 pinned existing-test decimal results enter narrow evidence; malformed metadata stays blocked", () => {
+  const digest = "a".repeat(64);
+  const pinned = {
+    ...remote,
+    project_context: {
+      ...remote.project_context,
+      test_path: "tests/test_parse.py",
+      test_digest: digest,
+      test_cases: 3,
+      baseline_failures: 1,
+    },
+    checkpoints: [
+      {
+        ...remote.checkpoints[0],
+        evaluator: {
+          ...remote.checkpoints[0].evaluator,
+          expectedOutputIncludes: [
+            "BML_DECIMAL_CONTRACT_14_PASS",
+            "BML_PINNED_TEST_" + digest,
+          ],
+        },
+      },
+    ],
+  };
+  assert.equal(isSupportedProjectEvidence(pinned), true);
+  assert.equal(ingestProjectEvidence(prev, pinned).struggle.attempts.length, 1);
+  for (const context of [
+    { ...pinned.project_context, test_path: "../escape.py" },
+    { ...pinned.project_context, test_digest: "b".repeat(64) },
+    { ...pinned.project_context, test_cases: 0 },
+    { ...pinned.project_context, baseline_failures: 0 },
+    { ...pinned.project_context, baseline_failures: 4 },
+  ])
+    assert.equal(
+      isSupportedProjectEvidence({ ...pinned, project_context: context }),
+      false,
+    );
+  assert.equal(
+    isSupportedProjectEvidence({ ...pinned, checkpoints: remote.checkpoints }),
+    false,
+  );
+  assert.equal(isSupportedProjectEvidence(remote), true);
+});

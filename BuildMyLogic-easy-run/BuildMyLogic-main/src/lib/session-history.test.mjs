@@ -472,6 +472,32 @@ test("source-test provenance is pinned and rejects invalid baseline claims", asy
     /provenance/,
   );
   const result = await assignProjectChallenge(s, context);
+  // Feed the ACTUAL assignment shape through the dashboard adapter, not a
+  // separately hand-built marker fixture. Authenticated route supplies owner.
+  const { isSupportedProjectEvidence, ingestProjectEvidence } =
+    await import("./project-evidence.ts");
+  const actualRemote = {
+    ...result,
+    verified_owner_id: "123e4567-e89b-42d3-a456-426614174000",
+    evidence_provenance: "extension-reported",
+    attempts: 1,
+    test_score: { passed: 1, total: 1 },
+    checkpoints: result.checkpoints.map((c) => ({ ...c, status: "passed" })),
+  };
+  assert.equal(isSupportedProjectEvidence(actualRemote), true);
+  const existing = {
+    activity: [],
+    struggle: {
+      attempts: [],
+      misconceptions: [],
+      ingestedSessions: [],
+      celebratedIds: [],
+    },
+  };
+  assert.equal(
+    ingestProjectEvidence(existing, actualRemote).struggle.attempts.length,
+    1,
+  );
   assert.equal(result.project_context.test_path, "test_inputs.py");
   assert.equal(result.project_context.test_digest, context.test_digest);
   assert.equal(result.project_context.test_cases, 2);
