@@ -51,9 +51,6 @@ function Sessions() {
   const [pickerError, setPickerError] = useState("");
   const [copyNotice, setCopyNotice] = useState("");
   const folderInputRef = useRef<HTMLInputElement | null>(null);
-  // True only after the learner explicitly picks a folder during this visit -
-  // never hydrated from storage, so a stale saved folder cannot pass the gate.
-  const folderChosenRef = useRef(false);
   const startRef = useRef(planned * 60);
   const retuneKeyRef = useRef("");
 
@@ -252,7 +249,6 @@ function Sessions() {
             setWorkspacePath(path);
             setProjectFolder(folder);
             setProjectFileCount(0);
-            folderChosenRef.current = true;
             learnerStorage.setItem("loop-vscode-path", path);
             learnerStorage.setItem("loop-project-folder", folder);
             return path;
@@ -305,7 +301,6 @@ function Sessions() {
     const folder = relative.split("/")[0] || first.name;
     setProjectFolder(folder);
     setProjectFileCount(files.length);
-    folderChosenRef.current = true;
     learnerStorage.setItem("loop-project-folder", folder);
   }
 
@@ -318,16 +313,10 @@ function Sessions() {
     }
     // Irfan, 2026-11-16: every new session asks for the project folder first;
     // a previously saved folder is never reused silently. The folder is a
-    // gate: cancel or an unreachable bridge leaves the session unstarted and
-    // the screen unchanged. The one exception is a folder the learner
-    // explicitly attached earlier in this visit via Select Folder.
+    // gate: cancel or an unreachable bridge leaves the session unstarted.
+    // Earlier selections never count as a choice for this new attempt.
     const selectedPath = (await pickProjectFolder(true)).trim();
-    if (!selectedPath && !folderChosenRef.current) return;
-    if (!selectedPath) {
-      setPickerError(
-        "Starting with the folder you selected. VS Code cannot open it directly because the desktop bridge is unreachable - install or update the extension (v0.0.8 or newer), keep VS Code open, then use Open VS Code.",
-      );
-    }
+    if (!selectedPath) return;
     try {
       const duration = forceNew ? startRef.current : seconds;
       if (forceNew) {
