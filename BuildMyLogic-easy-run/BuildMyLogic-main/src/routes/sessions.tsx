@@ -51,6 +51,9 @@ function Sessions() {
   const [pickerError, setPickerError] = useState("");
   const [copyNotice, setCopyNotice] = useState("");
   const folderInputRef = useRef<HTMLInputElement | null>(null);
+  // True only after the learner explicitly picks a folder during this visit -
+  // never hydrated from storage, so a stale saved folder cannot pass the gate.
+  const folderChosenRef = useRef(false);
   const startRef = useRef(planned * 60);
   const retuneKeyRef = useRef("");
 
@@ -249,29 +252,33 @@ function Sessions() {
             setWorkspacePath(path);
             setProjectFolder(folder);
             setProjectFileCount(0);
+            folderChosenRef.current = true;
             learnerStorage.setItem("loop-vscode-path", path);
             learnerStorage.setItem("loop-project-folder", folder);
             return path;
           }
-          setPickerError("No folder was selected in VS Code. Tap again to reopen the folder dialog.");
-          // A deliberate cancel ends the ask here for Start Session / Open VS
-          // Code; only the standalone picker falls through to the browser.
-          if (forOpening) return "";
+          setPickerError(
+            forOpening
+              ? "No folder was selected, so nothing started. Tap again when you are ready to choose the folder."
+              : "No folder was selected in VS Code. Tap again to reopen the folder dialog, or pick the folder below instead.",
+          );
+          return "";
         } catch {
           setPickerError("The BuildMyLogic desktop bridge stopped answering mid-request. Keep VS Code open and try again.");
-          if (forOpening) return "";
+          return "";
         }
-      } else {
-        // Bridge truly unreachable. Chrome's Local Network Access prompt makes
-        // the health probe time out while it is pending, so call that case out
-        // explicitly instead of silently falling back.
-        setPickerError("Could not reach the BuildMyLogic desktop bridge. If Chrome asked to access devices on your local network, choose Allow there and pick the folder again. Otherwise install or update the BuildMyLogic VS Code extension (v0.0.8 or newer) and keep VS Code open, then pick the folder again. You can still pick the folder below without the bridge - your session will work, but VS Code cannot open it directly.");
       }
-
-      // 2. Browser native file/directory picker fallback. A browser can upload
-      // directory contents, but it cannot reveal the absolute local path VS
-      // Code needs, so only the folder name is saved from this route.
-      folderInputRef.current?.click();
+      // Bridge truly unreachable. Chrome's Local Network Access prompt makes
+      // the health probe time out while it is pending, so call that case out
+      // explicitly instead of silently falling back.
+      setPickerError(
+        forOpening
+          ? "Could not reach the BuildMyLogic desktop bridge, so nothing started. Install or update the BuildMyLogic VS Code extension (v0.0.8 or newer), keep VS Code open, and try again - a folder must be selected first. If Chrome asked to access devices on your local network, choose Allow there. Without VS Code, use Select Folder to attach a folder to the session first."
+          : "Could not reach the BuildMyLogic desktop bridge. If Chrome asked to access devices on your local network, choose Allow there and pick the folder again. Otherwise install or update the BuildMyLogic VS Code extension (v0.0.8 or newer) and keep VS Code open, then pick the folder again. You can still pick the folder below without the bridge - your session will work, but VS Code cannot open it directly.",
+      );
+      // The browser picker fallback opens only from the standalone Select
+      // Folder buttons (an explicit choice), never inside the gated flows.
+      if (!forOpening) folderInputRef.current?.click();
       return "";
     } catch {
       if (!forOpening) folderInputRef.current?.click();
@@ -298,6 +305,7 @@ function Sessions() {
     const folder = relative.split("/")[0] || first.name;
     setProjectFolder(folder);
     setProjectFileCount(files.length);
+    folderChosenRef.current = true;
     learnerStorage.setItem("loop-project-folder", folder);
   }
 
@@ -309,9 +317,17 @@ function Sessions() {
       return;
     }
     // Irfan, 2026-11-16: every new session asks for the project folder first;
-    // a previously saved folder is never reused silently. The website session
-    // still starts when the picker is cancelled or the bridge is unreachable.
+    // a previously saved folder is never reused silently. The folder is a
+    // gate: cancel or an unreachable bridge leaves the session unstarted and
+    // the screen unchanged. The one exception is a folder the learner
+    // explicitly attached earlier in this visit via Select Folder.
     const selectedPath = (await pickProjectFolder(true)).trim();
+    if (!selectedPath && !folderChosenRef.current) return;
+    if (!selectedPath) {
+      setPickerError(
+        "Starting with the folder you selected. VS Code cannot open it directly because the desktop bridge is unreachable - install or update the extension (v0.0.8 or newer), keep VS Code open, then use Open VS Code.",
+      );
+    }
     try {
       const duration = forceNew ? startRef.current : seconds;
       if (forceNew) {
@@ -344,7 +360,8 @@ function Sessions() {
   async function openAndConnectVsCode() {
     try {
       // Irfan, 2026-11-16: Open VS Code always asks which folder first; the
-      // saved path is never reused silently. Cancelling the ask stops here.
+      // saved path is never reused silently. Cancelling the ask stops here -
+      // no session is created and nothing opens without a selected folder.
       const selectedPath = (await pickProjectFolder(true)).trim();
       if (!selectedPath) return;
       const hasFreshSession = Boolean(vscodeSession?.sessionId && /^BML-[A-Z0-9]{5}$/i.test(vscodeSession.sessionId));
