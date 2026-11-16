@@ -53,6 +53,7 @@ function Sessions() {
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const startRef = useRef(planned * 60);
   const retuneKeyRef = useRef("");
+  const connectionTokenRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     const saved = learnerStorage.getItem("loop-vscode-path") ?? "";
@@ -97,7 +98,8 @@ function Sessions() {
     let cancelled = false;
     const sync = async () => {
       try {
-        const response = await fetch(`/api/sessions/${encodeURIComponent(vscodeSession.sessionId)}/state`, { cache: "no-store" });
+        const auth = await getAuthSessionForApi();
+        const response = await fetch(`/api/sessions/${encodeURIComponent(vscodeSession.sessionId)}/state`, { cache: "no-store", headers: auth?.idToken ? { Authorization: `Bearer ${auth.idToken}` } : {} });
         const result = await response.json() as { ok?: boolean; state?: RemoteSessionState };
         if (!cancelled && result.ok && result.state) {
           setRemoteState(result.state);
@@ -106,11 +108,11 @@ function Sessions() {
             const status = result.state?.extension_status ?? result.state?.status;
             return status ? { ...current, status } : current;
           });
-        } else if (!cancelled && (response.status === 401 || response.status === 404)) {
+        } else if (!cancelled && (response.status === 401 || response.status === 403 || response.status === 404)) {
           setVscodeSession(null);
           setRemoteState(null);
           learnerStorage.removeItem("bml-vscode-session");
-          setPickerError("That VS Code session expired after the server restarted. Start a new session to generate a fresh Session ID.");
+          setPickerError("This session could not be opened for the signed-in account. Existing learner history is unchanged. Start a new secure session with extension v0.3.6.");
         }
       } catch { /* Retain the last confirmed state while offline. */ }
     };
@@ -167,10 +169,11 @@ function Sessions() {
     const response = await fetch("/api/sessions/start", {
       method: "POST",
       headers,
-      body: JSON.stringify({ challenge_id: activeMission.id, user_id: userId, title: activeMission.title, language: activeMission.stack, concept: activeMission.skills[0] ?? "problem solving", instructions: activeMission.description + "\n\nRequirements:\n" + activeMission.steps.map((step, index) => `Step ${index + 1}: ${step.title} — ${step.detail}`).join("\n"), checkpoints: activeMission.steps.map((step, index) => ({ index, title: step.title, detail: step.detail })), expected_skills: activeMission.skills, test_command: activeMission.id === "cli-calculator" ? "gcc -std=c11 -Wall -Wextra -o /tmp/buildmylogic-cli-calculator main.c" : undefined }),
+      body: JSON.stringify({ challenge_id: activeMission.id, user_id: userId, title: activeMission.title, language: activeMission.stack, concept: activeMission.skills[0] ?? "problem solving", instructions: activeMission.description + "\n\nRequirements:\n" + activeMission.steps.map((step, index) => `Step ${index + 1}: ${step.title} — ${step.detail}`).join("\n"), checkpoints: activeMission.steps.map((step, index) => ({ index, title: step.title, detail: step.detail })), expected_skills: activeMission.skills, expected_duration_ms: planned * 60_000, test_command: activeMission.id === "cli-calculator" ? "gcc -std=c11 -Wall -Wextra -o /tmp/buildmylogic-cli-calculator main.c" : undefined }),
     });
-    const result = (await response.json()) as { ok?: boolean; session_id?: string; state?: RemoteSessionState; error?: string };
+    const result = (await response.json()) as { connection_token?: string; ok?: boolean; session_id?: string; state?: RemoteSessionState; error?: string };
     if (!response.ok || !result.ok || !result.session_id) throw new Error(result.error || "Could not create the BuildMyLogic VS Code session.");
+    connectionTokenRef.current = result.connection_token;
     const session = { sessionId: result.session_id, status: "waiting" };
     setVscodeSession(session);
     setRemoteState(result.state ?? null);
@@ -179,7 +182,8 @@ function Sessions() {
   }
 
   async function connectExtension(session: { sessionId: string }) {
-    const uri = `vscode://buildmylogic.buildmylogic/connect?sessionId=${encodeURIComponent(session.sessionId)}&apiBaseUrl=${encodeURIComponent(window.location.origin)}`;
+    if (!connectionTokenRef.current) throw new Error("Start a new session to securely pair this extension. Existing saved learner work is unchanged.");
+    const uri = `vscode://buildmylogic.buildmylogic/connect?token=${encodeURIComponent(connectionTokenRef.current)}&sessionId=${encodeURIComponent(session.sessionId)}&apiBaseUrl=${encodeURIComponent(window.location.origin)}`;
     const anchor = document.createElement("a");
     anchor.href = uri;
     anchor.rel = "noopener";
@@ -310,6 +314,10 @@ function Sessions() {
 
   async function startSession(forceNew = false) {
     if (running && !forceNew) {
+      if (vscodeSession) {
+        const auth = await getAuthSessionForApi();
+        await fetch(`/api/sessions/${encodeURIComponent(vscodeSession.sessionId)}/events`, { method: "POST", headers: { "Content-Type": "application/json", ...(auth?.idToken ? { Authorization: `Bearer ${auth.idToken}` } : {}) }, body: JSON.stringify({ event_type: "work_pause", payload: { paused: true } }) }).catch(() => {});
+      }
       setRunning(false);
       learnerStorage.removeItem("loop-session-started-at");
       learnerStorage.removeItem("loop-session-duration");
@@ -345,6 +353,9 @@ function Sessions() {
         const connected = await createVscodeSession();
         await openVsCode(connected, selectedPath);
       } catch (error) {
+        setRunning(false);
+        learnerStorage.removeItem("loop-session-started-at");
+        learnerStorage.removeItem("loop-session-duration");
         setPickerError(error instanceof Error ? error.message : "Could not connect VS Code.");
       }
     }
@@ -357,7 +368,7 @@ function Sessions() {
       // no session is created and nothing opens without a selected folder.
       const selectedPath = (await pickProjectFolder(true)).trim();
       if (!selectedPath) return;
-      const hasFreshSession = Boolean(vscodeSession?.sessionId && /^BML-[A-Z0-9]{5}$/i.test(vscodeSession.sessionId));
+      const hasFreshSession = Boolean(connectionTokenRef.current && vscodeSession?.sessionId && /^BML-[A-Z0-9]{5}$/i.test(vscodeSession.sessionId));
       const connected = hasFreshSession && vscodeSession ? vscodeSession : await createVscodeSession();
       await openVsCode(connected, selectedPath);
     } catch (error) {
@@ -677,7 +688,7 @@ function Sessions() {
       {projectReview && <ProjectReviewCard review={projectReview} onClose={() => setProjectReview(null)} />}
       {review && <section className="rounded-2xl border-2 border-primary bg-primary-soft p-5"><div className="flex items-center justify-between"><h2 className="flex items-center gap-2 text-base font-black"><Sparkles className="h-4 w-4 text-primary" /> Session review</h2><button type="button" onClick={() => setReview(null)}><XCircle className="h-4 w-4" /></button></div><p className="mt-3 text-sm font-black">{review.feedback}</p><div className="mt-4 grid gap-3 md:grid-cols-2"><div className="rounded-xl bg-white p-4"><p className="text-[10px] font-black uppercase">Next action</p><p className="mt-1 text-sm font-black">{review.nextStep}</p></div><div className="rounded-xl bg-white p-4"><p className="text-[10px] font-black uppercase">Skill evidence</p><p className="mt-1 text-sm font-black">{review.skillBoost}</p></div></div></section>}
 
-      <section className="card-surface p-5"><h2 className="text-lg font-black">Close the session</h2><p className="mt-1 text-sm font-semibold">Write what you actually built. BuildMyLogic keeps this as your learning history.</p><textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="I wired the form to the API but validation is still broken…" className="mt-3 w-full rounded-xl border border-black/15 bg-white p-3 text-sm font-semibold outline-none focus:border-primary" /><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={finish} disabled={saving || !activeMission} className="btn-base btn-primary-solid"><Timer className="h-4 w-4" />{saving ? "Reviewing…" : `Log ${elapsed} min & get feedback`}</button><button type="button" onClick={completeMission} disabled={!activeMission} className="btn-base btn-outline"><Check className="h-4 w-4" />Complete mission</button></div></section>
+      <section className="card-surface p-5"><h2 className="text-lg font-black">Observed project evidence</h2><p className="text-sm">Browser countdown is a planning timer, not measured active work. VS Code measures only consented foreground activity with a 30-second idle limit.</p><p className="text-sm">Expected: {remoteState?.expected_duration_ms ? Math.round(remoteState.expected_duration_ms / 60000) + " min" : "not assigned"}. Observed active time: {remoteState?.timing?.quality === "extension-observed" ? (remoteState.timing.active_ms / 60000).toFixed(1) + " min (estimate)" : "unavailable"}. Time alone never establishes weakness or skill.</p><p className="text-sm">Inspected files: {remoteState?.project_context?.inspected_files.join(", ") || "None. Folder selection alone does not inspect project contents."}</p><p className="text-sm">{remoteState?.project_context?.summary}</p></section><section className="card-surface p-5"><h2 className="text-lg font-black">Close the session</h2><p className="mt-1 text-sm font-semibold">Write what you actually built. BuildMyLogic keeps this as your learning history.</p><textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="I wired the form to the API but validation is still broken…" className="mt-3 w-full rounded-xl border border-black/15 bg-white p-3 text-sm font-semibold outline-none focus:border-primary" /><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={finish} disabled={saving || !activeMission} className="btn-base btn-primary-solid"><Timer className="h-4 w-4" />{saving ? "Reviewing…" : `Log ${elapsed} min & get feedback`}</button><button type="button" onClick={completeMission} disabled={!activeMission} className="btn-base btn-outline"><Check className="h-4 w-4" />Complete mission</button></div></section>
     </div>
   </AppShell>;
 }
@@ -689,5 +700,5 @@ function SessionTasks({ remote, fallback, done, onToggle }: { remote?: RemoteChe
   return <section id="session-tasks" className="card-surface scroll-mt-24 p-5"><div className="flex items-center justify-between"><div><h2 className="text-lg font-black">Session Tasks</h2><p className="mt-1 text-sm font-semibold">Work through these in order. Code can be detected automatically; only passing tests verify a task.</p></div><span className="text-xs font-black">{verified}/{total} verified</span></div>{evidenceTasks && <p className="mt-3 text-[10px] font-black uppercase tracking-wider text-black/50">✓ Verified · ◐ Detected · ○ Not verified</p>}<div className="mt-4 space-y-2">{evidenceTasks ? evidenceTasks.map((task) => { const evidence = task.evidence ?? (task.status === "passed" ? "verified" : "not_verified"); return <div key={`${task.title}-${task.index}`} className={`flex items-start gap-3 rounded-xl border p-4 ${evidence === "verified" ? "border-primary bg-primary-soft" : "border-black/10 bg-white"}`}><span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 ${evidence === "verified" ? "border-primary bg-primary text-white" : evidence === "detected" ? "border-primary text-primary" : "border-black/20 text-black/40"}`}>{evidence === "verified" ? <Check className="h-4 w-4" /> : evidence === "detected" ? "◐" : "○"}</span><span className="min-w-0 flex-1"><b className="block text-sm">{task.title}</b><span className="mt-1 block text-xs font-semibold text-black/60">{evidence === "verified" ? "VERIFIED by passing tests" : evidence === "detected" ? "DETECTED from code activity · run tests to verify" : "NOT VERIFIED"}</span></span></div>; }) : fallback.map((task, index) => { const checked = done.includes(index); return <button type="button" key={`${task.title}-${index}`} onClick={() => onToggle(index)} className={`flex w-full items-center gap-3 rounded-xl border p-4 text-left ${checked ? "border-primary bg-primary-soft" : "border-black/10 bg-white"}`}><span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 ${checked ? "border-primary bg-primary text-white" : "border-black/20"}`}>{checked && <Check className="h-4 w-4" />}</span><span className="min-w-0 flex-1"><b className="block text-sm">{task.title}</b><span className="mt-1 block text-xs font-semibold">{task.minutes} minutes</span></span></button>; })}</div></section>;
 }
 
-function ProjectReviewCard({ review, onClose }: { review: ProjectReview; onClose: () => void }) { const groups: [string, string[]][] = [["Strengths", review.strengths], ["Issues", review.issues], ["Security", review.security], ["Missing", review.missing], ["Next steps", review.nextSteps]]; return <section className="card-surface overflow-hidden"><div className="bg-black px-5 py-4 text-white"><div className="flex items-center justify-between"><h2 className="flex items-center gap-2 text-base font-black"><ShieldCheck className="h-4 w-4" /> Project Review</h2><div className="flex items-center gap-2"><span className="rounded-full bg-white px-3 py-1 text-xs font-black text-black">{review.score}/100</span><button type="button" onClick={onClose}><X className="h-4 w-4" /></button></div></div><p className="mt-3 text-sm font-black">{review.verdict}</p></div><div className="grid gap-5 p-5 md:grid-cols-2">{groups.map(([title, items]) => <div key={title} className="rounded-xl border border-black/10 bg-white p-4"><h3 className="text-sm font-black">{title}</h3><ul className="mt-2 space-y-2">{items.length ? items.map((item, i) => <li key={i} className="text-sm font-bold leading-5">• {item}</li>) : <li className="text-sm font-bold">• None reported.</li>}</ul></div>)}</div></section>; }
-function SessionProjectReview({ review }: { review: NonNullable<RemoteSessionState["project_review"]> }) { const groups: [string, string[]][] = [["Strengths", review.strengths], ["Issues", review.issues], ["Missing", review.missing], ["Next steps", review.nextSteps]]; return <section className="card-surface mt-5 overflow-hidden border-2 border-primary/30"><div className="bg-black px-5 py-4 text-white"><div className="flex items-center justify-between gap-3"><h2 className="flex items-center gap-2 text-base font-black"><ShieldCheck className="h-4 w-4" /> BuildMyLogic project review</h2><span className="rounded-full bg-white px-3 py-1 text-xs font-black text-black">{review.score}/100</span></div><p className="mt-3 text-sm font-black">{review.verdict}</p></div><div className="grid gap-3 p-4 md:grid-cols-4">{groups.map(([title, items]) => <div key={title} className="rounded-xl border border-black/10 bg-white p-3"><h3 className="text-xs font-black">{title}</h3><p className="mt-2 text-xs font-bold leading-5">{items[0] ?? "None reported."}</p></div>)}</div></section>; }
+function ProjectReviewCard({ review, onClose }: { review: ProjectReview; onClose: () => void }) { const groups: [string, string[]][] = [["Strengths", review.strengths], ["Issues", review.issues], ["Security", review.security], ["Missing", review.missing], ["Next steps", review.nextSteps]]; return <section className="card-surface overflow-hidden"><div className="bg-black px-5 py-4 text-white"><div className="flex items-center justify-between"><h2 className="flex items-center gap-2 text-base font-black"><ShieldCheck className="h-4 w-4" /> Project Review</h2><div className="flex items-center gap-2"><span className="rounded-full bg-white px-3 py-1 text-xs font-black text-black">{review.score === null ? "Not evaluated" : `${review.score}/100 (AI estimate)`}</span><button type="button" onClick={onClose}><X className="h-4 w-4" /></button></div></div><p className="mt-3 text-sm font-black">{review.verdict}</p></div><div className="grid gap-5 p-5 md:grid-cols-2">{groups.map(([title, items]) => <div key={title} className="rounded-xl border border-black/10 bg-white p-4"><h3 className="text-sm font-black">{title}</h3><ul className="mt-2 space-y-2">{items.length ? items.map((item, i) => <li key={i} className="text-sm font-bold leading-5">• {item}</li>) : <li className="text-sm font-bold">• None reported.</li>}</ul></div>)}</div></section>; }
+function SessionProjectReview({ review }: { review: NonNullable<RemoteSessionState["project_review"]> }) { const groups: [string, string[]][] = [["Strengths", review.strengths], ["Issues", review.issues], ["Missing", review.missing], ["Next steps", review.nextSteps]]; return <section className="card-surface mt-5 overflow-hidden border-2 border-primary/30"><div className="bg-black px-5 py-4 text-white"><div className="flex items-center justify-between gap-3"><h2 className="flex items-center gap-2 text-base font-black"><ShieldCheck className="h-4 w-4" /> BuildMyLogic project review</h2><span className="rounded-full bg-white px-3 py-1 text-xs font-black text-black">{review.score === null ? "Not evaluated" : `${review.score}/100 (AI estimate)`}</span></div><p className="mt-3 text-sm font-black">{review.verdict}</p></div><div className="grid gap-3 p-4 md:grid-cols-4">{groups.map(([title, items]) => <div key={title} className="rounded-xl border border-black/10 bg-white p-3"><h3 className="text-xs font-black">{title}</h3><p className="mt-2 text-xs font-bold leading-5">{items[0] ?? "None reported."}</p></div>)}</div></section>; }

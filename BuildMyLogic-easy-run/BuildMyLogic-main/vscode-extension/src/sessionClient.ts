@@ -1,15 +1,17 @@
 export type ConquestReceipt = {id:string;patternId:string;summary:string;conqueredAt:number};
-export type RemoteSession = { conquest_receipts?:ConquestReceipt[]; session_id: string; challenge_id: string; title: string; language: string; concept: string; instructions: string; expected_skills: string[]; test_command?: string; status: string; attempts: number; hints_used: number; test_score?: { passed: number; total: number }; latest_mentor_feedback?: string; potential_struggle?: boolean; struggle_signal?: string; extension_status: string; rev?: number; updated_at?: string; checkpoints?: Array<{ index: number; title: string; detail: string; status: 'locked' | 'active' | 'passed' | 'failed'; evidence?: 'not_verified' | 'detected' | 'verified'; attempts: number; lastOutput?: string }>; project_review?: { score: number; verdict: string; strengths: string[]; issues: string[]; missing: string[]; nextSteps: string[] }; run_guidance?: string };
+export type RemoteSession = { expected_duration_ms?: number; timing?: {active_ms:number;quality:string;paused:boolean;ratio?:number}; project_context?: {inspected_files:string[];languages:string[];technologies:string[];summary:string;at:string}; evidence_provenance?:string; conquest_receipts?:ConquestReceipt[]; session_id: string; challenge_id: string; title: string; language: string; concept: string; instructions: string; expected_skills: string[]; test_command?: string; status: string; attempts: number; hints_used: number; test_score?: { passed: number; total: number }; latest_mentor_feedback?: string; potential_struggle?: boolean; struggle_signal?: string; extension_status: string; rev?: number; updated_at?: string; checkpoints?: Array<{ evaluator?: {id:string;command:string;expectedOutputIncludes:string[]}; index: number; title: string; detail: string; status: 'locked' | 'active' | 'passed' | 'failed'; evidence?: 'not_verified' | 'detected' | 'verified'; attempts: number; lastOutput?: string }>; project_review?: { score: number | null; verdict: string; strengths: string[]; issues: string[]; missing: string[]; nextSteps: string[] }; run_guidance?: string };
 
 export type StateQuery = { since?: number; waitMs?: number };
 
 export class SessionClient {
   private baseUrl: string;
+  private token?: string;
+  public setSessionToken(token: string | undefined) { this.token = token; }
   public constructor(baseUrl: string) { this.baseUrl = baseUrl.replace(/\/$/, ''); }
   public setBaseUrl(baseUrl: string) { this.baseUrl = baseUrl.replace(/\/$/, ''); }
   public getBaseUrl() { return this.baseUrl; }
   private async request(path: string, init: RequestInit = {}, timeoutMs = 10000) {
-    const response = await fetch(this.baseUrl + path, { ...init, signal: init.signal ?? AbortSignal.timeout(timeoutMs), headers: { 'Content-Type': 'application/json', ...(init.headers ?? {}) } });
+    const response = await fetch(this.baseUrl + path, { ...init, signal: init.signal ?? AbortSignal.timeout(timeoutMs), headers: { 'Content-Type': 'application/json', ...(this.token ? { 'x-bml-session-token': this.token } : {}), ...(init.headers ?? {}) } });
     const body = await response.text();
     let json: { ok?: boolean; error?: string; session?: RemoteSession; state?: RemoteSession; guidance?: string; recovery?: string; mini_task?: string; run_plan?: { command: string; guidance: string; platform: string }; review?: Record<string, unknown>; file_count?: number };
     try {

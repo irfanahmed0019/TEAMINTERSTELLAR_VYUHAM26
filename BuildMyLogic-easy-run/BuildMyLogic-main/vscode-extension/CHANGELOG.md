@@ -1,3 +1,11 @@
+## 0.3.6
+
+- Pair sessions using a scoped credential kept in VS Code SecretStorage. Short display codes alone no longer authorize access. Install, reload VS Code and start a new session on the signed-in website. Existing saved learner history stays intact.
+- Ask before sharing manifest names, diagnostics and bounded foreground activity estimates. Heartbeats are not work time; source uploads still ask separately.
+- Successful partial checkpoints no longer count as failed tests. Compile/start success is detected-only; requirement completion needs a declared checkpoint-specific command, evaluator ID and expected assertions and remains extension-reported.
+- Missing AI project review returns no score rather than a made-up score.
+- Project manifests establish only bounded context. Existing missions are not claimed to be generated from the project.
+
 # 0.3.5
 
 - Setup install commands and probes are platform-parameterised and covered by tests: Windows winget/Python/Git/MSYS2, macOS Xcode tools with and without Homebrew, apt/dnf/pacman/zypper, and a manual note fallback for unknown Linux package managers.

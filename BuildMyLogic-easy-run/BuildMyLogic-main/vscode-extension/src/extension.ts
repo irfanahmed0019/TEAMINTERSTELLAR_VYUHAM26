@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'node:path';
 import { executeLocalCommand } from './processRunner';
 import { loadAppConfig } from './config';
 import { SessionClient, RemoteSession } from './sessionClient';
@@ -15,6 +16,11 @@ type Message = { command: 'ready' | 'connect' | 'hint' | 'stuck' | 'runTests' | 
 
 class Sidebar implements vscode.WebviewViewProvider {
   private running = false;
+  private evidenceConsent = false;
+  private activityAt = 0;
+  private activityFlushAt = Date.now();
+  private activitySequence = Date.now();
+  private activityTimer?: NodeJS.Timeout;
   private connectEpoch = 0;
   private conquestQueue:Promise<void> = Promise.resolve();
   private view?: vscode.WebviewView; private session?: RemoteSession; private connection?: Connection; private live = false; private loopToken = 0; private lastHeartbeatAt = 0; private evidenceSubscriptions: vscode.Disposable[] = []; private diagnosticTimer?: NodeJS.Timeout; private pendingUriSession?: { sessionId: string }; private setupReport?: SetupReport;
@@ -32,13 +38,17 @@ class Sidebar implements vscode.WebviewViewProvider {
       const params = new URLSearchParams(uri.query);
       const sessionId = params.get('sessionId') || params.get('session_id') || '';
       if (!sessionId) return this.status('The BuildMyLogic link is missing its Session ID.', true);
-      const apiBaseUrl = params.get('apiBaseUrl') || params.get('api_base_url') || '';
-      if (apiBaseUrl) {
-        const parsed = new URL(apiBaseUrl);
-        if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('The BuildMyLogic connection link has an invalid API address.');
-        this.api.setBaseUrl(parsed.origin);
-        await vscode.workspace.getConfiguration('buildMyLogic').update('apiBaseUrl', parsed.origin, vscode.ConfigurationTarget.Global);
-      }
+      const apiBaseUrl = params.get('apiBaseUrl') || params.get('api_base_url') || this.api.getBaseUrl();
+      const parsed = new URL(apiBaseUrl);
+      const allowed = parsed.origin === 'https://buildmylogicxyz.vercel.app' || (parsed.protocol === 'http:' && ['localhost','127.0.0.1'].includes(parsed.hostname));
+      if (!allowed) throw new Error('This connection address is not an approved BuildMyLogic website. No credential was sent.');
+      this.api.setBaseUrl(parsed.origin);
+      const key = 'bml.session.' + parsed.origin + ':' + sessionId;
+      const token = params.get('token') || await this.context.secrets.get(key);
+      if (!token || !/^[A-Za-z0-9_-]{43}$/.test(token)) throw new Error('Install v0.3.6, then choose Start new session and Open VS Code on the signed-in Sessions page. A display code alone cannot connect.');
+      this.api.setSessionToken(token);
+      await this.context.secrets.store(key, token);
+      await vscode.workspace.getConfiguration('buildMyLogic').update('apiBaseUrl', parsed.origin, vscode.ConfigurationTarget.Global);
       this.pendingUriSession = { sessionId };
       try { await vscode.commands.executeCommand('workbench.view.extension.buildMyLogic'); } catch { /* The URI still activates the extension if the view command is unavailable. */ }
       await this.waitForView();
@@ -74,8 +84,10 @@ class Sidebar implements vscode.WebviewViewProvider {
     this.stop(); this.clearEvidenceSubscriptions(); this.session = undefined; this.connection = undefined; this.results.update(undefined, ''); this.post({ type: 'disconnected' });
     try {
       if (!silent) this.status('Connecting to your BuildMyLogic session…');
+      const savedToken = await this.context.secrets.get('bml.session.' + this.api.getBaseUrl() + ':' + sessionId);
+      this.api.setSessionToken(savedToken);
       const r = await this.api.connect(sessionId); if (epoch !== this.connectEpoch) return; if (!r.session) throw new Error('Session has no challenge context.'); this.session = r.session; this.connection = { sessionId };
-      await vscode.workspace.getConfiguration('buildMyLogic').update('session', this.connection, vscode.ConfigurationTarget.Global); await vscode.workspace.getConfiguration('buildMyLogic').update('apiBaseUrl', this.api.getBaseUrl(), vscode.ConfigurationTarget.Global); this.post({ type: 'session', session: this.session }); void this.notifyConquests(this.session); this.status('Connected. Your challenge is ready.', false); this.installEvidenceSubscriptions(); this.startLiveSync(); void this.checkSetup(true);
+      await vscode.workspace.getConfiguration('buildMyLogic').update('session', this.connection, vscode.ConfigurationTarget.Global); await vscode.workspace.getConfiguration('buildMyLogic').update('apiBaseUrl', this.api.getBaseUrl(), vscode.ConfigurationTarget.Global); this.post({ type: 'session', session: this.session }); void this.notifyConquests(this.session); this.status('Connected. Your challenge is ready.', false); this.startLiveSync(); await this.consentEvidence(); void this.checkSetup(true);
     } catch (error) {
       if (epoch !== this.connectEpoch) return;
       this.session = undefined; this.connection = undefined; this.stop(); this.clearEvidenceSubscriptions();
@@ -188,12 +200,21 @@ class Sidebar implements vscode.WebviewViewProvider {
       });
     }
   }
-  private clearEvidenceSubscriptions() { this.evidenceSubscriptions.forEach((subscription) => subscription.dispose()); this.evidenceSubscriptions = []; if (this.diagnosticTimer) clearTimeout(this.diagnosticTimer); this.diagnosticTimer = undefined; }
+  private clearEvidenceSubscriptions() { this.evidenceConsent = false; if (this.activityTimer) clearInterval(this.activityTimer); this.activityTimer = undefined; this.evidenceSubscriptions.forEach((subscription) => subscription.dispose()); this.evidenceSubscriptions = []; if (this.diagnosticTimer) clearTimeout(this.diagnosticTimer); this.diagnosticTimer = undefined; }
   private installEvidenceSubscriptions() {
+    const consent = this.evidenceConsent;
     this.clearEvidenceSubscriptions();
-    if (!this.connection) return;
+    this.evidenceConsent = consent;
+    if (!this.connection || !this.evidenceConsent) return;
+    this.activityFlushAt = Date.now();
+    this.activityAt = 0;
+    this.activityTimer = setInterval(() => void this.flushActivity(), 15000);
+    this.evidenceSubscriptions.push(vscode.workspace.onDidChangeTextDocument(event => { if (this.isInActiveWorkspace(event.document.uri) && safeEvidencePath(vscode.workspace.asRelativePath(event.document.uri, false))) this.noteActivity(); }));
+    this.evidenceSubscriptions.push(vscode.window.onDidChangeWindowState(event => { if (!event.focused) { void this.flushActivity(); this.activityAt = 0; } }));
     this.evidenceSubscriptions.push(vscode.workspace.onDidSaveTextDocument((document) => {
       if (!this.session || !this.connection || !this.isInActiveWorkspace(document.uri)) return;
+      if (!safeEvidencePath(vscode.workspace.asRelativePath(document.uri, false))) return;
+      this.noteActivity();
       void this.recordFileEvidence(document);
     }));
     this.evidenceSubscriptions.push(vscode.languages.onDidChangeDiagnostics((event) => {
@@ -235,10 +256,48 @@ class Sidebar implements vscode.WebviewViewProvider {
     } catch { /* requirements.txt is optional. */ }
     return signals.slice(0, 30);
   }
-  private isInActiveWorkspace(uri: vscode.Uri) { const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath; return Boolean(root && uri.fsPath.startsWith(root)); }
+  private isInActiveWorkspace(uri: vscode.Uri) { const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath; if (!root || uri.scheme !== 'file') return false; const relative = path.relative(root, uri.fsPath); return relative !== '..' && !relative.startsWith('..' + path.sep) && !path.isAbsolute(relative); }
+  private noteActivity() { if (vscode.window.state.focused && this.evidenceConsent) { const now = Date.now(); if (!this.activityAt || now - this.activityAt > 30000) this.activityFlushAt = now; this.activityAt = now; } }
+  private async flushActivity() {
+    const connection = this.connection, now = Date.now();
+    if (!connection || !this.evidenceConsent) return;
+    const end = Math.min(now, this.activityAt + 30000);
+    const active = vscode.window.state.focused && this.activityAt ? Math.max(0, end - this.activityFlushAt) : 0;
+    this.activityFlushAt = now;
+    await this.api.event(connection.sessionId, 'work_activity', { sequence: ++this.activitySequence, active_ms: Math.min(30000, active) }).catch(() => {});
+  }
+  private async consentEvidence() {
+    if (!this.connection || !vscode.workspace.isTrusted) return;
+    const connection = this.connection;
+    const yes = await vscode.window.showInformationMessage('Share bounded project context, file names, language, error messages and foreground edit/run timing with BuildMyLogic during this session? Secret paths are excluded. Full source uploads still ask separately. Pausing the website session stops active-time credit. Disconnect to stop sharing.', { modal: true }, 'Share session evidence');
+    if (yes !== 'Share session evidence' || this.connection !== connection) return;
+    this.evidenceConsent = true;
+    this.installEvidenceSubscriptions();
+    await this.api.event(connection.sessionId, 'work_pause', { paused: false });
+    await this.sendProjectContext();
+  }
+  private async sendProjectContext() {
+    const connection = this.connection, root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    if (!connection || !root || !this.evidenceConsent) return;
+    const inspected: string[] = [], technologies: string[] = [], languages = new Set<string>();
+    for (const name of ['package.json', 'pyproject.toml', 'requirements.txt', 'Cargo.toml', 'go.mod']) {
+      try {
+        const raw = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(root, name));
+        if (raw.byteLength > 32000) continue;
+        const value = Buffer.from(raw).toString('utf8'); inspected.push(name);
+        if (name === 'package.json') { languages.add('JavaScript/TypeScript'); const manifest = JSON.parse(value); technologies.push(...Object.keys(manifest.dependencies || {}).slice(0, 15)); }
+        if (name.includes('requirements') || name === 'pyproject.toml') { languages.add('Python'); for (const dependency of ['django', 'fastapi', 'flask', 'pandas', 'pytest']) if (value.toLowerCase().includes(dependency)) technologies.push(dependency); }
+        if (name === 'Cargo.toml') languages.add('Rust');
+        if (name === 'go.mod') languages.add('Go');
+      } catch { /* Missing or unreadable manifests establish no project knowledge. */ }
+    }
+    if (this.connection !== connection) return;
+    const response = await this.api.event(connection.sessionId, 'project_context', { inspected_files: inspected, languages: [...languages], technologies, summary: inspected.length ? 'Only listed manifests were inspected locally. Existing mission has not been regenerated or validated against source files. Run assertion-backed project tests to establish correctness.' : 'No supported manifests were found. Project contents and language remain unverified.' });
+    if (this.connection === connection && response.state) this.session = response.state;
+  }
   private async sendDiagnostics() {
     if (!this.session || !this.connection) return;
-    const diagnostics = vscode.languages.getDiagnostics().filter(([uri, items]) => this.isInActiveWorkspace(uri) && items.some((item) => item.severity === vscode.DiagnosticSeverity.Error)).slice(0, 5).map(([uri, items]) => ({ file: vscode.workspace.asRelativePath(uri, false).slice(0, 180), diagnostics: items.filter((item) => item.severity === vscode.DiagnosticSeverity.Error).slice(0, 5).map((item) => ({ message: String(item.message).slice(0, 300), line: item.range.start.line + 1 })) }));
+    const diagnostics = vscode.languages.getDiagnostics().filter(([uri, items]) => this.isInActiveWorkspace(uri) && safeEvidencePath(vscode.workspace.asRelativePath(uri, false)) && items.some((item) => item.severity === vscode.DiagnosticSeverity.Error)).slice(0, 5).map(([uri, items]) => ({ file: vscode.workspace.asRelativePath(uri, false).slice(0, 180), diagnostics: items.filter((item) => item.severity === vscode.DiagnosticSeverity.Error).slice(0, 5).map((item) => ({ message: String(item.message).slice(0, 300), line: item.range.start.line + 1 })) }));
     if (!diagnostics.length) return;
     await this.api.event(this.connection.sessionId, 'compiler_error', { diagnostics, error: diagnostics.map((item) => item.diagnostics.map((diagnostic) => diagnostic.message).join('; ')).join(' | ') }).catch(() => {});
   }
@@ -246,6 +305,7 @@ class Sidebar implements vscode.WebviewViewProvider {
     if (!this.session || !this.connection) return;
     const connection = this.connection;
     const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath; if (!folder) throw new Error('Open the challenge workspace before running tests.');
+    this.noteActivity();
     const plan = await this.api.runPlan(this.connection.sessionId, process.platform);
     if (this.connection !== connection) return;
     this.post({ type: 'status', text: plan.run_plan?.guidance || 'BuildMyLogic is checking the next checkpoint locally.' });
@@ -253,23 +313,26 @@ class Sidebar implements vscode.WebviewViewProvider {
     if (!checkpointResults.length) return;
     if (this.connection !== connection || this.session?.session_id !== connection.sessionId) return this.status('Session changed. Local output was not sent to another session.', true);
     const passed = checkpointResults.filter((item) => item.passed).length;
-    const total = this.session.checkpoints?.length || 1;
+    const total = checkpointResults.length;
     const latest = checkpointResults[checkpointResults.length - 1];
     const r = await this.api.test(connection.sessionId, { status: latest?.passed ? 'passed' : 'failed', passed, total, score: passed, error: latest?.passed ? '' : latest?.output, stdout: latest?.output, checkpoint_results: checkpointResults, attempt: this.session.attempts + 1 });
     if (this.connection !== connection) return;
     this.session = r.state || this.session;
     if (this.session.status === 'completed') { this.clearEvidenceSubscriptions(); this.post({ type: 'status', text: 'Challenge proven. Live sync keeps running so the website can send follow-ups.', error: false }); }
     this.results.update(this.session, latest?.output || 'No command output.'); await this.results.show();
-    this.post({ type: 'tests', passed: Boolean(latest?.passed), output: latest?.output || 'No command output.', guidance: plan.run_plan?.guidance, session: this.session });
+    this.post({ type: 'tests', passed: Boolean(latest?.passed && latest?.evidence_kind === 'assertion'), output: latest?.output || 'No command output.', guidance: plan.run_plan?.guidance, session: this.session });
   }
 
   private async runNextCheckpoint(folder: string, runCommand: string) {
-    if (!this.session) return [] as Array<{ index: number; passed: boolean; output: string }>;
-    const checkpoints = this.session.checkpoints?.length ? this.session.checkpoints : [{ index: 0, title: 'Run the project', detail: 'Run the project locally.', status: 'active' as const, attempts: 0 }];
+    if (!this.session) return [] as Array<{ index: number; passed: boolean; output: string; evidence_kind: string }>;
+    const checkpoints: NonNullable<RemoteSession['checkpoints']> = this.session.checkpoints?.length ? this.session.checkpoints : [{ index: 0, title: 'Run the project', detail: 'Run the project locally.', status: 'active' as const, attempts: 0 }];
     const checkpoint = checkpoints.find((item) => item.status !== 'passed') || checkpoints[checkpoints.length - 1];
+    if (checkpoint.evaluator) runCommand = checkpoint.evaluator.command;
     const text = `${checkpoint.title} ${checkpoint.detail}`.toLowerCase();
     let result: { passed: boolean; output: string; cancelled?: boolean };
-    if (this.session.language.toLowerCase().includes('python') && text.includes('python') && text.includes('venv')) {
+    if (checkpoint.evaluator) {
+      result = await this.runCommand(runCommand, folder, 60000);
+    } else if (this.session.language.toLowerCase().includes('python') && text.includes('python') && text.includes('venv')) {
       const version = await this.runCommand(process.platform === 'win32' ? 'py -3 --version' : 'python3 --version', folder, 15000);
       if (version.cancelled) { this.status(version.output); return []; }
       const venv = vscode.Uri.joinPath(vscode.workspace.workspaceFolders![0]!.uri, 'venv');
@@ -288,7 +351,11 @@ class Sidebar implements vscode.WebviewViewProvider {
       result = await this.runCommand(runCommand, folder, runCommand.includes('uvicorn') ? 12000 : 60000);
     }
     if (result.cancelled) { this.status(result.output); return []; }
-    return [{ index: checkpoint.index, passed: result.passed, output: result.output }];
+    this.noteActivity();
+    void this.flushActivity();
+    const assertion = result.passed && Boolean(checkpoint.evaluator?.expectedOutputIncludes.length) && checkpoint.evaluator!.expectedOutputIncludes.every(expected => result.output.includes(expected));
+    if (result.passed && !assertion) this.status('Execution succeeded, but no checkpoint-specific evaluator proved these requirements. Progress remains detected, not completed.');
+    return [{ index: checkpoint.index, passed: result.passed, output: result.output, evaluator_id: checkpoint.evaluator?.id, evidence_kind: assertion ? 'assertion' : 'execution' }];
   }
 
   private async runCommand(command: string, cwd: string, timeoutMs: number): Promise<{ code: number; passed: boolean; output: string; cancelled?: boolean }> {
@@ -344,3 +411,6 @@ export function activate(context: vscode.ExtensionContext) {
   void consumeStagedSession(context).then((staged) => { if (staged) void connectSession(staged); });
 }
 export function deactivate() {}
+
+/** Pure path policy shared by passive evidence and tests. */
+export function safeEvidencePath(relative: string): boolean { return !/(^|[\\/])(?:\.env(?:\.|$)|\.git|node_modules|\.ssh|venv|\.venv)(?:[\\/]|$)|(?:secret|credential|\.pem$|\.key$|\.npmrc$|\.pypirc$)/i.test(relative); }

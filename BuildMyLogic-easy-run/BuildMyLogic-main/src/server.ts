@@ -19,6 +19,8 @@ import {
   stateOf,
   submitProject,
   verifySession,
+  sessionTokenValid,
+  takeSessionConnectionToken,
 } from "./lib/learning-sessions.server";
 
 type ServerEntry = {
@@ -49,7 +51,7 @@ function corsHeaders(request?: Request): Record<string, string> {
     "access-control-allow-origin": origin,
     vary: "Origin",
     "access-control-allow-methods": "GET, POST, OPTIONS",
-    "access-control-allow-headers": "content-type, authorization",
+    "access-control-allow-headers": "content-type, authorization, x-bml-session-token",
   };
 }
 
@@ -203,17 +205,12 @@ async function handleBuildMyLogicApi(
         request,
       );
     const body = await readJson(request);
-    const configuredSupabase = Boolean(
-      process.env["VITE_SUPABASE_URL"]?.trim() &&
-      process.env["VITE_SUPABASE_ANON_KEY"]?.trim() &&
-      !process.env["VITE_SUPABASE_URL"]!.includes("your-project-id"),
-    );
     const authenticatedId = await authenticatedUserId(request);
     const requestedId = clean(body["user_id"] ?? body["userId"], 180);
     const localDevelopment =
       ["localhost", "127.0.0.1"].includes(url.hostname) &&
       process.env["NODE_ENV"] !== "production";
-    if (configuredSupabase && !authenticatedId && !localDevelopment)
+    if (!authenticatedId && !localDevelopment)
       return jsonResponse(
         {
           ok: false,
@@ -235,6 +232,7 @@ async function handleBuildMyLogicApi(
       return jsonResponse({
         ok: true,
         session_id: session.sessionId,
+        connection_token: takeSessionConnectionToken(session),
         state: stateOf(session),
       });
     } catch (error) {
@@ -260,6 +258,9 @@ async function handleBuildMyLogicApi(
         request,
       );
     const body = await readJson(request);
+    const candidate = await verifySession(clean(body["session_id"], 40).toUpperCase());
+    const token = request.headers.get("x-bml-session-token");
+    if (!candidate || !sessionTokenValid(candidate, token)) return jsonResponse({ ok: false, error: "Use Open VS Code from the signed-in website to pair this session. The display code alone is not a credential." }, 403);
     const state = await connectLearningSession(body);
     return state
       ? jsonResponse({ ok: true, session: state })
@@ -287,6 +288,11 @@ async function handleBuildMyLogicApi(
         401,
       );
     const action = learningMatch[2] ?? "state";
+    const scopedExtension = sessionTokenValid(session, request.headers.get("x-bml-session-token"));
+    const ownerId = scopedExtension ? undefined : await authenticatedUserId(request);
+    const owner = canReadRecoverySession(session.userId, ownerId, url.hostname, process.env["NODE_ENV"]);
+    if (!scopedExtension && !owner) return jsonResponse({ ok: false, error: "Sign in as the session owner or reconnect the extension from Sessions." }, 403);
+
     if (request.method === "GET" && action === "recovery-state") {
       const authenticatedId = await authenticatedUserId(request);
       if (
@@ -456,11 +462,7 @@ async function handleBuildMyLogicApi(
           ok: true,
           ...(await submitProject(session, body["files"])),
         });
-      if (action === "complete")
-        return jsonResponse({
-          ok: true,
-          state: recordEvent(session, "test_result", { passed: 1, total: 1 }),
-        });
+      if (action === "complete") return jsonResponse({ ok: false, error: "Completion requires passing every executable assertion checkpoint." }, 409);
       return jsonResponse({ ok: false, error: "Unknown session action." }, 404);
     } catch (error) {
       return jsonResponse(
