@@ -1,3 +1,4 @@
+import { codingSupportSummary } from "./initial-coding-diagnostic.ts";
 import { diagnosticQuestionIssue } from "./initial-diagnostic.ts";
 import type { LoopState, Plan } from "./loop-types";
 export type CompetencyView = {
@@ -191,6 +192,8 @@ export function competencyContext(state: LoopState): string {
   if (state.sampleProvenance)
     return "SAMPLE DATA: not genuine learner evidence.";
   return (
+    (codingSupportSummary(state.profile?.initialCodingDiagnostic) ?? "") +
+    "\n" +
     "Evidence limits: AI-keyed client diagnostics are provisional multiple-choice results, not executed code or proof of understanding. Finite sandbox or client-reported tests do not prove independence or general mastery.\n" +
     (competencyView(state)
       .map(

@@ -1,3 +1,4 @@
+import { diagnosticContinueLabel } from "@/lib/intake-state";
 import { InitialCodingDiagnosticPanel } from "@/components/InitialCodingDiagnosticPanel";
 import { mergeAssessmentEvidence } from "@/lib/assessment-evidence";
 import {
@@ -513,6 +514,15 @@ function AccountOnboarding() {
                   researches which topics you need and builds your personalized
                   learning path while your new dashboard assembles.
                 </p>
+                <InitialDiagnosticPanel
+                  hideContinue
+                  profile={profile}
+                  onChange={(initialDiagnostic) => {
+                    saveProfile({ ...profileRef.current, initialDiagnostic });
+                  }}
+                  onContinue={startLearning}
+                />
+
                 <InitialCodingDiagnosticPanel
                   profile={profile}
                   onChange={(initialCodingDiagnostic, evidence) => {
@@ -553,13 +563,13 @@ function AccountOnboarding() {
                     );
                   }}
                 />
-                <InitialDiagnosticPanel
-                  profile={profile}
-                  onChange={(initialDiagnostic) => {
-                    saveProfile({ ...profileRef.current, initialDiagnostic });
-                  }}
-                  onContinue={startLearning}
-                />
+                <button
+                  type="button"
+                  onClick={() => void startLearning()}
+                  className="btn-base btn-primary-solid mt-4 w-full"
+                >
+                  {diagnosticContinueLabel(profile.initialDiagnostic)}
+                </button>
               </div>
             )}
             <div ref={bottomRef} />

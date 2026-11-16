@@ -1,3 +1,4 @@
+import { diagnosticQuestionIssue } from "./initial-diagnostic.ts";
 import type { Profile } from "./loop-types";
 import { STUDY_TOPICS } from "./topic-library.ts";
 import { newReassessment } from "./struggle-engine.ts";
@@ -15,6 +16,16 @@ export type InitialCodingSubmission = {
   performance?: import("./struggle-engine").PerformanceEvidence | undefined;
 };
 export type InitialCodingDiagnostic = {
+  startingLevel?: "basic" | "transfer";
+  scaffolds?: Array<{
+    taskId: string;
+    topicId: string;
+    at: number;
+    observedMs: number;
+    expectedMs: number;
+    draft: { code: string; hintUsed: boolean };
+    reason: "observed-interaction-exceeded-authored-benchmark";
+  }>;
   draft?:
     | {
         taskId: string;
@@ -147,15 +158,78 @@ export function nextInitialCodingTask(
 ): InitialCodingTask | null {
   if (d.submissions.length >= 2) return null;
   const previous = d.submissions.at(-1);
+  const scaffold = d.scaffolds?.at(-1);
+  if (scaffold && (!previous || scaffold.at > previous.at))
+    return initialCodingTask(`coding-v1:${scaffold.topicId}:basic`, d.language);
   const topic = previous
     ? previous.passed === previous.total
       ? (harder[previous.topicId] ?? "loops")
       : previous.topicId
     : d.topicId;
   return initialCodingTask(
-    `coding-v1:${topic}:${previous && previous.passed < previous.total ? "basic" : "transfer"}`,
+    `coding-v1:${topic}:${previous ? (previous.passed < previous.total ? "basic" : "transfer") : (d.startingLevel ?? "transfer")}`,
     d.language,
   );
+}
+/** Difficulty is a starting hypothesis, never a verified competency label. */
+export function estimatedCodingStart(p: Profile): "basic" | "transfer" {
+  const answers =
+    p.initialDiagnostic?.answers.filter(
+      (a) => a.correct && !diagnosticQuestionIssue(a.question),
+    ) ?? [];
+  if (
+    p.initialDiagnostic?.mode === "short-v2" &&
+    p.initialDiagnostic.answers.length === 2
+  )
+    return answers.length === 2 ? "transfer" : "basic";
+  return p.technologies.some((t) => t.level !== "beginner")
+    ? "transfer"
+    : "basic";
+}
+/** An ungraded support event. Retain the previous draft; never manufacture a failure. */
+export function scaffoldInitialCoding(
+  d: InitialCodingDiagnostic,
+  taskId: string,
+  code: string,
+  hintUsed: boolean,
+  observedMs: number,
+  at: number,
+): InitialCodingDiagnostic {
+  const task = nextInitialCodingTask(d);
+  if (
+    !task ||
+    task.id !== taskId ||
+    task.level !== "transfer" ||
+    !Number.isFinite(observedMs) ||
+    observedMs <= task.expectedMinutes * 60000 ||
+    !Number.isFinite(at) ||
+    d.scaffolds?.some((s) => s.taskId === taskId)
+  )
+    return d;
+  return {
+    ...d,
+    draft: undefined,
+    scaffolds: [
+      ...(d.scaffolds ?? []),
+      {
+        taskId,
+        topicId: task.topicId,
+        at,
+        observedMs,
+        expectedMs: task.expectedMinutes * 60000,
+        draft: { code, hintUsed },
+        reason: "observed-interaction-exceeded-authored-benchmark",
+      },
+    ],
+  };
+}
+export function codingSupportSummary(
+  d?: InitialCodingDiagnostic,
+): string | null {
+  const s = d?.scaffolds?.at(-1);
+  return s
+    ? `Simpler ${s.topicId} task offered after ${Math.round(s.observedMs / 1000)} seconds of browser-observed interaction exceeded the authored ${s.expectedMs / 60000}-minute benchmark. This is a support signal, not a failed test or weakness. Earlier drafts and results remain saved.`
+    : null;
 }
 export function codingDiagnosticSummary(d?: InitialCodingDiagnostic): string {
   if (!d?.submissions.length)

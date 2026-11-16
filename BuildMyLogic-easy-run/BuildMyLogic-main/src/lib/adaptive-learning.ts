@@ -13,6 +13,12 @@ export function priorityLearningTopics(state: LoopState): Map<string, string> {
         `Repeated ${m.kind} failures. Review the targeted concept, then take a fresh reassessment.`,
       );
   }
+  const support = state.profile?.initialCodingDiagnostic?.scaffolds?.at(-1);
+  if (support && !result.has(support.topicId))
+    result.set(
+      support.topicId,
+      "A simpler question was offered after the authored time benchmark. Practice support, not a proven weakness.",
+    );
   const histories = new Map<string, boolean[]>();
   for (const a of [...(state.struggle?.attempts ?? [])].sort(
     (a, b) => a.at - b.at,

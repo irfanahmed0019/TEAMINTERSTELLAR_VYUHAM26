@@ -15,6 +15,7 @@ export type DiagnosticAnswer = {
   at: number;
 };
 export type InitialDiagnostic = {
+  mode?: "short-v2";
   version: 1;
   source: "ai";
   status: "in_progress" | "completed";
@@ -43,7 +44,10 @@ export function diagnosticQuestionIssue(
     ? "The stem claims printed output, but its direct string-input/numeric comparison raises TypeError before that output. This item is excluded from evidence."
     : null;
 }
-export function diagnosticQuestions(raw: unknown): DiagnosticQuestion[] {
+export function diagnosticQuestions(
+  raw: unknown,
+  mode?: "short-v2",
+): DiagnosticQuestion[] {
   const list =
     raw && typeof raw === "object"
       ? (raw as { questions?: unknown }).questions
@@ -91,6 +95,13 @@ export function diagnosticQuestions(raw: unknown): DiagnosticQuestion[] {
         },
       ];
     });
+  if (mode === "short-v2") {
+    if (questions.length !== 2)
+      throw new Error(
+        "Two valid short calibration questions are required. No result was invented.",
+      );
+    return questions;
+  }
   if (questions.length < 6)
     throw new Error(
       "The diagnostic returned too few valid questions. Retry; no assessment result was saved.",
@@ -104,9 +115,14 @@ export function diagnosticQuestions(raw: unknown): DiagnosticQuestion[] {
     );
   return questions;
 }
+export function diagnosticCount(d: InitialDiagnostic): number {
+  return Math.min(d.mode === "short-v2" ? 2 : 6, d.questions.length);
+}
 export function nextDiagnostic(
   d: InitialDiagnostic,
 ): DiagnosticQuestion | undefined {
+  if (d.status === "completed" || d.answers.length >= diagnosticCount(d))
+    return undefined;
   const last = d.answers.at(-1);
   const target = last
     ? Math.max(

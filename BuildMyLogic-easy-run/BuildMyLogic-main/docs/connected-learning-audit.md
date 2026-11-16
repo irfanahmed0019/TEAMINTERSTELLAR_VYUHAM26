@@ -201,3 +201,41 @@ uses generated plan insights as assessment facts, including for existing saved
 plans. New plan insights are source-grounded summaries. Mentor context names
 its sources, and the prompt distinguishes provisional AI-keyed MCQ from actual
 finite execution. No new real-model run has verified that prompt change.
+
+### Quality deployment follow-up
+
+`de46867610ec6dc4b406731a2039175d05e076cd` verified live. One normal UI
+wrong-boundary submission returned HTTP 502, measured by browser resource timing
+at 19.487 seconds (not the longer selector wait). The planned corrected solution
+then returned HTTP 200 in 3.758 seconds and all three finite checks passed.
+Thus the correct path has real production execution evidence, but live rejection
+of the wrong boundary remained unverified in this bounded run. The original
+502 cause remains unknown; no response body or headers were captured.
+
+### New two-question calibration and timed support behavior
+
+New diagnostics use `short-v2`, exactly two structurally validated questions.
+Legacy six-question diagnostics retain their prior format and restore behavior.
+Practical checks follow calibration and start from an explicitly estimated level,
+not a verified-skill label. No additional provider AI runs were made after the
+four-action approved budget. The new prompt's actual generated quality has not
+been verified with a fresh model call.
+
+A transfer task now starts a pausable browser-interaction clock. It excludes
+blurred, hidden, paused and >30-second editing-idle windows. Strictly exceeding
+the authored eight-minute benchmark switches to a basic same-concept task.
+This saves an ungraded support event and the original draft/hint state in the
+existing account-bound profile. It never creates a failure or lowers competency.
+There is no measured population-average claim. An already-basic task has no
+simpler authored level to switch to. Other language/framework tasks remain
+unassessed rather than fabricated.
+
+The persisted support event feeds the existing Dashboard summary, Struggle DNA,
+Learn topic priority and Mentor context. Prior results remain intact. Unit tests
+verify the exact threshold, preserved drafts/history, zero fabricated evidence,
+new two-question bank guards and legacy validation. An actual-component browser
+fixture uses explicit fake auth/cloud/AI and virtual focused editing time to
+verify the automatic switch, restore, Dashboard/Learn context and absence of
+fake submissions. The ordinary actual-component local-Python handler journey
+also passes with two calibration answers. These are local fixture checks, not
+live learner or real-model acceptance of the new flow.

@@ -14,6 +14,9 @@ import { mentorApi } from "@/lib/mentor/persistence";
 import { getAuthSession, useAuth } from "@/lib/auth";
 import {
   acceptInitialCodingResult,
+  scaffoldInitialCoding,
+  estimatedCodingStart,
+  codingSupportSummary,
   codingTopicOptions,
   nextInitialCodingTask,
   suggestedCodingTopic,
@@ -63,6 +66,7 @@ export function InitialCodingDiagnosticPanel({
     running: false,
     enabled: false,
   });
+  const scaffoldCheck = useRef<() => boolean>(() => false);
   const draftWriter = useRef(() => {});
   draftWriter.current = () => saveDraft(code, hint);
   function refreshClock() {
@@ -84,7 +88,9 @@ export function InitialCodingDiagnosticPanel({
         eligible(),
       );
       refreshClock();
-      if (clock.current.running && ++ticks % 10 === 0) draftWriter.current();
+      const changed = scaffoldCheck.current();
+      if (!changed && clock.current.running && ++ticks % 10 === 0)
+        draftWriter.current();
     }, 1000);
     const suspend = () => {
       clock.current = {
@@ -128,8 +134,11 @@ export function InitialCodingDiagnosticPanel({
       saved?.taskId === taskId && saved.language === taskLanguage
         ? saved.observedMs
         : undefined;
-    clock.current = newInteractionClock(savedMs ?? 0);
-    timingEnabled.current = savedMs !== undefined;
+    clock.current = startInteractionClock(
+      newInteractionClock(savedMs ?? 0),
+      performance.now(),
+    );
+    timingEnabled.current = true;
     refreshClock();
     setCode(
       saved?.taskId === taskId && saved.language === taskLanguage
@@ -164,6 +173,35 @@ export function InitialCodingDiagnosticPanel({
       },
     });
   }
+  scaffoldCheck.current = () => {
+    if (
+      !d ||
+      !task ||
+      busy ||
+      !auth ||
+      getAuthSession()?.uid !== auth.uid ||
+      !timingEnabled.current
+    )
+      return false;
+    const next = scaffoldInitialCoding(
+      d,
+      task.id,
+      code,
+      hint,
+      clock.current.activeMs,
+      Date.now(),
+    );
+    if (next !== d) {
+      clock.current = pauseInteractionClock(
+        clock.current,
+        performance.now(),
+        eligible(),
+      );
+      onChange(next);
+      return true;
+    }
+    return false;
+  };
   function showHint() {
     setHint(true);
     saveDraft(code, true);
@@ -245,10 +283,11 @@ export function InitialCodingDiagnosticPanel({
     >
       <h3 className="font-bold">Try a practical coding check</h3>
       <p className="mt-2 text-xs leading-5 text-muted-foreground">
-        Optional: two authored coding tasks, starting with an estimated medium
-        transfer task. C and Python only. The suggested concept uses your
-        reported goals, not proven skills. Frameworks and other languages remain
-        unassessed.
+        Two authored coding checks, starting at an estimated level from your
+        short calibration and reported background. This is a starting
+        hypothesis, not verified skill. C and Python only. The suggested concept
+        uses your reported goals, not proven skills. Frameworks and other
+        languages remain unassessed.
       </p>
       <p className="mt-2 text-xs leading-5 text-muted-foreground">
         Submitting sends your code and test inputs to the existing public Judge0
@@ -287,9 +326,11 @@ export function InitialCodingDiagnosticPanel({
           </label>
           <button
             type="button"
+            disabled={profile.initialDiagnostic?.status !== "completed"}
             onClick={() =>
               onChange({
                 version: 1,
+                startingLevel: estimatedCodingStart(profile),
                 language,
                 topicId: topic,
                 submissions: [],
@@ -299,6 +340,12 @@ export function InitialCodingDiagnosticPanel({
           >
             Start optional coding check
           </button>
+          {profile.initialDiagnostic?.status !== "completed" && (
+            <p className="text-xs text-muted-foreground">
+              Complete the two short calibration questions first. You can still
+              continue onboarding unassessed without inventing results.
+            </p>
+          )}
         </div>
       )}
       {d && (
@@ -307,6 +354,11 @@ export function InitialCodingDiagnosticPanel({
           {d.submissions.length === 2
             ? "Checks finished, not necessarily passed."
             : "A failed check offers a smaller task on the same concept; a full pass moves to a related challenge."}
+        </p>
+      )}
+      {codingSupportSummary(d) && (
+        <p role="status" className="mt-3 rounded-xl bg-muted p-3 text-sm">
+          {codingSupportSummary(d)}
         </p>
       )}
       {result && (
@@ -370,10 +422,14 @@ export function InitialCodingDiagnosticPanel({
           <p className="text-xs text-muted-foreground">{task.difficultyNote}</p>
           <p className="text-xs text-muted-foreground">
             Authored benchmark: {task.expectedMinutes} minutes, not a measured
-            population average. Optional clock estimates visible, focused
-            interaction windows, not active thinking time. Hidden, blurred,
-            paused, runner-wait and idle time beyond 30 seconds since editing
-            are excluded. No timing-based skill penalty.
+            population average. The clock estimates visible, focused interaction
+            windows, not active thinking time. Hidden, blurred, paused,
+            runner-wait and idle time beyond 30 seconds since editing are
+            excluded. The clock starts with this task and can be paused.
+            {task.level === "transfer"
+              ? " Exceeding the benchmark offers a simpler question immediately."
+              : " This is already the simplest authored level; pause or use a hint when needed."}
+            Timing never creates a failed grade.
           </p>
           <div className="rounded-xl bg-muted p-3 text-xs leading-5">
             <p>

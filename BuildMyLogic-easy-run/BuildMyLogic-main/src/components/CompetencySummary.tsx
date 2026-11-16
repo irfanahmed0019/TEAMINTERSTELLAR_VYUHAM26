@@ -1,3 +1,4 @@
+import { CodingSupportNotice } from "@/components/CodingSupportNotice";
 import { competencyView } from "@/lib/competency";
 import { useLoop } from "@/lib/loop-store";
 export function CompetencySummary() {
@@ -12,6 +13,7 @@ export function CompetencySummary() {
         and client reports are not proof of independence or general mastery.
         Time alone never lowers these estimates.
       </p>
+      <CodingSupportNotice />
       {items.length === 0 ? (
         <p className="mt-3 text-sm">
           No graded observations yet. Resume claims and old scores remain saved,

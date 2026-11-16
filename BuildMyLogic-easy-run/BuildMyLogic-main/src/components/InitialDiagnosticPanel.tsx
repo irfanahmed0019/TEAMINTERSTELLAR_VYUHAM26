@@ -3,6 +3,8 @@ import { useState } from "react";
 import { aiInitialDiagnostic } from "@/lib/sarvam.functions";
 import {
   answerDiagnostic,
+  diagnosticCount,
+  diagnosticQuestionIssue,
   nextDiagnostic,
   type InitialDiagnostic,
 } from "@/lib/initial-diagnostic";
@@ -11,10 +13,12 @@ export function InitialDiagnosticPanel({
   profile,
   onChange,
   onContinue,
+  hideContinue = false,
 }: {
   profile: Profile;
   onChange: (d: InitialDiagnostic) => void;
   onContinue: () => void;
+  hideContinue?: boolean;
 }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -28,6 +32,7 @@ export function InitialDiagnosticPanel({
       const result = await aiInitialDiagnostic({ data: { profile } });
       onChange({
         version: 1,
+        mode: "short-v2",
         source: "ai",
         status: "in_progress",
         questions: result.questions,
@@ -44,11 +49,12 @@ export function InitialDiagnosticPanel({
     <section className="mt-4 rounded-2xl border border-border bg-background p-5">
       <h3 className="font-bold">Check your starting point</h3>
       <p className="mt-2 text-xs leading-5 text-muted-foreground">
-        Six adaptive concept, prediction, debugging and reasoning questions
-        based on your goal and resume claims. AI-authored answer keys are
-        provisional and client-graded. This is not code execution, verified
-        mastery, or proof of unaided work. Practical coding is assessed
-        separately in Learn and Sessions.
+        {d && d.mode !== "short-v2"
+          ? "Your saved six-question diagnostic remains available without resetting its answers."
+          : "Two short calibration questions based on your resume and goal, then a practical question matched to your estimated starting level."}{" "}
+        AI-authored answer keys are provisional and client-graded. This is not
+        code execution, verified mastery, or proof of unaided work. Practical
+        coding is assessed separately in Learn and Sessions.
       </p>
       {!d && (
         <button
@@ -71,8 +77,9 @@ export function InitialDiagnosticPanel({
       {q && (
         <div className="mt-4">
           <p className="text-xs text-muted-foreground">
-            Question {(d?.answers.length ?? 0) + 1} of 6 · {q.kind} · difficulty{" "}
-            {q.difficulty}/3
+            Question {(d?.answers.length ?? 0) + 1} of{" "}
+            {d ? diagnosticCount(d) : 2} · {q.kind} · difficulty {q.difficulty}
+            /3
           </p>
           <pre className="my-3 whitespace-pre-wrap font-sans text-sm leading-6">
             {q.prompt}
@@ -95,8 +102,13 @@ export function InitialDiagnosticPanel({
       )}
       {d?.status === "completed" && (
         <p className="mt-4 text-sm">
-          Initial checks: {d.answers.filter((a) => a.correct).length}/
-          {d.answers.length} match the answer keys. Your roadmap will use this
+          Initial checks:{" "}
+          {
+            d.answers.filter(
+              (a) => a.correct && !diagnosticQuestionIssue(a.question),
+            ).length
+          }
+          /{d.answers.length} match the answer keys. Your roadmap will use this
           provisional evidence, not treat resume claims as verified strengths.
         </p>
       )}
@@ -115,14 +127,16 @@ export function InitialDiagnosticPanel({
           Retry diagnostic
         </button>
       )}
-      <button
-        type="button"
-        onClick={onContinue}
-        disabled={busy}
-        className="btn-base btn-primary-solid mt-4 w-full"
-      >
-        {diagnosticContinueLabel(d)}
-      </button>
+      {!hideContinue && (
+        <button
+          type="button"
+          onClick={onContinue}
+          disabled={busy}
+          className="btn-base btn-primary-solid mt-4 w-full"
+        >
+          {diagnosticContinueLabel(d)}
+        </button>
+      )}
     </section>
   );
 }

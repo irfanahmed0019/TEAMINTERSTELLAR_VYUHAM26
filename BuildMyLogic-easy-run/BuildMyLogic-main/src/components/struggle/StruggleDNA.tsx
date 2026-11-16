@@ -1,3 +1,4 @@
+import { CodingSupportNotice } from "@/components/CodingSupportNotice";
 import { InitialAssessmentEvidence } from "./InitialAssessmentEvidence";
 import { performanceSummary } from "@/lib/performance-evidence";
 import { useState } from "react";
@@ -55,6 +56,7 @@ export function StruggleDNA() {
   if (attempts.length === 0) {
     return (
       <div className="mt-5 space-y-5">
+        <CodingSupportNotice />
         {!sample && (
           <InitialAssessmentEvidence
             evidence={state.assessmentEvidence ?? []}
@@ -93,6 +95,7 @@ export function StruggleDNA() {
 
   return (
     <div className="mt-5 space-y-5">
+      <CodingSupportNotice />
       {sample && (
         <p
           role="note"
