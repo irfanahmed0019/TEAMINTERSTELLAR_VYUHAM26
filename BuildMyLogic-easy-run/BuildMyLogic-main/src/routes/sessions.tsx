@@ -226,18 +226,21 @@ function Sessions() {
     }
   }
 
-  async function pickProjectFolder(forOpening = false) {
+  async function pickProjectFolder(forOpening = false): Promise<string> {
     setPickingProject(true);
     setPickerError("");
     try {
-      // 1. Try desktop bridge helper if available
-      try {
-        const health = await fetch(`${BRIDGE_URL}/health`, {
-          cache: "no-store",
-          signal: AbortSignal.timeout(800),
-        }).catch(() => null);
+      // 1. Try the desktop bridge hosted by the VS Code extension.
+      const health = await fetch(`${BRIDGE_URL}/health`, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(1500),
+      }).catch(() => null);
 
-        if (health && health.ok) {
+      if (health && health.ok) {
+        // The bridge answered, so VS Code and the extension are running. A
+        // failed pick here means the folder dialog was closed without a
+        // choice, not that the bridge is missing - say so honestly.
+        try {
           const response = await fetch(`${BRIDGE_URL}/pick-folder`, { method: "POST" });
           const result = (await response.json()) as { ok?: boolean; path?: string; error?: string };
           if (response.ok && result.ok && result.path) {
@@ -250,25 +253,28 @@ function Sessions() {
             learnerStorage.setItem("loop-project-folder", folder);
             return path;
           }
+          setPickerError("No folder was selected in VS Code. Tap again to reopen the folder dialog.");
+          // A deliberate cancel ends the ask here for Start Session / Open VS
+          // Code; only the standalone picker falls through to the browser.
+          if (forOpening) return "";
+        } catch {
+          setPickerError("The BuildMyLogic desktop bridge stopped answering mid-request. Keep VS Code open and try again.");
+          if (forOpening) return "";
         }
-      } catch {
-        // Desktop bridge unavailable; proceed to browser folder picker
+      } else {
+        // Bridge truly unreachable. Chrome's Local Network Access prompt makes
+        // the health probe time out while it is pending, so call that case out
+        // explicitly instead of silently falling back.
+        setPickerError("Could not reach the BuildMyLogic desktop bridge. If Chrome asked to access devices on your local network, choose Allow there and pick the folder again. Otherwise install or update the BuildMyLogic VS Code extension (v0.0.8 or newer) and keep VS Code open, then pick the folder again. You can still pick the folder below without the bridge - your session will work, but VS Code cannot open it directly.");
       }
 
-      // A browser can upload directory contents, but it cannot reveal the
-      // absolute local path needed by VS Code. Still let the learner pick the
-      // folder here (the name is saved and the session works); only the
-      // direct "open this folder in VS Code" step needs the local bridge.
-      // Chrome's Local Network Access prompt makes the health probe above
-      // time out while it is pending, so call that case out explicitly
-      // instead of silently falling back.
-      setPickerError("Could not reach the BuildMyLogic desktop bridge. If Chrome asked to access devices on your local network, choose Allow there and pick the folder again. Otherwise install or update the BuildMyLogic VS Code extension (v0.0.8 or newer) and keep VS Code open, then pick the folder again. You can still pick the folder below without the bridge - your session will work, but VS Code cannot open it directly.");
-
-      // 2. Browser native file/directory picker fallback
+      // 2. Browser native file/directory picker fallback. A browser can upload
+      // directory contents, but it cannot reveal the absolute local path VS
+      // Code needs, so only the folder name is saved from this route.
       folderInputRef.current?.click();
       return "";
     } catch {
-      folderInputRef.current?.click();
+      if (!forOpening) folderInputRef.current?.click();
       return "";
     } finally {
       setPickingProject(false);
@@ -302,6 +308,10 @@ function Sessions() {
       learnerStorage.removeItem("loop-session-duration");
       return;
     }
+    // Irfan, 2026-11-16: every new session asks for the project folder first;
+    // a previously saved folder is never reused silently. The website session
+    // still starts when the picker is cancelled or the bridge is unreachable.
+    const selectedPath = (await pickProjectFolder(true)).trim();
     try {
       const duration = forceNew ? startRef.current : seconds;
       if (forceNew) {
@@ -317,13 +327,26 @@ function Sessions() {
     } catch (error) {
       setPickerError(error instanceof Error ? error.message : "Could not start the BuildMyLogic session.");
       setRunning(false);
+      return;
+    }
+    // After the folder is chosen, the rest of the extension work happens:
+    // create the shared session and open VS Code in that workspace.
+    if (selectedPath) {
+      try {
+        const connected = await createVscodeSession();
+        await openVsCode(connected, selectedPath);
+      } catch (error) {
+        setPickerError(error instanceof Error ? error.message : "Could not connect VS Code.");
+      }
     }
   }
 
   async function openAndConnectVsCode() {
     try {
-      // The folder picker is optional: never block session creation on it.
-      const selectedPath = workspacePath.trim() || learnerStorage.getItem("loop-vscode-path")?.trim() || "";
+      // Irfan, 2026-11-16: Open VS Code always asks which folder first; the
+      // saved path is never reused silently. Cancelling the ask stops here.
+      const selectedPath = (await pickProjectFolder(true)).trim();
+      if (!selectedPath) return;
       const hasFreshSession = Boolean(vscodeSession?.sessionId && /^BML-[A-Z0-9]{5}$/i.test(vscodeSession.sessionId));
       const connected = hasFreshSession && vscodeSession ? vscodeSession : await createVscodeSession();
       await openVsCode(connected, selectedPath);
@@ -471,7 +494,7 @@ function Sessions() {
               <span className="flex items-center gap-1.5"><Clock3 className="h-4 w-4 text-primary" />Est. Time ~{activeMission?.minutes ?? planned} min</span>
             </div>
             <div className="mt-5 flex flex-wrap items-center gap-2.5">
-              <button type="button" onClick={() => { void startSession(); }} disabled={!activeMission} className="btn-base btn-primary-solid">
+              <button type="button" onClick={() => { void startSession(); }} disabled={!activeMission || pickingProject} className="btn-base btn-primary-solid">
                 {running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                 {running ? "Pause Session" : seconds < startRef.current ? "Continue Session" : "Start Session"}
               </button>
@@ -627,7 +650,7 @@ function Sessions() {
     <div className="mt-5 space-y-5">
       <SessionTasks remote={remoteCheckpoints} fallback={currentTasks} done={done} onToggle={(index) => setDone((prev) => prev.includes(index) ? prev.filter((x) => x !== index) : [...prev, index])} />
 
-      <section className="card-surface p-5"><div className="flex items-center justify-between"><h2 className="text-lg font-black">Upcoming Sessions</h2><span className="text-xs font-black">View All →</span></div><div className="mt-3 divide-y divide-black/10">{missions.slice(1, 3).map((mission) => <div key={mission.id} className="flex items-center gap-4 py-4"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-ink text-ink-foreground"><Timer className="h-5 w-5" /></div><div className="min-w-0 flex-1"><p className="text-sm font-black">{mission.title}</p><p className="mt-1 text-xs font-semibold">{mission.stack} · Difficulty {mission.difficulty} · Tomorrow, {state.profile?.startTime ?? "19:00"}</p><p className="mt-1 text-xs font-semibold">{mission.description}</p></div><button type="button" onClick={() => { void startSession(); }} className="btn-base btn-outline hidden md:inline-flex">Start Session</button></div>)}{missions.length <= 1 && <p className="py-4 text-sm font-semibold text-muted-foreground">No upcoming missions yet.</p>}</div></section>
+      <section className="card-surface p-5"><div className="flex items-center justify-between"><h2 className="text-lg font-black">Upcoming Sessions</h2><span className="text-xs font-black">View All →</span></div><div className="mt-3 divide-y divide-black/10">{missions.slice(1, 3).map((mission) => <div key={mission.id} className="flex items-center gap-4 py-4"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-ink text-ink-foreground"><Timer className="h-5 w-5" /></div><div className="min-w-0 flex-1"><p className="text-sm font-black">{mission.title}</p><p className="mt-1 text-xs font-semibold">{mission.stack} · Difficulty {mission.difficulty} · Tomorrow, {state.profile?.startTime ?? "19:00"}</p><p className="mt-1 text-xs font-semibold">{mission.description}</p></div><button type="button" onClick={() => { void startSession(); }} disabled={pickingProject} className="btn-base btn-outline hidden md:inline-flex">Start Session</button></div>)}{missions.length <= 1 && <p className="py-4 text-sm font-semibold text-muted-foreground">No upcoming missions yet.</p>}</div></section>
 
       <section><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-black">Past Sessions</h2><span className="text-xs font-black">{total} min total</span></div><div className="card-surface overflow-hidden">{state.sessions.length === 0 ? <p className="p-6 text-center text-sm font-bold">No past sessions yet. Your first completed session will appear here.</p> : state.sessions.slice(0, 8).map((item) => { const open = selectedHistory === item.at; return <div key={item.at} className="border-b border-black/10 last:border-0"><button type="button" onClick={() => setSelectedHistory(open ? null : item.at)} className="grid w-full grid-cols-[1fr_1.6fr_.7fr_.8fr_28px] items-center gap-3 px-4 py-4 text-left hover:bg-primary-soft/40"><span className="text-xs font-black">{new Date(item.at).toLocaleDateString()}</span><span className="truncate text-xs font-black">{item.missionTitle}</span><span className="text-xs font-black">{item.minutes} min</span><span className="flex items-center gap-1 text-xs font-black"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-700" />Completed</span><ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} /></button>{open && <div className="bg-black p-5 text-white"><p className="text-[11px] font-black uppercase tracking-wider text-white">Session history</p><p className="mt-2 text-sm font-black">{item.note || "No note added."}</p>{item.completedTasks?.length ? <p className="mt-3 text-xs font-bold">Tasks completed: {item.completedTasks.length}/{item.tasks?.length ?? 0}</p> : null}{item.review && <div className="mt-4 grid gap-3 md:grid-cols-3"><div><p className="text-[10px] font-black uppercase">What BuildMyLogic saw</p><p className="mt-1 text-xs font-bold">{item.review.feedback}</p></div><div><p className="text-[10px] font-black uppercase">Next</p><p className="mt-1 text-xs font-bold">{item.review.nextStep}</p></div><div><p className="text-[10px] font-black uppercase">Skill</p><p className="mt-1 text-xs font-bold">{item.review.skillBoost}</p></div></div>}</div>}</div>; })}</div></section>
 
