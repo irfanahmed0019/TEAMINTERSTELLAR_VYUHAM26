@@ -427,6 +427,8 @@ async function handleBuildMyLogicApi(
         "run-plan",
         "test-result",
         "mentor-chat",
+        "hint",
+        "stuck",
       ].includes(learningMatch[2] ?? ""),
     );
     if (!session)

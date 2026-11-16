@@ -172,6 +172,91 @@ try {
       explanation: "b".repeat(2000),
     }).length <= 1200,
   );
+  // Real completed-practice sequence: a valid finite test receipt must not
+  // revoke access to feedback. TTL, owner/token and generation remain gates.
+  const practice = await call("/api/sessions/start", {
+    user_id: owner,
+    practice_task: "python-conditions-sign-v1",
+  });
+  assert.equal(practice.status, 200);
+  const pid = practice.data.session_id,
+    ptoken = practice.data.connection_token,
+    base = "/api/sessions/" + pid;
+  const finish = await call(
+    base + "/test-result",
+    {
+      task_generation: 0,
+      status: "passed",
+      checkpoint_results: [
+        {
+          index: 0,
+          passed: true,
+          output: "BML_PRACTICE_PASS:python-conditions-sign-v1",
+          evaluator_id: "python-conditions-sign-v1",
+          evidence_kind: "assertion",
+        },
+      ],
+    },
+    null,
+    ptoken,
+  );
+  assert.equal(finish.status, 200);
+  assert.equal(finish.data.state.status, "completed");
+  assert.equal(finish.data.state.attempts, 1);
+  const p = await lib.verifySession(pid, true),
+    checks = JSON.stringify(p.checkpoints),
+    events = p.events.filter((e) => e.eventType === "test_result").length;
+  for (const action of ["hint", "stuck"]) {
+    const prior = aiCalls;
+    assert.equal(
+      (await call(base + "/" + action, { task_generation: 0 }, null, "wrong"))
+        .status,
+      403,
+    );
+    assert.equal(
+      (await call(base + "/" + action, { task_generation: 0 }, "wrong")).status,
+      403,
+    );
+    assert.equal(aiCalls, prior);
+    const reply = await call(
+      base + "/" + action,
+      { task_generation: 0 },
+      null,
+      ptoken,
+    );
+    assert.equal(reply.status, 200, JSON.stringify(reply));
+    assert.match(reply.data.guidance, /boundary/);
+    assert.equal(reply.data.state.status, "completed");
+    assert.equal(reply.data.state.attempts, 1);
+    assert.deepEqual(reply.data.state.test_score, { passed: 1, total: 1 });
+  }
+  assert.equal(JSON.stringify(p.checkpoints), checks);
+  assert.equal(
+    p.events.filter((e) => e.eventType === "test_result").length,
+    events,
+  );
+  p.status = "failed";
+  assert.equal(
+    (await call(base + "/hint", { task_generation: 0 }, null, ptoken)).status,
+    200,
+  );
+  p.taskGeneration = 1;
+  const beforeStale = aiCalls;
+  assert.equal(
+    (await call(base + "/hint", { task_generation: 0 }, null, ptoken)).status,
+    409,
+  );
+  assert.equal(aiCalls, beforeStale);
+  p.startedAt = new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString();
+  const beforeExpired = aiCalls;
+  assert.equal(
+    (await call(base + "/hint", { task_generation: 1 }, null, ptoken)).status,
+    401,
+  );
+  assert.equal(aiCalls, beforeExpired);
+  console.log(
+    "PASS actual practice test_result -> completed -> hint/stuck with valid token, saved 1/1 and attempt1 unchanged; wrongtoken/owner403, stalegen409, expired401 before provider. Mock provider only.",
+  );
   const paidBefore = aiCalls;
   await assert.rejects(
     chat.sessionMentorChat(
