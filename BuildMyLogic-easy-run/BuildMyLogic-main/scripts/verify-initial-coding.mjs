@@ -14,7 +14,8 @@ const vite = await createServer({
 let jobs = [],
   sandboxCalls = 0,
   unavailable = false,
-  internalError = false;
+  internalError = false,
+  missingJob = false;
 const owner = "12345678-1234-1234-1234-123456789012";
 const oldFetch = global.fetch;
 const oldUrl = process.env.VITE_SUPABASE_URL,
@@ -71,8 +72,17 @@ global.fetch = async (url, options = {}) => {
           rmSync(dir, { recursive: true, force: true });
         }
       });
-      return Response.json(jobs.map((j) => ({ token: j.token })));
+      return Response.json(
+        jobs.map((j) => ({ token: j.token })),
+        { headers: { "X-Judge0-Region": "ZAG" } },
+      );
     }
+    assert.equal(
+      options.headers?.["X-Judge0-Region"],
+      "ZAG",
+      "poll follows creation region",
+    );
+    if (missingJob) return Response.json({ submissions: [null, null, null] });
     return Response.json({
       submissions: internalError
         ? jobs.map((j) => ({
@@ -210,6 +220,16 @@ try {
   assert.match(data.error, /not graded/);
   console.log("PASS Judge0 Internal Error returns no failed learner evidence");
   internalError = false;
+  missingJob = true;
+  response = await handleMentorApi(request(body));
+  data = await response.json();
+  assert.equal(data.ok, false);
+  assert.equal(data.evidence, undefined);
+  assert.match(data.error, /not graded/);
+  console.log(
+    "PASS null/missing region jobs fail closed without learner evidence",
+  );
+  missingJob = false;
   unavailable = true;
   response = await handleMentorApi(request(body));
   data = await response.json();

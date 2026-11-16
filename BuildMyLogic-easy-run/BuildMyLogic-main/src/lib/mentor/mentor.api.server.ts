@@ -102,6 +102,20 @@ export async function runCode(
   stdins: string[],
 ): Promise<RunItem[]> {
   const lang = JUDGE0_LANGS[language];
+  const started = Date.now();
+  const reportUnavailable = (
+    phase: string,
+    status: number | null,
+    region: string | null,
+  ) =>
+    console.warn("Code sandbox unavailable", {
+      phase,
+      httpStatus: status,
+      region,
+      elapsedMs: Date.now() - started,
+      language,
+      caseCount: stdins.length,
+    });
   const create = await fetch(
     `${JUDGE0}/submissions/batch?base64_encoded=true`,
     {
@@ -121,13 +135,29 @@ export async function runCode(
       signal: AbortSignal.timeout(15000),
     },
   ).catch(() => null);
-  if (!create || !create.ok)
+  if (!create || !create.ok) {
+    reportUnavailable("create", create?.status ?? null, null);
     throw new Error(
       create && create.status === 429
         ? "The public code sandbox is rate limiting right now. Try again shortly."
         : "The code execution service is unreachable right now. Your code was not run.",
     );
-  const tokens = ((await create.json()) as { token?: string }[])
+  }
+  const created: unknown = await create.json().catch(() => null);
+  if (
+    !Array.isArray(created) ||
+    created.some((x) => !x || typeof x !== "object")
+  ) {
+    reportUnavailable(
+      "create-shape",
+      create.status,
+      create.headers.get("x-judge0-region"),
+    );
+    throw new Error(
+      "The code sandbox returned an invalid job response. Your code was not graded.",
+    );
+  }
+  const tokens = (created as { token?: string }[])
     .map((x) => x.token)
     .filter(Boolean) as string[];
   if (
@@ -138,17 +168,38 @@ export async function runCode(
     throw new Error(
       "The code execution service returned an unexpected response. Your code was not run.",
     );
+  // Judge0 Shared Cloud can route serverless calls through different regions.
+  // Keep polling the region that accepted THESE tokens, never invent a new job.
+  const returnedRegion = create.headers.get("x-judge0-region");
+  const pollHeaders: Record<string, string> =
+    returnedRegion && /^[A-Za-z0-9_-]{1,32}$/.test(returnedRegion)
+      ? { "X-Judge0-Region": returnedRegion }
+      : {};
   const deadline = Date.now() + 25_000;
   let rows: JudgeRow[] = [];
+  let lastPollStatus: number | null = null;
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, 700));
     const poll = await fetch(
       `${JUDGE0}/submissions/batch?base64_encoded=true&fields=token,status,stdout,stderr,compile_output,time&tokens=${tokens.join(",")}`,
-      { signal: AbortSignal.timeout(10000) },
+      { headers: pollHeaders, signal: AbortSignal.timeout(10000) },
     ).catch(() => null);
+    lastPollStatus = poll?.status ?? null;
     if (!poll || !poll.ok) continue;
-    rows =
-      ((await poll.json()) as { submissions: JudgeRow[] }).submissions ?? [];
+    const polled = (await poll.json().catch(() => null)) as {
+      submissions?: unknown;
+    } | null;
+    if (
+      !polled ||
+      !Array.isArray(polled.submissions) ||
+      polled.submissions.some((r) => !r || typeof r !== "object")
+    ) {
+      reportUnavailable("poll-shape", poll.status, returnedRegion);
+      throw new Error(
+        "The code sandbox could not locate all submitted jobs. Your code was not graded. Try again shortly.",
+      );
+    }
+    rows = polled.submissions as JudgeRow[];
     if (
       rows.length === tokens.length &&
       rows.every((r) => (r.status?.id ?? 0) > 2)
@@ -158,10 +209,12 @@ export async function runCode(
   if (
     rows.length !== tokens.length ||
     rows.some((r) => (r.status?.id ?? 0) <= 2)
-  )
+  ) {
+    reportUnavailable("poll-timeout", lastPollStatus, returnedRegion);
     throw new Error(
       "The code execution service timed out. Your code was not graded.",
     );
+  }
   validateJudge0Results(tokens, rows);
   const by = new Map(rows.map((r) => [r.token, r]));
   return tokens.map((tk) => {
