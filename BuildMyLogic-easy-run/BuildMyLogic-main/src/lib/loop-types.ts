@@ -148,6 +148,7 @@ export type BuildSessionState = {
   test_score?: { passed: number; total: number };
   latest_mentor_feedback?: string;
   recovery?: string;
+  connection_status?: "connected" | "disconnected" | "waiting";
   task_generation?: number;
   practice_history?: Array<{
     challenge_id: string;

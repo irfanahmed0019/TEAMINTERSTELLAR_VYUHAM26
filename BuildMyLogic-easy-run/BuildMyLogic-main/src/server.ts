@@ -380,6 +380,7 @@ async function handleBuildMyLogicApi(
     const body = await readJson(request);
     const candidate = await verifySession(
       clean(body["session_id"], 40).toUpperCase(),
+      true,
     );
     const token = request.headers.get("x-bml-session-token");
     if (!candidate || !sessionTokenValid(candidate, token))
@@ -417,6 +418,10 @@ async function handleBuildMyLogicApi(
         "project-recheck",
         "project-recheck-ready",
         "practice-task",
+        "events",
+        "submit",
+        "run-plan",
+        "test-result",
       ].includes(learningMatch[2] ?? ""),
     );
     if (!session)
@@ -702,6 +707,40 @@ async function handleBuildMyLogicApi(
         },
         409,
       );
+    const finished = ["completed", "failed"].includes(session.status);
+    if (
+      finished &&
+      action === "events" &&
+      !["heartbeat", "work_pause", "work_activity"].includes(
+        String(body["event_type"]),
+      )
+    )
+      return jsonResponse(
+        {
+          ok: false,
+          error:
+            "This task is finished. Its saved result is kept; choose another question.",
+        },
+        409,
+      );
+    if (finished && ["test-result", "run-plan"].includes(action))
+      return jsonResponse(
+        {
+          ok: false,
+          error:
+            "This task is finished. Its saved result is kept; choose another question.",
+        },
+        409,
+      );
+    if (action === "submit" && practiceTaskBody(session.challengeId))
+      return jsonResponse({
+        ok: true,
+        state: stateOf(session),
+        feedback:
+          session.status === "completed"
+            ? "Practice already passed. Your result is saved; choose another question on the website."
+            : "Use Run Tests for this practice task. No files were uploaded or reviewed.",
+      });
     if (
       session.challengeId === "project-context-pending" &&
       ([

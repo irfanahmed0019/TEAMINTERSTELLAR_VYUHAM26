@@ -551,12 +551,16 @@ class Sidebar implements vscode.WebviewViewProvider {
         });
         if (!this.live || token !== this.loopToken) return;
         this.post({ type: "connection", connected: true });
-        this.status(
-          this.session?.challenge_id === "project-context-pending"
-            ? "Connected. No coding task yet."
-            : "Connected. Task loaded.",
-        );
         const next = response.state;
+        const current = next || this.session;
+        this.status(
+          current?.challenge_id === "project-context-pending"
+            ? "Connected. No coding task yet."
+            : isPracticeTask(current?.challenge_id) &&
+                current?.status === "completed"
+              ? "Practice complete. Your result is saved. Choose another question on the website."
+              : "Connected. Task loaded.",
+        );
         if (next) await this.notifyConquests(next);
         if (
           next &&
@@ -1162,8 +1166,31 @@ class Sidebar implements vscode.WebviewViewProvider {
       })
       .catch(() => {});
   }
+  private async showCompletedPractice(): Promise<boolean> {
+    const session = this.session;
+    if (
+      !session ||
+      !isPracticeTask(session.challenge_id) ||
+      session.status !== "completed"
+    )
+      return false;
+    this.results.update(
+      session,
+      session.checkpoints
+        ?.map((item) => item.lastOutput || "")
+        .filter(Boolean)
+        .join("\n") ||
+        "This practice task is already complete. Your recorded result is unchanged.",
+    );
+    this.status(
+      "Practice complete. Your result is saved. Choose another question on the website.",
+    );
+    await this.results.show();
+    return true;
+  }
   private async test() {
     if (!this.session || !this.connection) return;
+    if (await this.showCompletedPractice()) return;
     if (this.session.challenge_id === "project-context-pending")
       return this.status(
         "No coding task yet. Choose a task on the website first.",
@@ -1590,6 +1617,7 @@ class Sidebar implements vscode.WebviewViewProvider {
 
   private async submitProject() {
     if (!this.connection) return;
+    if (await this.showCompletedPractice()) return;
     if (this.session?.challenge_id === "project-context-pending")
       return this.status(
         "No coding task yet. Choose a task on the website first.",

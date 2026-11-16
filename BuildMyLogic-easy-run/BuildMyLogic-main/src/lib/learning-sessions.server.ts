@@ -608,15 +608,22 @@ function compact(session: LearningSession) {
     project_review: session.projectReview,
     run_guidance: session.runGuidance,
     extension_status: extensionStatus,
+    connection_status:
+      lastSeen && Date.now() - lastSeen <= HEARTBEAT_TIMEOUT_MS
+        ? "connected"
+        : session.connectedAt
+          ? "disconnected"
+          : "waiting",
     attempt_history: attemptHistory,
   };
 }
 
 export async function connectLearningSession(body: Record<string, unknown>) {
   const sessionId = text(body["session_id"], 40).toUpperCase();
-  const session = await verifySession(sessionId);
+  const session = await verifySession(sessionId, true);
   if (!session) return undefined;
-  session.status = "connected";
+  if (["active", "connected"].includes(session.status))
+    session.status = "connected";
   session.connectedAt ??= new Date().toISOString();
   session.lastSeenAt = new Date().toISOString();
   await persistSession(session);

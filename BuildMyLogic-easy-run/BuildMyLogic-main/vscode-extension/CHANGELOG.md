@@ -1,3 +1,8 @@
+## 0.3.16
+
+- Keeps completed practice results visible without rerunning or uploading source on Run/Submit.
+- Uses the latest polled task state for the connection message.
+
 ## 0.3.15
 
 - Runs the saved active Python file, including files outside a workspace, after explicit consent.

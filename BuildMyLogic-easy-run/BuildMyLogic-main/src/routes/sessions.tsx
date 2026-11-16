@@ -124,6 +124,8 @@ function Sessions() {
   const [pickerError, setPickerError] = useState("");
   const [practiceNotice, setPracticeNotice] = useState("");
   const [practiceSelection, setPracticeSelection] = useState("");
+  const [attachSessionId, setAttachSessionId] = useState("");
+  const [attachBusy, setAttachBusy] = useState(false);
   const practiceStarting = useRef(false);
   const [practiceBusy, setPracticeBusy] = useState(false);
   const statedContext = [
@@ -339,8 +341,9 @@ function Sessions() {
   ];
   const extensionStatus =
     remoteState?.extension_status ?? vscodeSession?.status ?? "waiting";
-  const extensionConnected =
-    extensionStatus === "active" || extensionStatus === "connected";
+  const extensionConnected = remoteState?.connection_status
+    ? remoteState.connection_status === "connected"
+    : extensionStatus === "active" || extensionStatus === "connected";
   const sessionLabel =
     extensionStatus === "completed"
       ? "Challenge completed"
@@ -383,6 +386,56 @@ function Sessions() {
       .reduce((sum, s) => sum + s.minutes, 0) +
     (running || seconds < startRef.current ? elapsed : 0);
 
+  async function attachExistingSession() {
+    const id = attachSessionId.trim().toUpperCase();
+    if (!/^BML-[A-Z0-9]{5}$/.test(id)) {
+      setPairingError("Enter the Session ID shown in VS Code.");
+      return;
+    }
+    setAttachBusy(true);
+    setPairingError("");
+    const epoch = getAuthEpoch();
+    try {
+      const auth = await getAuthSessionForApi();
+      if (!auth?.idToken)
+        throw new Error("Sign in as the owner of that session.");
+      const response = await fetch(
+        `/api/sessions/${encodeURIComponent(id)}/state`,
+        {
+          headers: { Authorization: `Bearer ${auth.idToken}` },
+          cache: "no-store",
+        },
+      );
+      const result = await response.json();
+      if (getAuthEpoch() !== epoch || getAuthSession()?.uid !== auth.uid)
+        throw new Error("Account changed. Try again while signed in.");
+      if (
+        !response.ok ||
+        !result.ok ||
+        result.state?.verified_owner_id !== auth.uid
+      )
+        throw new Error(
+          "This account cannot open that session. Sign in as its owner; no session was changed.",
+        );
+      const session = {
+        sessionId: id,
+        status: result.state.extension_status ?? result.state.status,
+      };
+      connectionTokenRef.current = undefined;
+      setVscodeSession(session);
+      setRemoteState(result.state);
+      learnerStorage.setItem("bml-vscode-session", JSON.stringify(session));
+      setPracticeNotice(
+        "Showing the VS Code session and its saved results. No re-pairing needed.",
+      );
+    } catch (error) {
+      setPairingError(
+        error instanceof Error ? error.message : "Could not open that session.",
+      );
+    } finally {
+      setAttachBusy(false);
+    }
+  }
   async function createVscodeSession(practiceTask?: string) {
     const epoch = getAuthEpoch();
     if (!activeMission) throw new Error("No active mission is selected.");
@@ -689,8 +742,14 @@ function Sessions() {
     // create the shared session and open VS Code in that workspace.
     if (selectedPath) {
       try {
-        const connected = await createVscodeSession();
-        await openVsCode(connected, selectedPath);
+        if (vscodeSession) {
+          setPracticeNotice(
+            "Your existing session is kept. Use the VS Code session ID below if another tab shows a different one.",
+          );
+        } else {
+          const connected = await createVscodeSession();
+          await openVsCode(connected, selectedPath);
+        }
       } catch (error) {
         setRunning(false);
         learnerStorage.removeItem("loop-session-started-at");
@@ -943,7 +1002,7 @@ function Sessions() {
             {extensionConnected
               ? "BuildMyLogic extension is running and tracking your progress."
               : vscodeSession
-                ? `${sessionLabel}. Open VS Code and paste the Session ID into the extension.`
+                ? `${sessionLabel}. Keep your saved result. If VS Code shows another ID, use "Already connected in VS Code?" below.`
                 : "Connect the BuildMyLogic extension to track your real work."}
           </p>
         </div>
@@ -1245,6 +1304,31 @@ function Sessions() {
               and choose Enter pairing code. Type the code shown here. It
               expires in five minutes and works once. Keep it private.
             </p>
+            <details className="mb-3 text-xs">
+              <summary>Already connected in VS Code?</summary>
+              <label className="mt-2 block">
+                Session ID shown in VS Code
+                <input
+                  aria-label="VS Code Session ID"
+                  value={attachSessionId}
+                  onChange={(e) => setAttachSessionId(e.target.value)}
+                  className="mt-1 w-full rounded-xl border p-2"
+                  placeholder="BML-XXXXX"
+                />
+              </label>
+              <button
+                type="button"
+                className="btn-base btn-outline mt-2 w-full"
+                disabled={attachBusy}
+                onClick={() => void attachExistingSession()}
+              >
+                {attachBusy ? "Checking owner..." : "Use this session"}
+              </button>
+              <p className="mt-2">
+                Only the signed-in owner can open it. Existing attempts stay
+                saved.
+              </p>
+            </details>
             <label className="mb-3 block text-xs font-bold">
               What do you want to practice in Python?
               <select

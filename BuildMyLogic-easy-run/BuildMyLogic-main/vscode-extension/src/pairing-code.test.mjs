@@ -749,3 +749,64 @@ test("in-flight prior-task local result is discarded after generation change; va
     if (!change) assert.equal(posts[0].task_generation, 2);
   }
 });
+
+test("completed authored practice Run and Submit show saved result, no API, file read, consent or source upload", async () => {
+  const f = await sidebarFixture();
+  f.sidebar.connection = { sessionId: "BML-ABCDE" };
+  f.sidebar.session = {
+    session_id: "BML-ABCDE",
+    challenge_id: "python-conditions-sign-v1",
+    status: "completed",
+    attempts: 1,
+    test_score: { passed: 1, total: 1 },
+    checkpoints: [
+      { lastOutput: "BML_PRACTICE_PASS:python-conditions-sign-v1" },
+    ],
+  };
+  let updates = [],
+    shown = 0;
+  f.sidebar.results.update = (...args) => updates.push(args);
+  f.sidebar.results.show = async () => {
+    shown++;
+  };
+  for (const name of ["runPlan", "test", "submit"])
+    f.api[name] = async () => {
+      throw Error("unexpected API " + name);
+    };
+  f.vscode.window.showWarningMessage = () => {
+    throw Error("must not ask upload/execute consent");
+  };
+  f.vscode.workspace.findFiles = () => {
+    throw Error("must not enumerate files");
+  };
+  f.vscode.workspace.fs = {
+    readFile: () => {
+      throw Error("must not read source");
+    },
+  };
+  for (const command of ["runTests", "submit"])
+    await f.sidebar.handle({ command });
+  assert.equal(shown, 2);
+  assert.equal(updates.length, 2);
+  assert.equal(f.sidebar.session.attempts, 1);
+  assert.equal(f.sidebar.session.test_score.passed, 1);
+  assert.ok(f.posts.every((p) => p.type === "status" && !p.error));
+  assert.match(f.posts.at(-1).text, /result is saved/);
+});
+test("completed project task keeps existing project submit flow, not authored-practice no-op", async () => {
+  const f = await sidebarFixture();
+  f.sidebar.connection = { sessionId: "BML-ABCDE" };
+  f.sidebar.session = {
+    session_id: "BML-ABCDE",
+    challenge_id: "project-other",
+    status: "completed",
+  };
+  let consent = 0;
+  f.vscode.workspace.isTrusted = true;
+  f.vscode.window.showWarningMessage = async () => {
+    consent++;
+    return undefined;
+  };
+  await f.sidebar.submitProject();
+  assert.equal(consent, 1);
+});

@@ -539,6 +539,69 @@ try {
           boundResult.body.state.practice_history[0].state.attempts,
           2,
         );
+        const reconnect = await router.fetch(
+          new Request(
+            "https://buildmylogicxyz.vercel.app/api/sessions/connect",
+            {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+                "x-bml-session-token": pendingToken,
+              },
+              body: JSON.stringify({ session_id: pendingId }),
+            },
+          ),
+          {},
+          {},
+        );
+        assert.equal(reconnect.status, 200);
+        assert.equal((await reconnect.json()).session.status, "completed");
+        const liveCompleted = await call(
+          "/api/sessions/" + pendingId + "/events",
+          { event_type: "heartbeat", payload: {} },
+          "owner",
+        );
+        assert.equal(liveCompleted.status, 200);
+        assert.equal(liveCompleted.body.state.status, "completed");
+        assert.equal(liveCompleted.body.state.attempts, 1);
+        assert.equal(
+          (await call("/api/sessions/" + pendingId + "/run-plan", {}, "owner"))
+            .status,
+          409,
+        );
+        const submitted = await call(
+          "/api/sessions/" + pendingId + "/submit",
+          { task_generation: 1, files: [] },
+          "owner",
+        );
+        assert.equal(submitted.status, 200);
+        assert.equal(submitted.body.state.status, "completed");
+        assert.equal(submitted.body.state.attempts, 1);
+        const ownerState = await router.fetch(
+          new Request(
+            "https://buildmylogicxyz.vercel.app/api/sessions/" +
+              pendingId +
+              "/state",
+            { headers: { authorization: "Bearer owner" } },
+          ),
+          {},
+          {},
+        );
+        assert.equal((await ownerState.json()).state.verified_owner_id, owner);
+        const wrongState = await router.fetch(
+          new Request(
+            "https://buildmylogicxyz.vercel.app/api/sessions/" +
+              pendingId +
+              "/state",
+            { headers: { authorization: "Bearer other" } },
+          ),
+          {},
+          {},
+        );
+        assert.equal(wrongState.status, 403);
+        console.log(
+          "PASS completed practice heartbeat stays200/completed; runplan409not401; submit200noAI/files/attempt; ownerstateverified and wrongowner403.",
+        );
         console.log(
           "PASS explicit same-ID completed-task switch archives two old attempts; generation1 resets only currenttask; late old result and stale selection409; oldinstance adopts changedquestion.",
         );
