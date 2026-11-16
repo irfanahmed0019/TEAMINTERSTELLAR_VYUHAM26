@@ -51,3 +51,18 @@ export function mentorAssessmentEvidence(
       ];
     });
 }
+
+/** Retain recorded history. A recent display window must not delete another skill's evidence. */
+export function mergeAssessmentEvidence(
+  old: AssessmentEvidence[],
+  incoming: AssessmentEvidence[],
+): AssessmentEvidence[] {
+  const ids = new Set(old.map((e) => e.id));
+  const fresh: AssessmentEvidence[] = [];
+  for (const e of incoming)
+    if (!ids.has(e.id)) {
+      ids.add(e.id);
+      fresh.push(e);
+    }
+  return fresh.length ? [...old, ...fresh].sort((a, b) => a.at - b.at) : old;
+}

@@ -10,7 +10,9 @@ const source = fs
   );
 const url = new URL("./.qa-assessment-adapter.ts", import.meta.url);
 fs.writeFileSync(url, source);
-const { mentorAssessmentEvidence } = await import(url.href);
+const { mentorAssessmentEvidence, mergeAssessmentEvidence } = await import(
+  url.href
+);
 fs.unlinkSync(url);
 const state = {
   id: "server-session",
@@ -47,5 +49,22 @@ test("Mentor device runs and missing identities never become server-graded evide
       "owner",
     ),
     [],
+  );
+});
+
+test("new skill practice cannot evict another skill's older retained evidence", () => {
+  const old = [{ id: "old-skill", skill: "Loops", at: 1 }];
+  const incoming = Array.from({ length: 200 }, (_, i) => ({
+    id: "new-" + i,
+    skill: "Math",
+    at: i + 2,
+  }));
+  const merged = mergeAssessmentEvidence(old, incoming);
+  assert.equal(merged.length, 201);
+  assert.ok(merged.some((e) => e.id === "old-skill"));
+  assert.equal(mergeAssessmentEvidence(merged, incoming), merged);
+  assert.equal(
+    mergeAssessmentEvidence(old, [...incoming, ...incoming]).length,
+    201,
   );
 });

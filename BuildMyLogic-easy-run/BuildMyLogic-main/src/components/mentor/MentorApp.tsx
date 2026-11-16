@@ -1,5 +1,5 @@
 import { CompetencySummary } from "@/components/CompetencySummary";
-import { mentorAssessmentEvidence } from "@/lib/assessment-evidence";
+import { mentorAssessmentEvidence, mergeAssessmentEvidence } from "@/lib/assessment-evidence";
 import { useCloudHydrated } from "@/lib/cloud-sync";
 import { setLoopState } from "@/lib/loop-store";
 import { competencyContext } from "@/lib/competency";
@@ -60,7 +60,7 @@ export function MentorApp() {
     if (!hydrated || !auth || stateOwner.current !== auth.uid || !state?.verified) return;
     const evidence = mentorAssessmentEvidence(state, auth.uid);
     if (!evidence.length) return;
-    setLoopState(prev => {const old=prev.assessmentEvidence ?? [];const ids=new Set(old.map(e=>e.id));const fresh=evidence.filter(e=>!ids.has(e.id));return fresh.length?{...prev,assessmentEvidence:[...old,...fresh].sort((a,b)=>a.at-b.at).slice(-180)}:prev;});
+    setLoopState(prev => {const old=prev.assessmentEvidence ?? [];const merged=mergeAssessmentEvidence(old,evidence);return merged===old?prev:{...prev,assessmentEvidence:merged};});
   }, [state, hydrated, auth?.uid]);
 
   useEffect(() => {
