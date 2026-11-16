@@ -1,3 +1,4 @@
+import { TargetJobRecommendation } from "@/components/TargetJobRecommendation";
 import { isReadyCloudOwner } from "@/lib/cloud-readiness";
 import { PRACTICE_TASKS } from "@/lib/practice-task";
 import { getAuthSession, getAuthSessionForApi } from "@/lib/auth";
@@ -189,6 +190,7 @@ function Dashboard() {
       quote={plan?.quote ?? "Small steps every day build big skills."}
       wide
     >
+      <TargetJobRecommendation profile={state.profile} />
       {/* Schedule & Google Calendar Modal */}
       <ScheduleModal
         isOpen={scheduleModalOpen}

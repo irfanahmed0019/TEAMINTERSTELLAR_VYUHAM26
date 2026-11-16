@@ -1,3 +1,4 @@
+import { projectStack, targetJobBrief, targetProject } from "./target-job";
 import { learningSchedule } from "./learning-schedule";
 import { codingDiagnosticSummary } from "./initial-coding-diagnostic";
 import { diagnosticQuestions, diagnosticSummary } from "./initial-diagnostic";
@@ -38,11 +39,12 @@ function profileBrief(profile: Profile): string {
     diagnosticSummary(profile.initialDiagnostic),
     codingDiagnosticSummary(profile.initialCodingDiagnostic),
     `Reported technologies (unverified until assessed): ${profile.technologies.map((t) => `${t.name} (${t.level})`).join(", ") || "not stated"}`,
+    targetJobBrief(profile),
     `Primary goal: ${profile.goal}${profile.goalDetail ? ` — ${profile.goalDetail}` : ""}`,
     `Building experience: ${profile.experience}${profile.experienceDetail ? ` — ${profile.experienceDetail}` : ""}`,
     learningSchedule(profile).brief,
     `Challenge preference: ${profile.challenge || "balanced"}`,
-    `Chosen project: ${profile.projectIdea || "not chosen yet"}`,
+    `Chosen project: ${targetProject(profile) || profile.projectIdea || "not chosen yet"}`,
     profile.resumeSummary ? `Resume claims, NOT verified skills: ${profile.resumeSummary}` : "",
     profile.resumeClaims ? `Unverified resume details: ${JSON.stringify(profile.resumeClaims)}` : "",
     profile.followUps.length
@@ -54,11 +56,11 @@ function profileBrief(profile: Profile): string {
 }
 
 function preferredStack(profile: Profile): string {
-  return profile.technologies.map((technology) => technology.name.trim()).filter(Boolean).join(", ") || "the learner's stated project requirements";
+  return projectStack(profile);
 }
 
 function selectedCStack(profile: Profile): boolean {
-  return profile.technologies.some((technology) => /(^|[^a-z])c([^a-z]|$)|c\+\+/i.test(technology.name));
+  return /(^|[^a-z])c([^a-z]|$)|c\+\+/i.test(projectStack(profile));
 }
 
 function looksLikeCStarter(project: { title?: string; summary?: string; stack?: string; why?: string }): boolean {

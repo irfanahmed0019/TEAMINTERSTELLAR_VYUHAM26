@@ -6,6 +6,9 @@ export type TechItem = {
 };
 export type FollowUpAnswer = { question: string; answer: string };
 export type Profile = {
+  /** Learner-selected future direction, never an assessed or resume skill. */
+  targetJob?: string;
+  learningStack?: string;
   intakeTopic?: string;
   availabilityText?: string;
   scheduleUnspecified?: boolean;

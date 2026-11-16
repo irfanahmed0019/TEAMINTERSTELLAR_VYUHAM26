@@ -1,3 +1,8 @@
+import { useAuth } from "@/lib/auth";
+import { useCloudHydrated } from "@/lib/cloud-sync";
+import { TargetJobFields } from "@/components/TargetJobFields";
+import { TargetJobRecommendation } from "@/components/TargetJobRecommendation";
+import { hasTargetJob } from "@/lib/target-job";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Save, Trash2, Calendar, Download, ExternalLink, Check } from "lucide-react";
@@ -25,21 +30,41 @@ export const Route = createFileRoute("/settings")({
 const LEVELS: TechItem["level"][] = ["beginner", "intermediate", "advanced"];
 
 function Settings() {
+  const auth = useAuth();
+  const hydrated = useCloudHydrated(auth?.uid);
+  if (auth && !hydrated)
+    return <p className="p-6">Loading your saved settings...</p>;
+  return <SettingsForm key={auth?.uid ?? "signed-out"} />;
+}
+
+function SettingsForm() {
   const state = useLoop();
   const navigate = useNavigate();
   const profile = state.profile;
 
+  const [job, setJob] = useState({
+    targetJob: profile?.targetJob ?? "",
+    learningStack: profile?.learningStack ?? "",
+  });
+  const [jobError, setJobError] = useState("");
   const [name, setName] = useState(profile?.name ?? "");
   const [goal, setGoal] = useState(profile?.goal ?? "");
   const [goalDetail, setGoalDetail] = useState(profile?.goalDetail ?? "");
-  const [startTime, setStartTime] = useState(profile?.startTime ?? "19:00");
-  const [endTime, setEndTime] = useState(profile?.endTime ?? "20:00");
-  const [repeatDaily, setRepeatDaily] = useState(profile?.repeatDaily ?? true);
+  const [startTime, setStartTime] = useState(profile?.startTime ?? "");
+  const [endTime, setEndTime] = useState(profile?.endTime ?? "");
+  const [repeatDaily, setRepeatDaily] = useState(profile?.repeatDaily ?? false);
   const [tech, setTech] = useState<TechItem[]>(profile?.technologies ?? []);
   const [newTech, setNewTech] = useState("");
   const [saved, setSaved] = useState(false);
 
   function save() {
+    if (job.targetJob && !hasTargetJob(job)) {
+      setJobError(
+        "Enter your target job and the tools you want to learn, or choose exploring.",
+      );
+      return;
+    }
+    setJobError("");
     setLoopState((prev) =>
       prev.profile
         ? {
@@ -47,6 +72,7 @@ function Settings() {
             profile: {
               ...prev.profile,
               name,
+              ...job,
               goal,
               goalDetail,
               startTime,
@@ -79,6 +105,20 @@ function Settings() {
           <section className="card-surface p-6">
             <h3 className="text-sm font-bold">Your profile</h3>
             <div className="mt-4 space-y-4">
+              <TargetJobFields
+                value={job}
+                onChange={(next) =>
+                  setJob({
+                    targetJob: next.targetJob ?? "",
+                    learningStack: next.learningStack ?? "",
+                  })
+                }
+              />
+              {jobError && (
+                <p role="alert" className="text-sm text-destructive">
+                  {jobError}
+                </p>
+              )}
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Name</label>
                 <input value={name} onChange={(e) => setName(e.target.value)} className={field} />
@@ -263,11 +303,16 @@ function Settings() {
               <Save className="h-4 w-4" />
               Save changes
             </button>
-            {saved && <span className="text-xs font-semibold text-accent-foreground">Saved.</span>}
+            {saved && (
+              <span className="text-xs font-semibold text-accent-foreground">
+                Saved. Current plan and history unchanged.
+              </span>
+            )}
           </div>
         </div>
 
         <div className="space-y-6 lg:col-span-5">
+          <TargetJobRecommendation profile={state.profile} />
           <SampleProgressImport />
           <section className="card-surface p-5">
             <h3 className="text-sm font-bold">Your current plan</h3>

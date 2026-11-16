@@ -1,3 +1,4 @@
+import { EXPLORING_JOB, projectStack, targetProject } from "./target-job.ts";
 import { learningSchedule } from "./learning-schedule.ts";
 import { initialCodingTask, codingDiagnosticSummary } from "./initial-coding-diagnostic.ts";
 /**
@@ -28,16 +29,25 @@ export const CURATED_FOLLOW_UPS: { question: string; placeholder: string }[] = [
 export type CuratedProject = { title: string; summary: string; stack: string; why: string };
 
 function profileIsC(profile: Profile): boolean {
-  return profile.technologies.some((t) => /(^|[^a-z])c([^a-z]|$)|c\+\+/i.test(t.name));
+  return /(^|[^a-z])c([^a-z]|$)|c\+\+/i.test(projectStack(profile));
 }
 
 function stackLabel(profile: Profile): string {
-  const names = profile.technologies.map((t) => t.name.trim()).filter(Boolean);
-  return names.join(", ") || "your chosen tools";
+  return projectStack(profile);
 }
 
 /** Beginner-safe starter projects matched to the learner's declared stack. */
 export function curatedProjects(profile: Profile): CuratedProject[] {
+  if (targetProject(profile)) {
+    return [
+      {
+        title: targetProject(profile),
+        summary: `Build a small portfolio example for ${profile.targetJob}, starting with the tools you still need to learn.`,
+        stack: projectStack(profile),
+        why: "Chosen for your target job, not restricted to resume languages. This recommendation is not proof of ability or job readiness.",
+      },
+    ];
+  }
   if (profileIsC(profile)) {
     return [
       {
@@ -172,7 +182,10 @@ function curatedCPlan(profile: Profile): Plan {
 function curatedGenericPlan(profile: Profile): Plan {
   const minutes = dailyMinutes(profile);
   const stack = stackLabel(profile);
-  const idea = profile.projectIdea.trim() || "your first project";
+  const idea =
+    targetProject(profile) ||
+    profile.projectIdea.trim() ||
+    "your first project";
   const titles: [string, string][] = [
     ["Set up and structure", "Create the project folder, set up your tools and write the smallest runnable version."],
     ["Core fundamentals", "Practice the language basics this project needs, in tiny throwaway exercises."],
@@ -229,7 +242,9 @@ function curatedGenericPlan(profile: Profile): Plan {
 }
 
 export function curatedPlan(profile: Profile): Plan {
-  const plan = profileIsC(profile)
+  const plan =
+    profileIsC(profile) &&
+    (!profile.targetJob || profile.targetJob === EXPLORING_JOB)
     ? curatedCPlan(profile)
     : curatedGenericPlan(profile);
   const checks = profile.initialCodingDiagnostic?.submissions ?? [];

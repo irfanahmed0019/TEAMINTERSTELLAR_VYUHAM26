@@ -1,3 +1,5 @@
+import { TargetJobFields } from "@/components/TargetJobFields";
+import { hasTargetJob } from "@/lib/target-job";
 import { diagnosticContinueLabel } from "@/lib/intake-state";
 import { InitialCodingDiagnosticPanel } from "@/components/InitialCodingDiagnosticPanel";
 import { mergeAssessmentEvidence } from "@/lib/assessment-evidence";
@@ -270,6 +272,7 @@ function AccountOnboarding() {
   function startLearning() {
     if (
       stage !== "plan" ||
+      !hasTargetJob(profileRef.current) ||
       !activeMount.current ||
       !auth ||
       !hydrated ||
@@ -292,7 +295,9 @@ function AccountOnboarding() {
       const owner = auth?.uid;
       if (!activeMount.current || !owner || getAuthSession()?.uid !== owner)
         return;
-      const generated = (await aiGeneratePlan({ data: { profile } })) as Plan;
+      const generated = (await aiGeneratePlan({
+        data: { profile: profileRef.current },
+      })) as Plan;
       if (!activeMount.current || getAuthSession()?.uid !== owner) return;
       setPlan(generated);
       // Persist the researched plan right away: topics, missions and progress
@@ -488,6 +493,12 @@ function AccountOnboarding() {
             </span>
           </label>
         )}
+        {(stage === "chat" || stage === "plan") && (
+          <TargetJobFields
+            value={profile}
+            onChange={(next) => saveProfile({ ...profileRef.current, ...next })}
+          />
+        )}
         {stage === "chat" && (
           <ResumeIntake
             onAnalyzed={(text, analysis) =>
@@ -603,9 +614,16 @@ function AccountOnboarding() {
                     );
                   }}
                 />
+                {!hasTargetJob(profile) && (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    Choose your target job and learning tools above, or select
+                    exploring, before building your path.
+                  </p>
+                )}
                 <button
                   type="button"
                   onClick={() => void startLearning()}
+                  disabled={!hasTargetJob(profile)}
                   className="btn-base btn-primary-solid mt-4 w-full"
                 >
                   {diagnosticContinueLabel(profile.initialDiagnostic)}
