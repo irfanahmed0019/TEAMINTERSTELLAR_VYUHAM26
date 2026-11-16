@@ -15,6 +15,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { LoopState } from "./loop-types";
 import {
   getAuthSession,
+  getAuthEpoch,
   loadLoopStateFromCloud,
   saveLoopStateToCloud,
   useAuth,
@@ -57,6 +58,7 @@ export function CloudSync() {
 function AccountCloudSync() {
   const auth = useAuth();
   const uid = auth?.uid;
+  const epoch = getAuthEpoch();
   const state = useLoop();
   const [hydratedUid, setHydratedUid] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
@@ -76,7 +78,7 @@ function AccountCloudSync() {
     setHydrated(null);
     setFailure(null);
     lastSaved.current = "";
-    if (!uid) return;
+    if (!uid || getAuthSession()?.uid !== uid) return;
     // A different account signing in on this browser without signing out must
     // never inherit the previous account's local state as its baseline; that
     // state would otherwise autosave into the new account's cloud row.
@@ -108,7 +110,13 @@ function AccountCloudSync() {
       return;
     // From here the local cache is dedicated to this uid.
     learnerStorage.setItem(LOOP_STATE_UID_KEY, uid);
-    const current = () => !cancelled && getAuthSession()?.uid === uid;
+    const current = () =>
+      !cancelled &&
+      getAuthEpoch() === epoch &&
+      getAuthSession()?.uid === uid &&
+      learnerStorage.getItem(LOOP_STATE_UID_KEY) === uid &&
+      !learnerStorage.getItem(RECOVERY_OWNER_KEY) &&
+      !learnerStorage.getItem(RETAINED_PREFIX + uid);
     void restoreCloudState<LoopState>({
       read: async () => (await loadLoopStateFromCloud(uid)) as LoopState | null,
       current,
@@ -136,19 +144,27 @@ function AccountCloudSync() {
       cancelled = true;
       readyUid.current = null;
     };
-  }, [uid, retry]);
+  }, [uid, epoch, retry]);
 
   useEffect(() => {
     if (!uid || hydratedUid !== uid || readyUid.current !== uid) return;
     const serialized = JSON.stringify(state);
     if (serialized === lastSaved.current) return;
     const timer = window.setTimeout(() => {
-      if (readyUid.current !== uid || getAuthSession()?.uid !== uid) return;
+      if (
+        readyUid.current !== uid ||
+        getAuthEpoch() !== epoch ||
+        getAuthSession()?.uid !== uid ||
+        learnerStorage.getItem(LOOP_STATE_UID_KEY) !== uid ||
+        learnerStorage.getItem(RECOVERY_OWNER_KEY)
+      )
+        return;
       void saveLoopStateToCloud(state, uid)
         .then((saved) => {
           if (
             saved &&
             readyUid.current === uid &&
+            getAuthEpoch() === epoch &&
             getAuthSession()?.uid === uid
           ) {
             lastSaved.current = serialized;
@@ -160,7 +176,7 @@ function AccountCloudSync() {
         );
     }, 700);
     return () => window.clearTimeout(timer);
-  }, [uid, hydratedUid, state]);
+  }, [uid, epoch, hydratedUid, state]);
 
   return failure ? (
     <div

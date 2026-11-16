@@ -1,4 +1,4 @@
-import { isReadyCloudOwner } from "./cloud-readiness";
+import { isReadyCloudOwner, setReadyCloudOwner } from "./cloud-readiness";
 import {
   prepareSafeSignOut,
   RECOVERY_OWNER_KEY,
@@ -37,6 +37,12 @@ const listeners = new Set<() => void>();
 let session: AuthSession | null = null;
 let loaded = false;
 let signingOut = false;
+// UID equality is insufficient across logout/login of the same account.
+let authEpoch = 0;
+let pendingRemoteSignOuts = 0;
+export function getAuthEpoch(): number {
+  return authEpoch;
+}
 
 function load() {
   if (typeof window === "undefined" || loaded) return;
@@ -87,8 +93,9 @@ export async function getAuthSessionForApi(): Promise<AuthSession | null> {
   load();
   if (signingOut) return null;
   if (!supabase) return session;
+  const epoch = authEpoch;
   const { data } = await supabase.auth.getSession();
-  if (signingOut) return null;
+  if (signingOut || epoch !== authEpoch) return null;
   const current = data.session;
   if (!current?.user) return session;
   session = {
@@ -121,8 +128,21 @@ export function hasFirebaseConfig(): boolean {
 
 // Automatically listen to Supabase Auth state changes if configured
 if (supabase) {
-  supabase.auth.onAuthStateChange((_event, supabaseSession) => {
-    if (signingOut) return;
+  supabase.auth.onAuthStateChange((event, supabaseSession) => {
+    // A fresh explicit login may finish during a slow provider logout. Ignore
+    // that older logout's notifications, not the new login. Token refreshes do
+    // not start a new ownership epoch or invalidate their own getSession read.
+    if (signingOut || pendingRemoteSignOuts > 0) {
+      if (event !== "SIGNED_IN" || !supabaseSession?.user) return;
+      signingOut = false;
+    }
+    if (
+      event === "SIGNED_OUT" ||
+      (event === "SIGNED_IN" &&
+        (session?.uid !== supabaseSession?.user.id ||
+          session?.idToken !== supabaseSession?.access_token))
+    )
+      authEpoch++;
     if (supabaseSession?.user) {
       const u = supabaseSession.user;
       session = {
@@ -157,6 +177,7 @@ export async function signInWithGoogle() {
     return await signInWithSupabaseGoogle();
   }
   // Fallback demo local login
+  authEpoch++;
   session = {
     uid: "local-builder",
     email: "builder@buildmylogic.local",
@@ -210,6 +231,8 @@ export async function signInWithGoogleCredential(credential: string) {
 }
 
 export async function signOut() {
+  if (signingOut) return false;
+  const epoch = authEpoch;
   const owner = getAuthSession()?.uid;
   if (
     owner &&
@@ -239,7 +262,8 @@ export async function signOut() {
           "Cloud saving failed. Sign out and permanently discard unsaved local progress? Cancel keeps you signed in so you can retry.",
         ),
     });
-    if (!ok) return false;
+    if (!ok || epoch !== authEpoch || getAuthSession()?.uid !== owner)
+      return false;
   }
   if (owner && window.localStorage.getItem(RETAINED_PREFIX + owner)) {
     window.alert(
@@ -247,8 +271,11 @@ export async function signOut() {
     );
     return false;
   }
+  let logoutEpoch = authEpoch;
   await signOutInOrder({
     revoke: () => {
+      logoutEpoch = ++authEpoch;
+      setReadyCloudOwner(null);
       signingOut = true;
       loaded = true;
       session = null;
@@ -260,12 +287,16 @@ export async function signOut() {
       window.localStorage.removeItem(RECOVERY_OWNER_KEY);
     },
     remote: async () => {
+      pendingRemoteSignOuts++;
       try {
         if (supabase) await supabase.auth.signOut({ scope: "local" });
       } finally {
-        session = null;
-        persist();
-        signingOut = false;
+        pendingRemoteSignOuts--;
+        if (authEpoch === logoutEpoch) {
+          session = null;
+          signingOut = false;
+          persist();
+        }
       }
     },
   });
@@ -274,16 +305,23 @@ export async function signOut() {
 
 /** Recovery navigation revokes auth but deliberately does not clear the blocked local copy. */
 export async function switchRecoveryAccount() {
+  if (signingOut) return;
+  const logoutEpoch = ++authEpoch;
+  setReadyCloudOwner(null);
   signingOut = true;
   loaded = true;
   session = null;
   persist();
+  pendingRemoteSignOuts++;
   try {
     if (supabase) await supabase.auth.signOut({ scope: "local" });
   } finally {
-    session = null;
-    persist();
-    signingOut = false;
+    pendingRemoteSignOuts--;
+    if (authEpoch === logoutEpoch) {
+      session = null;
+      signingOut = false;
+      persist();
+    }
   }
 }
 

@@ -257,3 +257,53 @@ runner reliability, or the root cause of the earlier transient 502 responses.
 No paid AI calls were repeated. The newly shortened real-model calibration and
 its generated content remain untested against a fresh provider call. Local
 component fixtures verify the new two-question and automatic-support behavior.
+
+### Actual signed-in camera-free YouTube and checkpoint cloud read
+
+At `12e544a`, the isolated synthetic learner used normal Learn UI to open the
+Python conditions video `FvMPfrgGeKs`, selecting "Learn without camera".
+Normal real-time playback, without seeking or fixture state, paused at the first
+120-second section. The caption-based question asked how code under `if` should
+be written. Selecting "Indented" saved completed section `[1]`, one correct
+`self_reported` result and the real QA owner ID. Watching was not promoted to
+practical coding mastery. Actual screenshots show the player and question.
+
+A normal Stop, Dashboard, logout and relogin then revealed a same-tab recovery
+problem: UI showed "Protect local progress" with `loop.recovery.owner=unbound`
+although `loop.state.uid` and auth matched the same QA owner. No recovery copy
+was cleared, discarded or reset. Cause not established at this entry.
+
+A separate read-only browser session, loaded from the existing saved QA profile,
+read the real cloud learner row (HTTP 200), restored completed `[1]` and the
+correct self-reported result, with matching owner and no recovery flag. Normal
+Learn UI then displayed "1 of 5 sections completed". This proves actual
+checkpoint cloud persistence and fresh-profile restoration while preserving the
+same-tab recovery defect as a separate unresolved blocker. Both playback and
+fresh restore are real, not mocked; physical camera absence remains unverified.
+
+### Logout/restore boundary hardening (not a claimed live-gate root cause)
+
+Deterministic tests execute the actual auth module with deferred provider
+promises. At the prior version, three schedules failed: an old `getSession`
+resolved after completed logout and resurrected auth; an old same-UID read
+replaced a newer login token; a new login during remote logout was lost. The
+patched auth module passes these schedules plus normal refresh and duplicate
+active-sign-in controls. Ownership epochs now invalidate old reads, while remote
+logout completion cannot wipe a newer accepted login.
+
+The actual CloudSync component is also executed with controlled effect and read
+boundaries. Four prior failures are blocked: same-UID ownership-epoch change,
+recovery appearing during the read, removal of the cache owner during the read,
+and a stale rendered UID running after immediate auth revocation. Ordinary
+same-owner restoration still applies. Epoch/owner/pending guards also protect
+scheduled autosave dispatch. Both new suites are part of `npm test` (355 passing
+checks), with typecheck/build passing and no changed-file lint errors.
+
+A real-component local browser harness with mocked Supabase auth/cloud returns
+7/7 controls, including normal logout/relogin, a delayed refresh, markerless
+unknown-owner recovery, and the deliberately seeded matching-marker/unbound
+state staying blocked. These are local mocked controls, not production evidence.
+The actual QA gate's creation sequence remains unresolved. Read-only probe
+history contains no localStorage writes. Normal production logout had visibly
+returned to the home sign-in page. No recovery guard has been relaxed, no pending
+flag auto-cleared, and no protected local copy exported or discarded.
