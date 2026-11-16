@@ -100,3 +100,23 @@ test("role prompt describes future tools and separates unverified claims", () =>
   assert.match(ai, /return projectStack\(profile\)/);
   assert.match(ai, /targetProject\(profile\) \|\| profile.projectIdea/);
 });
+
+test("Python Developer is an explicit career with Python project and future learning tools", () => {
+  const profile = {
+    ...legacy,
+    targetJob: "Python Developer",
+    learningStack: "Python, SQLite, pytest",
+  };
+  const before = JSON.stringify(profile);
+  assert.equal(hasTargetJob(profile), true);
+  assert.equal(targetProject(profile), "Python Expense Tracker");
+  assert.equal(curatedProjects(profile)[0].stack, "Python, SQLite, pytest");
+  assert.equal(curatedPlan(profile).projectTitle, "Python Expense Tracker");
+  assert.ok(
+    curatedPlan(profile).missions.every(
+      (m) => m.stack === "Python, SQLite, pytest",
+    ),
+  );
+  assert.equal(JSON.stringify(profile), before);
+  assert.equal(profile.technologies[0].name, "C");
+});

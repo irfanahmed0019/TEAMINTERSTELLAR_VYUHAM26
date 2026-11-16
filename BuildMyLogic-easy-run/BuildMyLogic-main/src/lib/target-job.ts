@@ -2,6 +2,11 @@ import type { Profile } from "./loop-types";
 
 export const jobChoices = [
   {
+    role: "Python Developer",
+    stack: "Python, SQLite, pytest",
+    project: "Python Expense Tracker",
+  },
+  {
     role: "Frontend developer",
     stack: "HTML, CSS, JavaScript",
     project: "Accessible Job Application Tracker",
