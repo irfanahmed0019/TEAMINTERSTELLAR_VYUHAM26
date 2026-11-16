@@ -475,6 +475,9 @@ try {
         assert.equal(change.status, 200);
         assert.equal(change.body.state.task_generation, 1);
         assert.equal(change.body.state.attempts, 0);
+        assert.equal(change.body.state.test_score, undefined);
+        assert.equal(change.body.state.latest_mentor_feedback, undefined);
+        assert.equal(change.body.state.recovery, undefined);
         assert.equal(change.body.state.practice_history.length, 1);
         const archivedResponse = await router.fetch(
           new Request(
@@ -553,6 +556,10 @@ try {
           {},
         );
         const newer = await restored.json();
+        assert.equal(newer.state.test_score, undefined);
+        assert.equal(newer.state.latest_mentor_feedback, undefined);
+        assert.equal(newer.state.recovery, undefined);
+        assert.equal(newer.state.attempts, 0);
         assert.equal(newer.state.task_generation, 1);
         assert.equal(newer.state.challenge_id, "python-functions-double-v1");
         const switchedFile = join(dir, "k.py");
@@ -673,6 +680,95 @@ try {
       rmSync(dir, { recursive: true, force: true });
     }
   }
+
+  // Same-topic rotation is chosen by the owner against the current saved generation.
+  const variety = await call(
+    "/api/sessions/start",
+    { user_id: owner, practice_task: "python-conditions-sign-v1" },
+    "owner",
+  );
+  const vid = variety.body.session_id,
+    vp = "/api/sessions/" + vid + "/practice-task";
+  let current = variety.body.state;
+  const seen = [current.challenge_id];
+  const varietyStates = [structuredClone(current)];
+  for (let n = 0; n < 3; n++) {
+    const before = current;
+    const changed = await call(
+      vp,
+      {
+        practice_task: before.challenge_id,
+        practice_topic: "conditions",
+        replace_task: true,
+        previous_challenge: before.challenge_id,
+        task_generation: before.task_generation ?? 0,
+      },
+      "owner",
+    );
+    assert.equal(changed.status, 200);
+    current = changed.body.state;
+    varietyStates.push(structuredClone(current));
+    assert.notEqual(current.challenge_id, before.challenge_id);
+    if (n < 2) assert.ok(!seen.includes(current.challenge_id));
+    else assert.equal(current.challenge_id, seen[0]);
+    seen.push(current.challenge_id);
+    assert.equal(current.task_generation, n + 1);
+    assert.equal(current.attempts, 0);
+    assert.equal(current.practice_history.length, n + 1);
+    assert.equal(current.test_score, undefined);
+    assert.equal(current.latest_mentor_feedback, undefined);
+    assert.equal(current.recovery, undefined);
+    assert.equal(current.practice_history[n].challenge_id, before.challenge_id);
+    const old = await call(
+      vp,
+      {
+        practice_topic: "conditions",
+        replace_task: true,
+        previous_challenge: before.challenge_id,
+        task_generation: before.task_generation ?? 0,
+      },
+      "owner",
+    );
+    assert.equal(old.status, 409);
+  }
+  assert.equal(
+    (
+      await call(
+        vp,
+        {
+          practice_topic: "conditions",
+          replace_task: true,
+          previous_challenge: current.challenge_id,
+          task_generation: 3,
+        },
+        "other",
+      )
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await call(
+        vp,
+        {
+          practice_topic: "arbitrary",
+          replace_task: true,
+          previous_challenge: current.challenge_id,
+          task_generation: 3,
+        },
+        "owner",
+      )
+    ).status,
+    400,
+  );
+  if (process.env.BML_VARIETY_STATES)
+    writeFileSync(
+      process.env.BML_VARIETY_STATES,
+      JSON.stringify(varietyStates),
+    );
+  console.log(
+    "PASS actualrouter same-topic sign->vote->pass->sign, no immediate repeat, owner/gen/history intact, stale409/wrongowner403/unsupported400.",
+  );
 
   assert.equal((await call(create, { connection_token: token })).status, 401);
   assert.equal(

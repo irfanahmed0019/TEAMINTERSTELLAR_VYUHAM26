@@ -1,6 +1,9 @@
 import type { LoopState } from "./loop-types";
 /** Exact concept identifiers only. Neither time alone nor a substring can downgrade another topic. */
-export function priorityLearningTopics(state: LoopState): Map<string, string> {
+export function priorityLearningTopics(
+  state: LoopState,
+  options: { gradedOnly?: boolean } = {},
+): Map<string, string> {
   const result = new Map<string, string>();
   if (state.sampleProvenance) return result;
   for (const m of state.struggle?.misconceptions ?? []) {
@@ -14,7 +17,7 @@ export function priorityLearningTopics(state: LoopState): Map<string, string> {
       );
   }
   const support = state.profile?.initialCodingDiagnostic?.scaffolds?.at(-1);
-  if (support && !result.has(support.topicId))
+  if (!options.gradedOnly && support && !result.has(support.topicId))
     result.set(
       support.topicId,
       "A simpler question was offered after the authored time benchmark. Practice support, not a proven weakness.",

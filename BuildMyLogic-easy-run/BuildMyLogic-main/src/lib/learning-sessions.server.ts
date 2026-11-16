@@ -1,4 +1,8 @@
-import { PRACTICE_TASKS, practiceTaskBody } from "./practice-task.ts";
+import {
+  PRACTICE_TASKS,
+  practiceTaskBody,
+  nextPracticeTaskId,
+} from "./practice-task.ts";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { ConquestReceipt } from "./shared-conquest";
 import { isSampleAccount } from "./sample-account.ts";
@@ -1503,9 +1507,19 @@ export async function assignPracticeTask(
   session: LearningSession,
   value: unknown,
   replace?: { challenge: unknown; generation: unknown },
+  topic?: unknown,
 ) {
   await refreshConquestReceipts(session);
-  const task = practiceTaskBody(value);
+  const selected =
+    topic === undefined
+      ? value
+      : typeof topic === "string"
+        ? nextPracticeTaskId(topic, [
+            ...(session.practiceHistory ?? []).map((h) => h.challenge_id),
+            session.challengeId,
+          ])
+        : null;
+  const task = practiceTaskBody(selected);
   if (!task) throw new Error("This practice task is not supported.");
   const changing = Boolean(replace && practiceTaskBody(session.challengeId));
   if (
@@ -1653,6 +1667,9 @@ export async function assignPracticeTask(
       ),
       { statusCode: 503 },
     );
+  // Object.assign does not remove absent optional fields from the old generation.
+  for (const key of Object.keys(session) as Array<keyof LearningSession>)
+    if (!Object.prototype.hasOwnProperty.call(next, key)) delete session[key];
   Object.assign(session, next);
 
   return stateOf(session);
@@ -2048,6 +2065,9 @@ function adoptAssignedPractice(
         (saved.rev ?? 0) > (session.rev ?? 0)))
   ) {
     const localToken = session.connectionToken;
+    for (const key of Object.keys(session) as Array<keyof LearningSession>)
+      if (!Object.prototype.hasOwnProperty.call(saved, key))
+        delete session[key];
     Object.assign(session, saved);
     if (localToken) session.connectionToken = localToken;
   }

@@ -4,9 +4,10 @@ import {
   PRACTICE_TASKS,
   practiceTaskBody,
   suggestedPracticeId,
+  nextPracticeTaskId,
 } from "./practice-task.ts";
 test("four finite tasks keep short simple questions, owner-independent catalog and exact evaluator constants", () => {
-  assert.equal(PRACTICE_TASKS.length, 4);
+  assert.equal(PRACTICE_TASKS.length, 12);
   for (const t of PRACTICE_TASKS) {
     const body = practiceTaskBody(t.id);
     assert.equal(body.language, "Python");
@@ -40,4 +41,18 @@ test("stated weakness guides a suggestion only within authored topics", () => {
   ])
     assert.equal(suggestedPracticeId(text), id);
   assert.equal(suggestedPracticeId("I use Rust and need a database"), null);
+});
+
+test("same-topic next question avoids repeats until all variants tried, then least recent returns", () => {
+  for (const concept of ["loops", "conditions", "functions", "strings"]) {
+    const seen = [];
+    for (let n = 0; n < 3; n++) {
+      const id = nextPracticeTaskId(concept, seen);
+      assert.ok(id);
+      assert.ok(!seen.includes(id));
+      seen.push(id);
+    }
+    assert.equal(nextPracticeTaskId(concept, seen), seen[0]);
+  }
+  assert.equal(nextPracticeTaskId("unknown", []), null);
 });

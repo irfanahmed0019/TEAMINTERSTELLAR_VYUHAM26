@@ -96,6 +96,13 @@ function Learn() {
   }, [state.plan, missions]);
 
   const priorities = useMemo(() => priorityLearningTopics(state), [state]);
+  const gradedPriorities = useMemo(
+    () => priorityLearningTopics(state, { gradedOnly: true }),
+    [state],
+  );
+  const focusTopics = STUDY_TOPICS.filter((topic) =>
+    gradedPriorities.has(topic.id),
+  );
   const { syllabusTopics, otherTopics } = useMemo(() => {
     const inSyllabus = STUDY_TOPICS.filter(
       (t) => topicMatchesSkills(t, allSkills) || priorities.has(t.id),
@@ -533,6 +540,60 @@ function Learn() {
 
           {tab === "topics" && (
             <>
+              {focusTopics.length > 0 && (
+                <section
+                  className="card-surface mb-4 border-primary/30 p-5 sm:p-6"
+                  aria-label="Recommended topic lessons"
+                >
+                  <h2 className="display text-[19px] font-extrabold">
+                    Focus on these topics
+                  </h2>
+                  <p className="mt-1 text-[13px] text-muted-foreground">
+                    Recorded checks suggest reviewing these topics. Your other
+                    progress is kept; this is not a mastery score.
+                  </p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {focusTopics.map((topic) => {
+                      const video = topic.videos[lang][0];
+                      return (
+                        <article
+                          key={topic.id}
+                          className="rounded-2xl border border-primary/20 p-4"
+                        >
+                          <h3 className="font-bold">{topic.title}</h3>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {gradedPriorities.get(topic.id)}
+                          </p>
+                          <button
+                            type="button"
+                            className="btn-base btn-primary-solid mt-3 text-xs"
+                            onClick={() => {
+                              setActiveTopicId(topic.id);
+                              setVideoIndex(0);
+                            }}
+                          >
+                            Open {topic.title} lesson
+                          </button>
+                          {video && (
+                            <a
+                              href={`https://www.youtube.com/watch?v=${video.id}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-3 block text-sm font-semibold text-primary"
+                            >
+                              YouTube class: {video.title} - {video.channel}
+                            </a>
+                          )}
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {lang === "python" ? "Python" : "C"} notes +
+                            matching video. Try a fresh check after studying.
+                          </p>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
               <section className="card-surface p-5 sm:p-6">
                 <h2 className="display text-[19px] font-extrabold tracking-[-0.02em]">
                   Study topics for {current.title}
@@ -556,7 +617,9 @@ function Learn() {
                         <span className="text-xl">{topic.emoji}</span>
                         <span className="pill bg-primary-soft text-[10px] font-bold text-accent-foreground">
                           {priorities.has(topic.id)
-                            ? "Priority: recent difficulty"
+                            ? gradedPriorities.has(topic.id)
+                              ? "Review: recorded checks"
+                              : "Optional practice support"
                             : "In your syllabus"}
                         </span>
                       </span>

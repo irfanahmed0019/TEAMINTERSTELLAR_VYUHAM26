@@ -13,7 +13,11 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import ts from "typescript";
-import { PRACTICE_TASKS, practiceTaskBody } from "./practice-task.ts";
+import {
+  PRACTICE_TASKS,
+  practiceTaskBody,
+  nextPracticeTaskId,
+} from "./practice-task.ts";
 // Transpile the actual server module, replacing only unrelated sample/paid-AI imports.
 // Any network call is disallowed in these tests. No live learner/account data is used.
 const source = readFileSync(
@@ -30,11 +34,13 @@ const source = readFileSync(
   );
 const js = ts.transpileModule(
   source.replace(
-    'import { PRACTICE_TASKS, practiceTaskBody } from "./practice-task.ts";',
+    /import\s*\{[^}]*PRACTICE_TASKS[^}]*\}\s*from\s*"\.\/practice-task\.ts";/,
     "const PRACTICE_TASKS=" +
       JSON.stringify(PRACTICE_TASKS) +
       "; const practiceTaskBody=" +
       practiceTaskBody.toString() +
+      "; const nextPracticeTaskId=" +
+      nextPracticeTaskId.toString() +
       ";",
   ),
   {

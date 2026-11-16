@@ -13,6 +13,14 @@ TASKS = {
     'python-conditions-sign-v1': [('-3', 'negative'), ('0', 'zero'), ('7', 'positive')],
     'python-functions-double-v1': [('-2', '-4'), ('0', '0'), ('9', '18')],
     'python-strings-vowels-v1': [('sky', '0'), ('hello', '2'), ('aeiou', '5')],
+    'python-loops-triangular-v1': [('0', '0'), ('1', '1'), ('4', '10'), ('7', '28')],
+    'python-loops-multiples3-v1': [('0', '0'), ('2', '0'), ('3', '1'), ('10', '3')],
+    'python-conditions-vote-v1': [('0', 'underage'), ('17', 'underage'), ('18', 'eligible'), ('70', 'eligible')],
+    'python-conditions-pass-v1': [('0', 'retry'), ('49', 'retry'), ('50', 'pass'), ('100', 'pass')],
+    'python-functions-square-v1': [('-3', '9'), ('0', '0'), ('2', '4'), ('5', '25')],
+    'python-functions-negate-v1': [('-4', '4'), ('0', '0'), ('3', '-3'), ('9', '-9')],
+    'python-strings-uppercase-v1': [('AbC', '2'), ('abc', '0'), ('', '0'), ('A1 Z', '2')],
+    'python-strings-consonants-v1': [('sky', '3'), ('hello', '3'), ('aeiou', '0'), ('', '0')],
 }
 
 
@@ -33,17 +41,18 @@ def main():
         print('Fix the Python syntax: ' + str(error))
         return 1
     nodes = list(ast.walk(tree))
-    if task in ('python-loops-fibonacci-v1', 'python-strings-vowels-v1'):
+    if task.startswith(('python-loops-', 'python-strings-')):
         valid = any(isinstance(node, (ast.For, ast.While)) for node in nodes)
         requirement = 'Use a for or while loop in your Python file.'
-    elif task == 'python-conditions-sign-v1':
+    elif task.startswith('python-conditions-'):
         valid = any(isinstance(node, ast.If) for node in nodes)
         requirement = 'Use if/else in your Python file.'
     else:
-        defined = any(isinstance(node, ast.FunctionDef) and node.name == 'double' for node in nodes)
-        called = any(isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'double' for node in nodes)
+        function = {'python-functions-double-v1': 'double', 'python-functions-square-v1': 'square', 'python-functions-negate-v1': 'negate'}[task]
+        defined = any(isinstance(node, ast.FunctionDef) and node.name == function for node in nodes)
+        called = any(isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == function for node in nodes)
         valid = defined and called
-        requirement = 'Define double(n) and call double in your Python file.'
+        requirement = 'Define ' + function + '(n) and call ' + function + ' in your Python file.'
     if not valid:
         print(requirement)
         return 1

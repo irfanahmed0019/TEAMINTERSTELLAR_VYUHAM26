@@ -2,7 +2,6 @@ import { isReadyCloudOwner } from "@/lib/cloud-readiness";
 import { PRACTICE_TASKS } from "@/lib/practice-task";
 import { getAuthSession, getAuthSessionForApi } from "@/lib/auth";
 import { learningSchedule } from "@/lib/learning-schedule";
-import { CompetencySummary } from "@/components/CompetencySummary";
 import { competencyPlan, competencyView } from "@/lib/competency";
 import { learnerStorage, isPublicDemo } from "@/lib/demo-mode";
 /**
@@ -190,7 +189,6 @@ function Dashboard() {
       quote={plan?.quote ?? "Small steps every day build big skills."}
       wide
     >
-      <CompetencySummary />
       {/* Schedule & Google Calendar Modal */}
       <ScheduleModal
         isOpen={scheduleModalOpen}

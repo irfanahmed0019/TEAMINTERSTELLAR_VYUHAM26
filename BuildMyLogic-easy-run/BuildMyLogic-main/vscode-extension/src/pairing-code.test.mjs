@@ -557,6 +557,7 @@ test("loop practice requires explicit local-code consent before evaluator runs; 
   f.sidebar.connection = { sessionId: "BML-ABCDE" };
   f.sidebar.session = {
     session_id: "BML-ABCDE",
+    challenge_id: "python-loops-fibonacci-v1",
     checkpoints: [
       {
         index: 0,
@@ -597,6 +598,7 @@ test("unknown internal practice command is blocked, never executed and never emi
   f.sidebar.connection = { sessionId: "BML-ABCDE" };
   f.sidebar.session = {
     session_id: "BML-ABCDE",
+    challenge_id: "python-loops-fibonacci-v1",
     checkpoints: [
       {
         index: 0,
@@ -678,6 +680,7 @@ test("active-file consent rejects changed document, failed save, and uses quoted
   f.sidebar.connection = { sessionId: "BML-ABCDE" };
   f.sidebar.session = {
     session_id: "BML-ABCDE",
+    challenge_id: "python-loops-fibonacci-v1",
     checkpoints: [
       {
         index: 0,
@@ -876,4 +879,68 @@ test("oversized/blank session chat never calls API", async () => {
   for (const message of [" ", "x".repeat(1001)])
     await f.sidebar.handle({ command: "mentorChat", message });
   assert.equal(f.posts.filter((p) => p.type === "mentorError").length, 2);
+});
+test("all twelve practice tasks consent to the bound ID and actual inputs; mismatch blocks before consent/command", async () => {
+  const ids = [
+    "python-loops-fibonacci-v1",
+    "python-conditions-sign-v1",
+    "python-functions-double-v1",
+    "python-strings-vowels-v1",
+    "python-loops-triangular-v1",
+    "python-loops-multiples3-v1",
+    "python-conditions-vote-v1",
+    "python-conditions-pass-v1",
+    "python-functions-square-v1",
+    "python-functions-negate-v1",
+    "python-strings-uppercase-v1",
+    "python-strings-consonants-v1",
+  ];
+  for (const id of ids) {
+    const f = await sidebarFixture();
+    f.sidebar.connection = { sessionId: "BML-BOUND" };
+    f.sidebar.session = {
+      session_id: "BML-BOUND",
+      challenge_id: id,
+      checkpoints: [
+        {
+          index: 0,
+          status: "active",
+          title: id,
+          detail: "",
+          evaluator: {
+            id,
+            command: "buildmylogic:" + id,
+            expectedOutputIncludes: ["BML_PRACTICE_PASS:" + id],
+          },
+        },
+      ],
+    };
+    f.context.asAbsolutePath = (p) => "/extension/" + p;
+    let consent = "",
+      runs = 0;
+    f.vscode.window.showWarningMessage = async (text) => {
+      consent = text;
+      return "Run my Python code";
+    };
+    f.sidebar.runCommand = async () => {
+      runs++;
+      return { code: 3, passed: false, output: "missing" };
+    };
+    await f.sidebar.runNextCheckpoint("/outside", "");
+    assert.equal(runs, 1);
+    assert.ok(consent.includes(id));
+    assert.ok(!consent.includes("Fibonacci tests supply"));
+    if (id.includes("uppercase") || id.includes("consonants"))
+      assert.ok(consent.includes("empty line"));
+    if (id.includes("vote")) assert.ok(consent.includes("0, 17, 18, 70"));
+    f.sidebar.session.challenge_id =
+      "python-conditions-sign-v1" === id
+        ? "python-functions-double-v1"
+        : "python-conditions-sign-v1";
+    consent = "";
+    await f.sidebar.runNextCheckpoint("/outside", "");
+    assert.equal(runs, 1);
+    assert.equal(consent, "");
+    assert.match(f.posts.at(-1).text, /do not match/);
+  }
 });

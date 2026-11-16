@@ -451,7 +451,10 @@ function Sessions() {
       setAttachBusy(false);
     }
   }
-  async function createVscodeSession(practiceTask?: string) {
+  async function createVscodeSession(
+    practiceTask?: string,
+    practiceTopic?: string,
+  ) {
     const epoch = getAuthEpoch();
     if (!activeMission) throw new Error("No active mission is selected.");
     const auth = await getAuthSessionForApi();
@@ -482,6 +485,7 @@ function Sessions() {
         headers,
         body: JSON.stringify({
           ...(practiceTask ? { practice_task: practiceTask } : {}),
+          ...(practiceTopic ? { practice_topic: practiceTopic } : {}),
           ...(existingPending &&
           remoteState?.challenge_id !== "project-context-pending"
             ? {
@@ -1359,7 +1363,7 @@ function Sessions() {
                 <option value="">Choose a topic</option>
                 {PRACTICE_TASKS.map((task) => (
                   <option key={task.id} value={task.id}>
-                    {task.title}
+                    {task.concept}: {task.title}
                   </option>
                 ))}
               </select>
@@ -1394,7 +1398,7 @@ function Sessions() {
                     (t) => t.id === remoteState?.challenge_id,
                   ) &&
                   !window.confirm(
-                    "Change to this question? Earlier attempts will stay in task history. Requires extension v0.3.15.",
+                    "Change to this question? Earlier attempts will stay in task history. Requires extension v0.3.19.",
                   )
                 )
                   return;
@@ -1414,7 +1418,7 @@ function Sessions() {
                         PRACTICE_TASKS.some(
                           (t) => t.id === remoteState?.challenge_id,
                         ))
-                      ? "Task sent to this session. In VS Code, open your Python file. Changing questions needs v0.3.15."
+                      ? "Task sent to this session. In VS Code, open your Python file. Changing questions needs v0.3.19."
                       : "Practice selected. Create a pairing code, then open your Python file in VS Code.",
                   );
                 } catch (e) {
@@ -1431,6 +1435,67 @@ function Sessions() {
             >
               {practiceBusy ? "Selecting task..." : "Use this Python task"}
             </button>
+            {PRACTICE_TASKS.some((t) => t.id === remoteState?.challenge_id) && (
+              <div className="mb-3 text-xs">
+                <p className="mb-2 font-bold">
+                  Current question:{" "}
+                  {
+                    PRACTICE_TASKS.find(
+                      (t) => t.id === remoteState?.challenge_id,
+                    )?.title
+                  }
+                </p>
+                <p className="mb-3 whitespace-pre-line">
+                  {
+                    PRACTICE_TASKS.find(
+                      (t) => t.id === remoteState?.challenge_id,
+                    )?.question
+                  }
+                </p>
+                <button
+                  type="button"
+                  className="btn-base btn-outline w-full"
+                  disabled={practiceBusy || pairingBusy}
+                  onClick={async () => {
+                    if (practiceStarting.current || !remoteState) return;
+                    if (
+                      !window.confirm(
+                        "Choose a different question on this topic? Earlier attempts stay saved. Requires extension v0.3.19.",
+                      )
+                    )
+                      return;
+                    practiceStarting.current = true;
+                    setPracticeBusy(true);
+                    setPickerError("");
+                    try {
+                      await createVscodeSession(
+                        remoteState.challenge_id,
+                        remoteState.concept,
+                      );
+                      setPracticeNotice(
+                        "Different question sent. Earlier attempts stay in history. Use extension v0.3.19.",
+                      );
+                    } catch (e) {
+                      setPickerError(
+                        e instanceof Error
+                          ? e.message
+                          : "Could not change question.",
+                      );
+                    } finally {
+                      practiceStarting.current = false;
+                      setPracticeBusy(false);
+                    }
+                  }}
+                >
+                  Next different {remoteState?.concept} question
+                </button>
+                <p className="mt-2">
+                  Three authored questions per topic. After all three, the least
+                  recently used question returns. Finite practice, not a general
+                  skill test.
+                </p>
+              </div>
+            )}
             {Boolean(remoteState?.practice_history?.length) && (
               <details className="mb-3 text-xs">
                 <summary>
@@ -1476,8 +1541,8 @@ function Sessions() {
             )}
             <p className="mb-3 text-xs text-muted-foreground">
               Standalone practice, not a test of your project. Choose a topic
-              you want help with. Requires Python. Loops works with v0.3.13; the
-              other tasks need v0.3.14.
+              you want help with. Requires Python. All 12 questions and correct
+              run disclosures need extension v0.3.19.
             </p>
             <button
               type="button"

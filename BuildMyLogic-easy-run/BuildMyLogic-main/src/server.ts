@@ -878,6 +878,7 @@ async function handleBuildMyLogicApi(
                   generation: body["task_generation"],
                 }
               : undefined,
+            body["practice_topic"],
           ),
         });
       }

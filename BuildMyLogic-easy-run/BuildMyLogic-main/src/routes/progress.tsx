@@ -1,9 +1,28 @@
+import { progressEvidenceSummary } from "@/lib/progress-evidence";
 import { CompetencySummary } from "@/components/CompetencySummary";
 import { competencyPlan, competencyView } from "@/lib/competency";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { BarChart3, Check, Code2, Flame, Layers, Lock, Target, TrendingDown, TrendingUp, Trophy, X } from "lucide-react";
+import {
+  BarChart3,
+  Check,
+  Code2,
+  Flame,
+  Layers,
+  Lock,
+  Target,
+  TrendingDown,
+  TrendingUp,
+  Trophy,
+  X,
+} from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
-import { PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer } from "recharts";
+import {
+  PolarAngleAxis,
+  PolarGrid,
+  Radar,
+  RadarChart,
+  ResponsiveContainer,
+} from "recharts";
 import { AppShell } from "@/components/AppShell";
 import { StruggleDNA } from "@/components/struggle/StruggleDNA";
 import { useLoop } from "@/lib/loop-store";
@@ -37,41 +56,121 @@ function computeStreak(sessions: { at: number }[]) {
 
 const COMPETENCY_AXES: { axis: string; keywords: string[] }[] = [
   { axis: "Problem Solving", keywords: ["problem", "logic", "algorithm"] },
-  { axis: "Coding", keywords: ["python", "javascript", "typescript", "java", "c", "coding", "programming", "react", "html", "css"] },
-  { axis: "Data Handling", keywords: ["data", "input", "output", "file", "pandas", "variable", "sql"] },
-  { axis: "Project Building", keywords: ["project", "build", "deploy", "api", "app"] },
-  { axis: "Concepts", keywords: ["concept", "function", "oop", "control", "loop", "condition", "array", "string"] },
+  {
+    axis: "Coding",
+    keywords: [
+      "python",
+      "javascript",
+      "typescript",
+      "java",
+      "c",
+      "coding",
+      "programming",
+      "react",
+      "html",
+      "css",
+    ],
+  },
+  {
+    axis: "Data Handling",
+    keywords: ["data", "input", "output", "file", "pandas", "variable", "sql"],
+  },
+  {
+    axis: "Project Building",
+    keywords: ["project", "build", "deploy", "api", "app"],
+  },
+  {
+    axis: "Concepts",
+    keywords: [
+      "concept",
+      "function",
+      "oop",
+      "control",
+      "loop",
+      "loops",
+      "condition",
+      "conditions",
+      "function",
+      "functions",
+      "array",
+      "string",
+      "strings",
+    ],
+  },
   { axis: "Debugging", keywords: ["debug", "error", "test", "fix"] },
 ];
 
 function Progress() {
   const state = useLoop();
   const sample = !!state.sampleProvenance;
-  const [tab, setTab] = useState<"Overview" | "Skills" | "Missions" | "Struggle DNA" | "Activity">(typeof window!=='undefined'&&new URLSearchParams(window.location.search).get('view')==='struggle'?"Struggle DNA":"Overview");
+  const [tab, setTab] = useState<
+    "Overview" | "Skills" | "Missions" | "Struggle DNA" | "Activity"
+  >(
+    typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("view") === "struggle"
+      ? "Struggle DNA"
+      : "Overview",
+  );
   const [selectedMission, setSelectedMission] = useState<string | null>(null);
   const plan = competencyPlan(state);
   const missions = plan?.missions ?? [];
-  const skills = plan?.skills ?? [];
-  const completedMissions = missions.filter((m) => state.missionProgress[m.id]?.status === "done");
-  const activeMission = missions.find((m) => state.missionProgress[m.id]?.status === "active") ?? missions[0];
-  const nextMission = activeMission ? missions[missions.findIndex((m) => m.id === activeMission.id) + 1] : undefined;
-  const averageSkill = skills.length ? Math.round(skills.reduce((sum, s) => sum + s.level, 0) / skills.length) : 0;
+  const evidence = progressEvidenceSummary(state);
+  const assessedSkills = evidence.assessed.map((c) => ({
+    name: c.skill,
+    level: c.estimate!,
+    note: c.reason,
+  }));
+  const skills = [
+    ...assessedSkills,
+    ...(plan?.skills ?? []).filter(
+      (s) =>
+        !assessedSkills.some(
+          (a) => a.name.toLowerCase() === s.name.toLowerCase(),
+        ),
+    ),
+  ];
+  const completedMissions = missions.filter(
+    (m) => state.missionProgress[m.id]?.status === "done",
+  );
+  const activeMission =
+    missions.find((m) => state.missionProgress[m.id]?.status === "active") ??
+    missions[0];
+  const nextMission = activeMission
+    ? missions[missions.findIndex((m) => m.id === activeMission.id) + 1]
+    : undefined;
+  const averageSkill = evidence.average;
   const streakDays = computeStreak(state.sessions);
   const selected = missions.find((m) => m.id === selectedMission);
-  const selectedSessions = selected ? state.sessions.filter((s) => s.missionTitle === selected.title).slice(0, 8) : [];
+  const selectedSessions = selected
+    ? state.sessions
+        .filter((s) => s.missionTitle === selected.title)
+        .slice(0, 8)
+    : [];
 
   const competency = useMemo(() => {
-    const entries: [string, number][] = [
-      ...skills.map((s): [string, number] => [s.name, s.level]),
-      ...competencyView(state).filter(c => c.estimate !== null).map((c): [string, number] => [c.skill, c.estimate!]),
-    ];
+    const entries: [string, number][] = evidence.assessed.map((c) => [
+      c.skill,
+      c.estimate!,
+    ]);
     return COMPETENCY_AXES.map(({ axis, keywords }) => {
       const matches = entries
-        .filter(([name]) => keywords.some((k) => name.toLowerCase().split(/[^a-z0-9]+/).includes(k)))
+        .filter(([name]) =>
+          keywords.some((k) =>
+            name
+              .toLowerCase()
+              .split(/[^a-z0-9]+/)
+              .includes(k),
+          ),
+        )
         .map(([, level]) => level);
-      return { axis, value: matches.length ? Math.round(matches.reduce((a, b) => a + b, 0) / matches.length) : 0 };
+      return {
+        axis,
+        value: matches.length
+          ? Math.round(matches.reduce((a, b) => a + b, 0) / matches.length)
+          : 0,
+      };
     });
-  }, [skills, state]);
+  }, [evidence.assessed]);
   const hasCompetency = competency.some((c) => c.value > 0);
 
   const week = useMemo(() => {
@@ -87,7 +186,9 @@ function Progress() {
     });
   }, [state.sessions]);
 
-  const topSkill = skills.length ? [...skills].sort((a, b) => b.level - a.level)[0]! : null;
+  const topSkill = skills.length
+    ? [...skills].sort((a, b) => b.level - a.level)[0]!
+    : null;
 
   // Stronger vs weaker areas. Only skills backed by real BuildMyLogic evidence
   // (test/checkpoint results in skill memory) count as assessed. Plan skill
@@ -97,18 +198,72 @@ function Progress() {
     // Evidence is keyed by lowercased skill name; plan skills keep their own
     // casing, so match case-insensitively and show the plan's display name.
     const all = competencyView(state);
-    return {strong:all.filter(c=>c.observations>=3&&(c.estimate??0)>=65).map(c=>({name:c.skill,level:c.estimate!})),weak:all.filter(c=>c.observations>0&&((c.estimate??0)<65||c.observations<3)).map(c=>({name:c.skill,level:c.estimate!})),unassessed:all.filter(c=>!c.observations).map(c=>c.skill)};
+    return {
+      strong: all
+        .filter((c) => c.observations >= 3 && (c.estimate ?? 0) >= 65)
+        .map((c) => ({ name: c.skill, level: c.estimate! })),
+      weak: all
+        .filter(
+          (c) =>
+            c.observations > 0 &&
+            ((c.estimate ?? 0) < 65 || c.observations < 3),
+        )
+        .map((c) => ({ name: c.skill, level: c.estimate! })),
+      unassessed: all.filter((c) => !c.observations).map((c) => c.skill),
+    };
   }, [state]);
   const goals: [string, boolean][] = [
-    ...(activeMission ? [[`Complete ${activeMission.title}`, state.missionProgress[activeMission.id]?.status === "done"] as [string, boolean]] : []),
-    ...(nextMission ? [[`Build and submit the ${nextMission.title} project`, (state.missionProgress[nextMission.id]?.completedSteps?.length ?? 0) >= nextMission.steps.length && nextMission.steps.length > 0] as [string, boolean]] : []),
-    ...(topSkill ? [[`Improve ${topSkill.name} mastery to ${Math.min(100, topSkill.level + 25)}%`, false] as [string, boolean]] : []),
+    ...(activeMission
+      ? [
+          [
+            `Complete ${activeMission.title}`,
+            state.missionProgress[activeMission.id]?.status === "done",
+          ] as [string, boolean],
+        ]
+      : []),
+    ...(nextMission
+      ? [
+          [
+            `Build and submit the ${nextMission.title} project`,
+            (state.missionProgress[nextMission.id]?.completedSteps?.length ??
+              0) >= nextMission.steps.length && nextMission.steps.length > 0,
+          ] as [string, boolean],
+        ]
+      : []),
+    ...(topSkill
+      ? [
+          [
+            `Improve ${topSkill.name} mastery to ${Math.min(100, topSkill.level + 25)}%`,
+            false,
+          ] as [string, boolean],
+        ]
+      : []),
   ];
 
-  const achievements: { title: string; detail: string; earned: boolean; icon: typeof Trophy }[] = [
-    { title: "First Session Logged", detail: "Logged your first real practice session", earned: state.sessions.length > 0, icon: Code2 },
-    { title: "First Project Completed", detail: "Built and submitted a working project", earned: completedMissions.length > 0, icon: Trophy },
-    { title: "5-Day Learning Streak", detail: "Stayed consistent for 5 days", earned: streakDays >= 5, icon: Flame },
+  const achievements: {
+    title: string;
+    detail: string;
+    earned: boolean;
+    icon: typeof Trophy;
+  }[] = [
+    {
+      title: "First Session Logged",
+      detail: "Logged your first real practice session",
+      earned: state.sessions.length > 0,
+      icon: Code2,
+    },
+    {
+      title: "First Project Completed",
+      detail: "Built and submitted a working project",
+      earned: completedMissions.length > 0,
+      icon: Trophy,
+    },
+    {
+      title: "5-Day Learning Streak",
+      detail: "Stayed consistent for 5 days",
+      earned: streakDays >= 5,
+      icon: Flame,
+    },
   ];
 
   return (
@@ -120,7 +275,15 @@ function Progress() {
       wide
     >
       <div className="inline-flex flex-wrap gap-1 rounded-2xl border border-border bg-card p-1.5">
-        {(["Overview", "Skills", "Missions", "Struggle DNA", "Activity"] as const).map((item) => (
+        {(
+          [
+            "Overview",
+            "Skills",
+            "Missions",
+            "Struggle DNA",
+            "Activity",
+          ] as const
+        ).map((item) => (
           <button
             key={item}
             type="button"
@@ -137,15 +300,43 @@ function Progress() {
           <CompetencySummary />
           {/* Stat cards */}
           <div className="mt-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard icon={Layers} value={completedMissions.length} label={sample ? "Sample projects" : "Projects Completed"} />
-            <StatCard icon={Code2} value={state.sessions.length} label={sample ? "Sample sessions" : "Practice Sessions"} />
-            <StatCard icon={BarChart3} value={`${averageSkill}%`} label={sample ? "Sample mastery" : "Competency estimate"} />
+            <StatCard
+              icon={Layers}
+              value={completedMissions.length}
+              label={sample ? "Sample projects" : "Projects Completed"}
+            />
+            <StatCard
+              icon={Code2}
+              value={evidence.checkedAttempts}
+              label={sample ? "Sample checks" : "Checked attempts"}
+            />
+            <StatCard
+              icon={BarChart3}
+              value={
+                averageSkill === null ? "Not assessed" : `${averageSkill}%`
+              }
+              label={
+                sample ? "Sample estimate" : "Assessed competency estimate"
+              }
+            />
+            <StatCard
+              icon={Check}
+              value={evidence.questionsPassed}
+              label="Unique questions passed"
+            />
+            <StatCard
+              icon={Target}
+              value={evidence.topicCheckpoints}
+              label="Topic checkpoints passed"
+            />
             <StatCard
               icon={Flame}
               value={
                 <>
                   <span className="sm:hidden">{streakDays} days</span>
-                  <span className="hidden sm:inline">{streakDays}-day streak</span>
+                  <span className="hidden sm:inline">
+                    {streakDays}-day streak
+                  </span>
                 </>
               }
               label={streakDays > 0 ? "Keep it up!" : "Start today!"}
@@ -153,42 +344,80 @@ function Progress() {
           </div>
 
           <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-12">
-            {/* Skill Mastery */}
+            {/* Retained checked evidence, not a general mastery claim. */}
             <section className="card-surface p-5 sm:p-6 lg:col-span-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-[16px] font-extrabold">Skill Mastery</h2>
-                <Link to="/skills" className="text-[12px] font-bold text-accent-foreground hover:underline">View Details →</Link>
+                <h2 className="text-[16px] font-extrabold">Assessed skills</h2>
+                <Link
+                  to="/skills"
+                  className="text-[12px] font-bold text-accent-foreground hover:underline"
+                >
+                  View Details →
+                </Link>
               </div>
               <div className="mt-5 space-y-4">
                 {skills.length === 0 ? (
-                  <p className="text-[13px] font-semibold text-muted-foreground">Complete a mission to start measuring your skills.</p>
+                  <p className="text-[13px] font-semibold text-muted-foreground">
+                    Complete a mission to start measuring your skills.
+                  </p>
                 ) : (
-                  [...skills].sort((a, b) => b.level - a.level).slice(0, 6).map((skill) => (
-                    <div key={skill.name} className="flex items-center gap-3">
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
-                        <Code2 className="h-4 w-4" />
-                      </span>
-                      <span className="w-28 truncate text-[13px] font-semibold">{skill.name}</span>
-                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-                        <div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(0, Math.min(100, skill.level))}%` }} />
+                  [...assessedSkills]
+                    .sort((a, b) => b.level - a.level)
+                    .slice(0, 6)
+                    .map((skill) => (
+                      <div key={skill.name} className="flex items-center gap-3">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
+                          <Code2 className="h-4 w-4" />
+                        </span>
+                        <span className="w-28 truncate text-[13px] font-semibold">
+                          {skill.name}
+                        </span>
+                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-full rounded-full bg-primary"
+                            style={{
+                              width: `${Math.max(0, Math.min(100, skill.level))}%`,
+                            }}
+                          />
+                        </div>
+                        <span className="w-9 text-right text-[12px] font-bold">
+                          {skill.level}%
+                        </span>
                       </div>
-                      <span className="w-9 text-right text-[12px] font-bold">{skill.level}%</span>
-                    </div>
-                  ))
+                    ))
                 )}
               </div>
             </section>
 
             {/* Competency Overview */}
             <section className="card-surface p-5 sm:p-6 lg:col-span-5">
-              <h2 className="text-[16px] font-extrabold">Competency Overview</h2>
+              <h2 className="text-[16px] font-extrabold">
+                Competency Overview
+              </h2>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Updates after checked results. Counts use retained records;
+                retries of the same question do not add another completed
+                question. Projects stay separate.
+              </p>
               {hasCompetency ? (
                 <div className="mt-2 h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <RadarChart data={competency} outerRadius="72%">
                       <PolarGrid stroke="oklch(0.9 0.02 300)" />
-                      <PolarAngleAxis dataKey="axis" tick={{ fontSize: 10.5, fill: "oklch(0.35 0.02 275)", fontWeight: 600 }} />
-                      <Radar dataKey="value" stroke="oklch(0.53 0.24 297)" fill="oklch(0.53 0.24 297)" fillOpacity={0.25} />
+                      <PolarAngleAxis
+                        dataKey="axis"
+                        tick={{
+                          fontSize: 10.5,
+                          fill: "oklch(0.35 0.02 275)",
+                          fontWeight: 600,
+                        }}
+                      />
+                      <Radar
+                        dataKey="value"
+                        stroke="oklch(0.53 0.24 297)"
+                        fill="oklch(0.53 0.24 297)"
+                        fillOpacity={0.25}
+                      />
                     </RadarChart>
                   </ResponsiveContainer>
                 </div>
@@ -196,7 +425,8 @@ function Progress() {
                 <div className="mt-8 rounded-2xl bg-muted px-5 py-10 text-center">
                   <BarChart3 className="mx-auto h-7 w-7 text-muted-foreground" />
                   <p className="mx-auto mt-3 max-w-xs text-[13px] font-semibold text-muted-foreground">
-                    Your competency map lights up as you finish lessons, checkpoints and build sessions.
+                    Your competency map appears after a checked result. A
+                    question pass is not a whole-topic or project completion.
                   </p>
                 </div>
               )}
@@ -207,38 +437,66 @@ function Progress() {
               <section className="card-surface p-5">
                 <div className="flex items-center gap-2.5">
                   <Flame className="h-[18px] w-[18px] text-primary" />
-                  <h3 className="text-[15px] font-extrabold">Learning Streak</h3>
+                  <h3 className="text-[15px] font-extrabold">
+                    Learning Streak
+                  </h3>
                 </div>
-                <p className="display mt-3 text-[22px] font-black">{streakDays} day{streakDays === 1 ? "" : "s"}</p>
+                <p className="display mt-3 text-[22px] font-black">
+                  {streakDays} day{streakDays === 1 ? "" : "s"}
+                </p>
                 <p className="mt-0.5 text-[12px] text-muted-foreground">
-                  {sample ? "Synthetic sample dates, not a genuine learning streak." : streakDays > 0 ? `You've learned for ${streakDays} consecutive day${streakDays === 1 ? "" : "s"}!` : "Log a session today to start your streak."}
+                  {sample
+                    ? "Synthetic sample dates, not a genuine learning streak."
+                    : streakDays > 0
+                      ? `You've learned for ${streakDays} consecutive day${streakDays === 1 ? "" : "s"}!`
+                      : "Log a session today to start your streak."}
                 </p>
                 <div className="mt-4 flex justify-between">
                   {week.map((day) => (
-                    <div key={day.label} className="flex flex-col items-center gap-1.5">
-                      <span className={`flex h-6 w-6 items-center justify-center rounded-full ${day.active ? "bg-primary text-primary-foreground" : "border border-border"}`}>
-                        {day.active && <Check className="h-3 w-3" strokeWidth={3.2} />}
+                    <div
+                      key={day.label}
+                      className="flex flex-col items-center gap-1.5"
+                    >
+                      <span
+                        className={`flex h-6 w-6 items-center justify-center rounded-full ${day.active ? "bg-primary text-primary-foreground" : "border border-border"}`}
+                      >
+                        {day.active && (
+                          <Check className="h-3 w-3" strokeWidth={3.2} />
+                        )}
                       </span>
-                      <span className="text-[10px] font-semibold text-muted-foreground">{day.label}</span>
+                      <span className="text-[10px] font-semibold text-muted-foreground">
+                        {day.label}
+                      </span>
                     </div>
                   ))}
                 </div>
               </section>
 
               <section className="card-surface p-5">
-                <h3 className="text-[15px] font-extrabold">{sample ? "Sample achievement preview" : "Achievements"}</h3>
+                <h3 className="text-[15px] font-extrabold">
+                  {sample ? "Sample achievement preview" : "Achievements"}
+                </h3>
                 <div className="mt-3 space-y-3">
                   {achievements.map((a) => (
-                    <div key={a.title} className={`flex items-center gap-3 rounded-2xl border px-3.5 py-3 ${a.earned ? "border-border bg-card" : "border-dashed border-border opacity-60"}`}>
+                    <div
+                      key={a.title}
+                      className={`flex items-center gap-3 rounded-2xl border px-3.5 py-3 ${a.earned ? "border-border bg-card" : "border-dashed border-border opacity-60"}`}
+                    >
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
                         <a.icon className="h-4 w-4" />
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="text-[13px] font-bold">{a.title}</p>
-                        <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">{sample ? "Synthetic example, not earned by this learner." : a.detail}</p>
+                        <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
+                          {sample
+                            ? "Synthetic example, not earned by this learner."
+                            : a.detail}
+                        </p>
                       </div>
                       {a.earned ? (
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white"><Check className="h-3 w-3" strokeWidth={3.2} /></span>
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
+                          <Check className="h-3 w-3" strokeWidth={3.2} />
+                        </span>
                       ) : (
                         <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
                       )}
@@ -256,11 +514,16 @@ function Progress() {
                 <TrendingUp className="h-[18px] w-[18px] text-emerald-600" />
                 <h2 className="text-[16px] font-extrabold">Stronger areas</h2>
               </div>
-              <p className="mt-1 text-[12px] font-medium text-muted-foreground">{sample ? "Illustrative sample values, not real test or checkpoint results." : "Based on your actual test and checkpoint results."}</p>
+              <p className="mt-1 text-[12px] font-medium text-muted-foreground">
+                {sample
+                  ? "Illustrative sample values, not real test or checkpoint results."
+                  : "Based on your actual test and checkpoint results."}
+              </p>
               <div className="mt-4 space-y-3">
                 {standing.strong.length === 0 ? (
                   <p className="text-[13px] font-semibold text-muted-foreground">
-                    Nothing proven here yet. Finish checkpoints and build sessions and your strongest areas will show up.
+                    Nothing proven here yet. Finish checkpoints and build
+                    sessions and your strongest areas will show up.
                   </p>
                 ) : (
                   standing.strong.map((skill) => (
@@ -269,12 +532,19 @@ function Progress() {
                         <Check className="h-5 w-5" strokeWidth={3} />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-[14px] font-bold">{skill.name}</p>
+                        <p className="truncate text-[14px] font-bold">
+                          {skill.name}
+                        </p>
                         <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
-                          <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(100, skill.level)}%` }} />
+                          <div
+                            className="h-full rounded-full bg-emerald-500"
+                            style={{ width: `${Math.min(100, skill.level)}%` }}
+                          />
                         </div>
                       </div>
-                      <span className="pill shrink-0 bg-emerald-100 font-bold text-emerald-700">{skill.level}%</span>
+                      <span className="pill shrink-0 bg-emerald-100 font-bold text-emerald-700">
+                        {skill.level}%
+                      </span>
                     </div>
                   ))
                 )}
@@ -300,18 +570,30 @@ function Progress() {
                         <Target className="h-5 w-5" />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-[14px] font-bold">{skill.name}</p>
+                        <p className="truncate text-[14px] font-bold">
+                          {skill.name}
+                        </p>
                         <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
-                          <div className="h-full rounded-full bg-amber-400" style={{ width: `${Math.min(100, skill.level)}%` }} />
+                          <div
+                            className="h-full rounded-full bg-amber-400"
+                            style={{ width: `${Math.min(100, skill.level)}%` }}
+                          />
                         </div>
                       </div>
-                      <span className="pill shrink-0 bg-amber-100 font-bold text-amber-700">{skill.level}%</span>
+                      <span className="pill shrink-0 bg-amber-100 font-bold text-amber-700">
+                        {skill.level}%
+                      </span>
                     </div>
                   ))
                 )}
                 {standing.unassessed.length > 0 && (
                   <p className="rounded-xl bg-muted px-3.5 py-3 text-[12px] font-medium leading-5 text-muted-foreground">
-                    Not assessed yet: {standing.unassessed.slice(0, 6).join(", ")}{standing.unassessed.length > 6 ? ` and ${standing.unassessed.length - 6} more` : ""}. Complete their tasks and we'll measure these too.
+                    Not assessed yet:{" "}
+                    {standing.unassessed.slice(0, 6).join(", ")}
+                    {standing.unassessed.length > 6
+                      ? ` and ${standing.unassessed.length - 6} more`
+                      : ""}
+                    . Complete their tasks and we'll measure these too.
                   </p>
                 )}
               </div>
@@ -324,31 +606,55 @@ function Progress() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <Layers className="h-[18px] w-[18px] text-primary" />
-                  <h2 className="text-[16px] font-extrabold">Recent Projects</h2>
+                  <h2 className="text-[16px] font-extrabold">
+                    Recent Projects
+                  </h2>
                 </div>
-                <Link to="/missions" className="text-[12px] font-bold text-accent-foreground hover:underline">View All Projects →</Link>
+                <Link
+                  to="/missions"
+                  className="text-[12px] font-bold text-accent-foreground hover:underline"
+                >
+                  View All Projects →
+                </Link>
               </div>
               <div className="mt-4 space-y-3">
                 {missions.length === 0 ? (
-                  <p className="text-[13px] font-semibold text-muted-foreground">Finish onboarding and your projects will appear here.</p>
+                  <p className="text-[13px] font-semibold text-muted-foreground">
+                    Finish onboarding and your projects will appear here.
+                  </p>
                 ) : (
                   missions.slice(0, 4).map((mission) => {
-                    const status = state.missionProgress[mission.id]?.status ?? "locked";
+                    const status =
+                      state.missionProgress[mission.id]?.status ?? "locked";
                     return (
-                      <div key={mission.id} className="flex items-center gap-3.5">
+                      <div
+                        key={mission.id}
+                        className="flex items-center gap-3.5"
+                      >
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
                           <Code2 className="h-5 w-5" />
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-[14px] font-bold">{mission.title}</p>
-                          <p className="mt-0.5 truncate text-[12px] text-muted-foreground">{mission.description}</p>
+                          <p className="truncate text-[14px] font-bold">
+                            {mission.title}
+                          </p>
+                          <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
+                            {mission.description}
+                          </p>
                         </div>
                         {status === "done" ? (
-                          <span className="pill shrink-0 bg-emerald-100 font-bold text-emerald-700"><Check className="h-3 w-3" strokeWidth={3} /> Completed</span>
+                          <span className="pill shrink-0 bg-emerald-100 font-bold text-emerald-700">
+                            <Check className="h-3 w-3" strokeWidth={3} />{" "}
+                            Completed
+                          </span>
                         ) : status === "active" ? (
-                          <span className="pill shrink-0 bg-primary-soft font-bold text-accent-foreground">In Progress</span>
+                          <span className="pill shrink-0 bg-primary-soft font-bold text-accent-foreground">
+                            In Progress
+                          </span>
                         ) : (
-                          <span className="pill shrink-0 bg-muted font-bold text-muted-foreground">Planned</span>
+                          <span className="pill shrink-0 bg-muted font-bold text-muted-foreground">
+                            Planned
+                          </span>
                         )}
                       </div>
                     );
@@ -364,18 +670,33 @@ function Progress() {
                   <Target className="h-[18px] w-[18px] text-primary" />
                   <h2 className="text-[16px] font-extrabold">Next Goals</h2>
                 </div>
-                <Link to="/settings" className="text-[12px] font-bold text-accent-foreground hover:underline">Set Goals →</Link>
+                <Link
+                  to="/settings"
+                  className="text-[12px] font-bold text-accent-foreground hover:underline"
+                >
+                  Set Goals →
+                </Link>
               </div>
               <div className="mt-4 space-y-3">
                 {goals.length === 0 ? (
-                  <p className="text-[13px] font-semibold text-muted-foreground">Finish onboarding and your goals will appear here.</p>
+                  <p className="text-[13px] font-semibold text-muted-foreground">
+                    Finish onboarding and your goals will appear here.
+                  </p>
                 ) : (
                   goals.map(([label, done]) => (
                     <div key={label} className="flex items-center gap-3">
-                      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${done ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>
-                        {done && <Check className="h-3 w-3" strokeWidth={3.2} />}
+                      <span
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${done ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}
+                      >
+                        {done && (
+                          <Check className="h-3 w-3" strokeWidth={3.2} />
+                        )}
                       </span>
-                      <p className={`text-[13.5px] ${done ? "font-bold" : "font-medium text-muted-foreground"}`}>{label}</p>
+                      <p
+                        className={`text-[13.5px] ${done ? "font-bold" : "font-medium text-muted-foreground"}`}
+                      >
+                        {label}
+                      </p>
                     </div>
                   ))
                 )}
@@ -385,31 +706,214 @@ function Progress() {
         </>
       )}
 
-      {tab === "Skills" && <section className="card-surface mt-5 p-6"><h2 className="text-xl font-extrabold">Skills you’re building</h2><div className="mt-6 grid gap-4 md:grid-cols-2">{skills.map((skill) => <div key={skill.name} className="rounded-2xl border border-black/10 p-5"><div className="flex justify-between"><p className="font-extrabold">{skill.name}</p><span className="font-extrabold">{skill.level}%</span></div><div className="mt-4 h-2.5 rounded-full bg-black/10"><div className="h-full rounded-full bg-primary" style={{ width: `${skill.level}%` }} /></div><p className="mt-3 text-sm font-semibold">{skill.note || levelLabel(skill.level)}</p></div>)}</div>{skills.length === 0 && <p className="mt-4 text-sm font-bold">Complete a mission to start measuring your skills.</p>}</section>}
+      {tab === "Skills" && (
+        <section className="card-surface mt-5 p-6">
+          <h2 className="text-xl font-extrabold">Skills you’re building</h2>
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            {skills.map((skill) => (
+              <div
+                key={skill.name}
+                className="rounded-2xl border border-black/10 p-5"
+              >
+                <div className="flex justify-between">
+                  <p className="font-extrabold">{skill.name}</p>
+                  <span className="font-extrabold">{skill.level}%</span>
+                </div>
+                <div className="mt-4 h-2.5 rounded-full bg-black/10">
+                  <div
+                    className="h-full rounded-full bg-primary"
+                    style={{ width: `${skill.level}%` }}
+                  />
+                </div>
+                <p className="mt-3 text-sm font-semibold">
+                  {skill.note || levelLabel(skill.level)}
+                </p>
+              </div>
+            ))}
+          </div>
+          {skills.length === 0 && (
+            <p className="mt-4 text-sm font-bold">
+              Complete a mission to start measuring your skills.
+            </p>
+          )}
+        </section>
+      )}
 
-      {tab === "Missions" && <section className="card-surface mt-5 p-6"><h2 className="text-xl font-extrabold">Mission Evidence</h2><div className="mt-5 space-y-3">{missions.map((mission) => { const p = state.missionProgress[mission.id] ?? { status: "locked", completedSteps: [] }; const missionSessions = state.sessions.filter((s) => s.missionTitle === mission.title); return <button type="button" key={mission.id} onClick={() => setSelectedMission(mission.id)} className="flex w-full items-center gap-4 rounded-2xl border border-black/10 p-4 text-left hover:border-primary/40"><span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-soft text-primary">{p.status === "done" ? <Check className="h-5 w-5" /> : p.status === "active" ? <Flame className="h-5 w-5" /> : <Lock className="h-4 w-4" />}</span><span className="min-w-0 flex-1"><b className="block text-sm">{mission.title}</b><span className="mt-1 block text-xs font-semibold">{p.completedSteps?.length ?? 0}/{mission.steps.length} learning steps · {missionSessions.length} sessions logged</span></span><span className="text-xs font-extrabold">{mission.minutes}m</span></button>; })}</div>{selected && <MissionHistory mission={selected} sessions={selectedSessions} onClose={() => setSelectedMission(null)} />}</section>}
+      {tab === "Missions" && (
+        <section className="card-surface mt-5 p-6">
+          <h2 className="text-xl font-extrabold">Mission Evidence</h2>
+          <div className="mt-5 space-y-3">
+            {missions.map((mission) => {
+              const p = state.missionProgress[mission.id] ?? {
+                status: "locked",
+                completedSteps: [],
+              };
+              const missionSessions = state.sessions.filter(
+                (s) => s.missionTitle === mission.title,
+              );
+              return (
+                <button
+                  type="button"
+                  key={mission.id}
+                  onClick={() => setSelectedMission(mission.id)}
+                  className="flex w-full items-center gap-4 rounded-2xl border border-black/10 p-4 text-left hover:border-primary/40"
+                >
+                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-soft text-primary">
+                    {p.status === "done" ? (
+                      <Check className="h-5 w-5" />
+                    ) : p.status === "active" ? (
+                      <Flame className="h-5 w-5" />
+                    ) : (
+                      <Lock className="h-4 w-4" />
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <b className="block text-sm">{mission.title}</b>
+                    <span className="mt-1 block text-xs font-semibold">
+                      {p.completedSteps?.length ?? 0}/{mission.steps.length}{" "}
+                      learning steps · {missionSessions.length} sessions logged
+                    </span>
+                  </span>
+                  <span className="text-xs font-extrabold">
+                    {mission.minutes}m
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {selected && (
+            <MissionHistory
+              mission={selected}
+              sessions={selectedSessions}
+              onClose={() => setSelectedMission(null)}
+            />
+          )}
+        </section>
+      )}
 
       {tab === "Struggle DNA" && <StruggleDNA />}
 
-      {tab === "Activity" && <section className="card-surface mt-5 p-6"><h2 className="text-xl font-extrabold">Build Activity</h2><div className="mt-5 divide-y divide-black/10">{state.activity.length === 0 ? <p className="py-5 text-sm font-bold">No activity yet.</p> : state.activity.map((item) => <div key={item.at} className="flex gap-4 py-4"><span className="mt-1 h-2.5 w-2.5 rounded-full bg-primary" /><div><p className="text-sm font-extrabold">{item.text}</p><p className="mt-1 text-xs font-semibold">{new Date(item.at).toLocaleString()}</p></div></div>)}</div></section>}
+      {tab === "Activity" && (
+        <section className="card-surface mt-5 p-6">
+          <h2 className="text-xl font-extrabold">Build Activity</h2>
+          <div className="mt-5 divide-y divide-black/10">
+            {state.activity.length === 0 ? (
+              <p className="py-5 text-sm font-bold">No activity yet.</p>
+            ) : (
+              state.activity.map((item) => (
+                <div key={item.at} className="flex gap-4 py-4">
+                  <span className="mt-1 h-2.5 w-2.5 rounded-full bg-primary" />
+                  <div>
+                    <p className="text-sm font-extrabold">{item.text}</p>
+                    <p className="mt-1 text-xs font-semibold">
+                      {new Date(item.at).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      )}
     </AppShell>
   );
 }
 
-function StatCard({ icon: Icon, value, label }: { icon: typeof Layers; value: ReactNode; label: string }) {
+function StatCard({
+  icon: Icon,
+  value,
+  label,
+}: {
+  icon: typeof Layers;
+  value: ReactNode;
+  label: string;
+}) {
   return (
     <section className="card-surface flex items-center gap-3.5 p-5">
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
         <Icon className="h-5 w-5" />
       </span>
       <div className="min-w-0">
-        <p className="display truncate text-[22px] font-black leading-tight">{value}</p>
-        <p className="mt-0.5 text-[12px] font-medium text-muted-foreground">{label}</p>
+        <p className="display truncate text-[22px] font-black leading-tight">
+          {value}
+        </p>
+        <p className="mt-0.5 text-[12px] font-medium text-muted-foreground">
+          {label}
+        </p>
       </div>
     </section>
   );
 }
 
-function MissionHistory({ mission, sessions, onClose }: { mission: NonNullable<ReturnType<typeof useLoop>["plan"]>["missions"][number]; sessions: ReturnType<typeof useLoop>["sessions"]; onClose: () => void }) {
-  return <div className="mt-5 rounded-2xl border-2 border-primary/20 bg-primary-soft/40 p-5"><div className="flex items-start justify-between gap-4"><div><p className="text-[11px] font-black uppercase tracking-wider text-primary">Mission history</p><h3 className="mt-1 text-lg font-black">{mission.title}</h3><p className="mt-1 text-sm font-semibold">{sessions.length} session{sessions.length === 1 ? "" : "s"} logged for this mission.</p></div><button type="button" onClick={onClose} className="rounded-full p-2 hover:bg-white" aria-label="Close history"><X className="h-4 w-4" /></button></div><div className="mt-4 space-y-3">{sessions.length === 0 ? <p className="rounded-xl bg-white p-4 text-sm font-bold">No session history yet. Start building this mission and your work will appear here.</p> : sessions.map((session) => <div key={session.at} className="rounded-xl border border-black/10 bg-white p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-black">{new Date(session.at).toLocaleString()}</p><span className="text-xs font-black">{session.minutes} min</span></div><p className="mt-2 text-sm font-semibold">{session.note || "No session note was added."}</p>{session.completedTasks?.length ? <p className="mt-2 text-xs font-bold">{session.completedTasks.length}/{session.tasks?.length ?? 0} session tasks completed.</p> : null}{session.review ? <p className="mt-2 text-xs font-bold">BuildMyLogic Mentor: {session.review.feedback}</p> : null}</div>)}</div></div>;
+function MissionHistory({
+  mission,
+  sessions,
+  onClose,
+}: {
+  mission: NonNullable<ReturnType<typeof useLoop>["plan"]>["missions"][number];
+  sessions: ReturnType<typeof useLoop>["sessions"];
+  onClose: () => void;
+}) {
+  return (
+    <div className="mt-5 rounded-2xl border-2 border-primary/20 bg-primary-soft/40 p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-wider text-primary">
+            Mission history
+          </p>
+          <h3 className="mt-1 text-lg font-black">{mission.title}</h3>
+          <p className="mt-1 text-sm font-semibold">
+            {sessions.length} session{sessions.length === 1 ? "" : "s"} logged
+            for this mission.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-full p-2 hover:bg-white"
+          aria-label="Close history"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="mt-4 space-y-3">
+        {sessions.length === 0 ? (
+          <p className="rounded-xl bg-white p-4 text-sm font-bold">
+            No session history yet. Start building this mission and your work
+            will appear here.
+          </p>
+        ) : (
+          sessions.map((session) => (
+            <div
+              key={session.at}
+              className="rounded-xl border border-black/10 bg-white p-4"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-black">
+                  {new Date(session.at).toLocaleString()}
+                </p>
+                <span className="text-xs font-black">
+                  {session.minutes} min
+                </span>
+              </div>
+              <p className="mt-2 text-sm font-semibold">
+                {session.note || "No session note was added."}
+              </p>
+              {session.completedTasks?.length ? (
+                <p className="mt-2 text-xs font-bold">
+                  {session.completedTasks.length}/{session.tasks?.length ?? 0}{" "}
+                  session tasks completed.
+                </p>
+              ) : null}
+              {session.review ? (
+                <p className="mt-2 text-xs font-bold">
+                  BuildMyLogic Mentor: {session.review.feedback}
+                </p>
+              ) : null}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
 }

@@ -16,14 +16,73 @@ import {
   ToolId,
 } from "./environmentSetup";
 
-const practiceTaskIds = [
-  "python-loops-fibonacci-v1",
-  "python-conditions-sign-v1",
-  "python-functions-double-v1",
-  "python-strings-vowels-v1",
-] as const;
+const practiceTaskDetails: Record<
+  string,
+  { title: string; cases: number; inputs: string }
+> = {
+  "python-loops-fibonacci-v1": {
+    title: "Fibonacci numbers",
+    cases: 1,
+    inputs: "10",
+  },
+  "python-conditions-sign-v1": {
+    title: "Number sign",
+    cases: 3,
+    inputs: "-3, 0, 7",
+  },
+  "python-functions-double-v1": {
+    title: "Double a number",
+    cases: 3,
+    inputs: "-2, 0, 9",
+  },
+  "python-strings-vowels-v1": {
+    title: "Count vowels",
+    cases: 3,
+    inputs: "sky, hello, aeiou",
+  },
+  "python-loops-triangular-v1": {
+    title: "Sum 1 to n",
+    cases: 4,
+    inputs: "0, 1, 4, 7",
+  },
+  "python-loops-multiples3-v1": {
+    title: "Count multiples of 3",
+    cases: 4,
+    inputs: "0, 2, 3, 10",
+  },
+  "python-conditions-vote-v1": {
+    title: "Voting age",
+    cases: 4,
+    inputs: "0, 17, 18, 70",
+  },
+  "python-conditions-pass-v1": {
+    title: "Pass or retry",
+    cases: 4,
+    inputs: "0, 49, 50, 100",
+  },
+  "python-functions-square-v1": {
+    title: "Square a number",
+    cases: 4,
+    inputs: "-3, 0, 2, 5",
+  },
+  "python-functions-negate-v1": {
+    title: "Negate a number",
+    cases: 4,
+    inputs: "-4, 0, 3, 9",
+  },
+  "python-strings-uppercase-v1": {
+    title: "Count uppercase letters",
+    cases: 4,
+    inputs: '"AbC", "abc", empty line, "A1 Z"',
+  },
+  "python-strings-consonants-v1": {
+    title: "Count consonants",
+    cases: 4,
+    inputs: '"sky", "hello", "aeiou", empty line',
+  },
+};
 const isPracticeTask = (id: string | undefined): boolean =>
-  practiceTaskIds.some((task) => task === id);
+  !!id && Object.hasOwn(practiceTaskDetails, id);
 const viewId = "buildMyLogic.sidebar";
 type Connection = { sessionId: string };
 type Message = {
@@ -1377,6 +1436,20 @@ class Sidebar implements vscode.WebviewViewProvider {
       checkpoint.evaluator?.command.startsWith("buildmylogic:")
     ) {
       const connection = this.connection;
+      const taskId = checkpoint.evaluator!.command.slice(
+        "buildmylogic:".length,
+      );
+      const task = practiceTaskDetails[taskId];
+      if (
+        this.session.challenge_id !== taskId ||
+        checkpoint.evaluator!.id !== taskId ||
+        JSON.stringify(checkpoint.evaluator!.expectedOutputIncludes) !==
+          JSON.stringify(["BML_PRACTICE_PASS:" + taskId])
+      )
+        return (
+          this.status("Task and tests do not match. No attempt recorded."),
+          []
+        );
       const doc = selectedDocument || vscode.window.activeTextEditor?.document;
       if (!doc || doc.uri.scheme !== "file" || !doc.uri.fsPath.endsWith(".py"))
         return (
@@ -1390,7 +1463,7 @@ class Sidebar implements vscode.WebviewViewProvider {
         !doc.isClosed &&
         this.connection === connection;
       const yes = await vscode.window.showWarningMessage(
-        `Run ${doc.uri.fsPath} on your computer for this practice task? It can read or change files and use the network. This is not a sandbox. Fibonacci tests supply 10 as input. Nothing is read until you agree.`,
+        `Run ${doc.uri.fsPath} on your computer for this practice task? It can read or change files and use the network. This is not a sandbox. Task: ${task.title} (${taskId}). ${task.cases} fixed ${task.cases === 1 ? "case" : "cases"}; each run receives one input: ${task.inputs}. Nothing is read until you agree.`,
         { modal: true },
         "Run my Python code",
       );
@@ -1415,7 +1488,7 @@ class Sidebar implements vscode.WebviewViewProvider {
           " " +
           quote(doc.uri.fsPath),
         path.dirname(doc.uri.fsPath),
-        15000,
+        18000,
         () => unchanged() && !doc.isDirty,
       );
       if (
