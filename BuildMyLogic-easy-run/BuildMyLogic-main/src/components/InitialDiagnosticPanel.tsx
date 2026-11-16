@@ -1,3 +1,4 @@
+import { diagnosticContinueLabel } from "@/lib/intake-state";
 import { useState } from "react";
 import { aiInitialDiagnostic } from "@/lib/sarvam.functions";
 import {
@@ -120,9 +121,7 @@ export function InitialDiagnosticPanel({
         disabled={busy}
         className="btn-base btn-primary-solid mt-4 w-full"
       >
-        {d?.status === "completed"
-          ? "Build roadmap from these checks"
-          : "Continue with an unassessed profile"}
+        {diagnosticContinueLabel(d)}
       </button>
     </section>
   );
