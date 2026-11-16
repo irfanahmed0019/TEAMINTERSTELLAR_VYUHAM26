@@ -1,3 +1,4 @@
+import { InitialAssessmentEvidence } from "./InitialAssessmentEvidence";
 import { performanceSummary } from "@/lib/performance-evidence";
 import { useState } from "react";
 import {
@@ -53,22 +54,29 @@ export function StruggleDNA() {
 
   if (attempts.length === 0) {
     return (
-      <section className="card-surface mt-5 p-6 sm:p-8">
-        <div className="flex items-center gap-2.5">
-          <Dna className="h-[18px] w-[18px] text-primary" />
-          <h2 className="text-xl font-extrabold">Struggle DNA</h2>
-        </div>
-        <div className="mt-6 rounded-2xl bg-muted px-5 py-10 text-center">
-          <Dna className="mx-auto h-7 w-7 text-muted-foreground" />
-          <p className="mx-auto mt-3 max-w-md text-[13.5px] font-semibold leading-6 text-muted-foreground">
-            Your Struggle DNA is built only from your real attempts. Submit
-            practice tasks on the Learn page or in the practice workspace -
-            every failure and every pass is recorded here, repeated patterns get
-            targeted fixes, and patterns beaten through a targeted reassessment
-            become your Proof of Struggle.
-          </p>
-        </div>
-      </section>
+      <div className="mt-5 space-y-5">
+        {!sample && (
+          <InitialAssessmentEvidence
+            evidence={state.assessmentEvidence ?? []}
+          />
+        )}
+        <section className="card-surface p-6 sm:p-8">
+          <div className="flex items-center gap-2.5">
+            <Dna className="h-[18px] w-[18px] text-primary" />
+            <h2 className="text-xl font-extrabold">Struggle DNA</h2>
+          </div>
+          <div className="mt-6 rounded-2xl bg-muted px-5 py-10 text-center">
+            <Dna className="mx-auto h-7 w-7 text-muted-foreground" />
+            <p className="mx-auto mt-3 max-w-md text-[13.5px] font-semibold leading-6 text-muted-foreground">
+              Your Struggle DNA is built only from your real attempts. Submit
+              practice tasks on the Learn page or in the practice workspace -
+              every failure and every pass is recorded here, repeated patterns
+              get targeted fixes, and patterns beaten through a targeted
+              reassessment become your Proof of Struggle.
+            </p>
+          </div>
+        </section>
+      </div>
     );
   }
 
@@ -94,6 +102,9 @@ export function StruggleDNA() {
           synthetic examples. They are not verified learner evidence or
           certification.
         </p>
+      )}
+      {!sample && (
+        <InitialAssessmentEvidence evidence={state.assessmentEvidence ?? []} />
       )}
       {/* Metrics from the PRD's success measures */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

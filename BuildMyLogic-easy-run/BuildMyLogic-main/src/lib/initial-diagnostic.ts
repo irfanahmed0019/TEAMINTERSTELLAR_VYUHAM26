@@ -46,6 +46,8 @@ export function diagnosticQuestions(raw: unknown): DiagnosticQuestion[] {
         !Array.isArray(q.options) ||
         q.options.length !== 4 ||
         q.options.some((o: unknown) => typeof o !== "string" || !o.trim()) ||
+        new Set(q.options.map((o: string) => o.trim().toLowerCase())).size !==
+          4 ||
         !Number.isInteger(q.answer) ||
         q.answer < 0 ||
         q.answer > 3 ||
@@ -72,6 +74,13 @@ export function diagnosticQuestions(raw: unknown): DiagnosticQuestion[] {
     throw new Error(
       "The diagnostic returned too few valid questions. Retry; no assessment result was saved.",
     );
+  if (
+    kinds.some((kind) => !questions.some((q) => q.kind === kind)) ||
+    !questions.some((q) => q.difficulty === 2)
+  )
+    throw new Error(
+      "The diagnostic bank is missing required concept, prediction, debugging, reasoning or medium checks. Retry or continue unassessed; no answers were invented.",
+    );
   return questions;
 }
 export function nextDiagnostic(
@@ -84,12 +93,21 @@ export function nextDiagnostic(
         Math.min(3, last.question.difficulty + (last.correct ? 1 : -1)),
       )
     : 2;
-  return d.questions
-    .filter((q) => !d.answers.some((a) => a.question.id === q.id))
-    .sort(
-      (a, b) =>
-        Math.abs(a.difficulty - target) - Math.abs(b.difficulty - target),
-    )[0];
+  const remaining = d.questions.filter(
+    (q) => !d.answers.some((a) => a.question.id === q.id),
+  );
+  const missingKinds = new Set(
+    ["concept", "prediction", "debugging", "reasoning"].filter(
+      (kind) => !d.answers.some((a) => a.question.kind === kind),
+    ),
+  );
+  const freshKind = remaining.filter((q) => missingKinds.has(q.kind));
+  // Existing incomplete banks remain usable. Never synthesize missing questions.
+  return (
+    d.answers.length > 0 && freshKind.length ? freshKind : remaining
+  ).sort(
+    (a, b) => Math.abs(a.difficulty - target) - Math.abs(b.difficulty - target),
+  )[0];
 }
 export function answerDiagnostic(
   d: InitialDiagnostic,
