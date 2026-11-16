@@ -143,7 +143,6 @@ function AccountOnboarding() {
       prev.onboarded ? prev : { ...prev, profile: updated },
     );
   }
-  const currentPrompt = relevantIntakePrompt(answers.length, answers, profile);
   const firstName = auth?.displayName?.split(" ")[0] ?? "";
 
   useEffect(() => {
@@ -659,9 +658,8 @@ function AccountOnboarding() {
                   onKeyDown={(event) => {
                     if (event.key === "Enter") void sendAnswer();
                   }}
-                  placeholder={
-                    currentPrompt ?? "Tell your mentor what you want to build…"
-                  }
+                  aria-label="Your answer"
+                  placeholder="Type your answer…"
                   className="min-w-0 flex-1 bg-transparent px-3 py-3 text-base outline-none placeholder:text-muted-foreground"
                 />
                 <button
