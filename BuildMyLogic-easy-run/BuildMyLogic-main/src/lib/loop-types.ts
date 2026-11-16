@@ -298,6 +298,7 @@ export type LearningChat = {
 
 export type LoopState = {
   /** Owner/session/generation/catalog task watermarks, not scores. */
+  debuggingReceipts?: Record<string, true>;
   practiceEvidenceReceipts?: Record<string, number>;
   projectSessions?: Record<string, BuildSessionState>;
   projectRecoveryReviews?: Record<

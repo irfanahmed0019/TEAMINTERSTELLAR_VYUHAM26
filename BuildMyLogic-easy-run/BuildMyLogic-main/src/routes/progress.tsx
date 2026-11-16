@@ -19,6 +19,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import {
   PolarAngleAxis,
   PolarGrid,
+  PolarRadiusAxis,
   Radar,
   RadarChart,
   ResponsiveContainer,
@@ -97,7 +98,10 @@ const COMPETENCY_AXES: { axis: string; keywords: string[] }[] = [
       "strings",
     ],
   },
-  { axis: "Debugging", keywords: ["debug", "error", "test", "fix"] },
+  {
+    axis: "Debugging",
+    keywords: ["debugging", "debug", "error", "test", "fix"],
+  },
 ];
 
 function Progress() {
@@ -399,10 +403,25 @@ function Progress() {
                 retries of the same question do not add another completed
                 question. Projects stay separate.
               </p>
+              <Link
+                to="/debugging"
+                className="btn-base btn-primary-solid mt-3 text-xs"
+              >
+                Practice Debugging
+              </Link>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Repair broken code and check its output to assess Debugging.
+                Other axes need their own checked evidence.
+              </p>
               {hasCompetency ? (
-                <div className="mt-2 h-64">
+                <div className="mt-3 h-80 sm:h-96">
                   <ResponsiveContainer width="100%" height="100%">
                     <RadarChart data={competency} outerRadius="72%">
+                      <PolarRadiusAxis
+                        domain={[0, 100]}
+                        tick={false}
+                        axisLine={false}
+                      />
                       <PolarGrid stroke="oklch(0.9 0.02 300)" />
                       <PolarAngleAxis
                         dataKey="axis"

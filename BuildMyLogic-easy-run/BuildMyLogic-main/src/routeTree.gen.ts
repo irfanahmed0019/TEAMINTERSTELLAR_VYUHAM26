@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ChallengeAiRouteImport } from './routes/challenge-ai'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as DebuggingRouteImport } from './routes/debugging'
 import { Route as DemoRouteImport } from './routes/demo'
 import { Route as LearnRouteImport } from './routes/learn'
 import { Route as MentorRouteImport } from './routes/mentor'
@@ -38,6 +39,11 @@ const ChallengeAiRoute = ChallengeAiRouteImport.update({
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DebuggingRoute = DebuggingRouteImport.update({
+  id: '/debugging',
+  path: '/debugging',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DemoRoute = DemoRouteImport.update({
@@ -105,6 +111,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/challenge-ai': typeof ChallengeAiRoute
   '/dashboard': typeof DashboardRoute
+  '/debugging': typeof DebuggingRoute
   '/demo': typeof DemoRoute
   '/learn': typeof LearnRoute
   '/mentor': typeof MentorRoute
@@ -122,6 +129,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/challenge-ai': typeof ChallengeAiRoute
   '/dashboard': typeof DashboardRoute
+  '/debugging': typeof DebuggingRoute
   '/demo': typeof DemoRoute
   '/learn': typeof LearnRoute
   '/mentor': typeof MentorRoute
@@ -140,6 +148,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/challenge-ai': typeof ChallengeAiRoute
   '/dashboard': typeof DashboardRoute
+  '/debugging': typeof DebuggingRoute
   '/demo': typeof DemoRoute
   '/learn': typeof LearnRoute
   '/mentor': typeof MentorRoute
@@ -159,6 +168,7 @@ export interface FileRouteTypes {
     | '/'
     | '/challenge-ai'
     | '/dashboard'
+    | '/debugging'
     | '/demo'
     | '/learn'
     | '/mentor'
@@ -176,6 +186,7 @@ export interface FileRouteTypes {
     | '/'
     | '/challenge-ai'
     | '/dashboard'
+    | '/debugging'
     | '/demo'
     | '/learn'
     | '/mentor'
@@ -193,6 +204,7 @@ export interface FileRouteTypes {
     | '/'
     | '/challenge-ai'
     | '/dashboard'
+    | '/debugging'
     | '/demo'
     | '/learn'
     | '/mentor'
@@ -211,6 +223,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ChallengeAiRoute: typeof ChallengeAiRoute
   DashboardRoute: typeof DashboardRoute
+  DebuggingRoute: typeof DebuggingRoute
   DemoRoute: typeof DemoRoute
   LearnRoute: typeof LearnRoute
   MentorRoute: typeof MentorRoute
@@ -246,6 +259,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/debugging': {
+      id: '/debugging'
+      path: '/debugging'
+      fullPath: '/debugging'
+      preLoaderRoute: typeof DebuggingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/demo': {
@@ -339,6 +359,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChallengeAiRoute: ChallengeAiRoute,
   DashboardRoute: DashboardRoute,
+  DebuggingRoute: DebuggingRoute,
   DemoRoute: DemoRoute,
   LearnRoute: LearnRoute,
   MentorRoute: MentorRoute,

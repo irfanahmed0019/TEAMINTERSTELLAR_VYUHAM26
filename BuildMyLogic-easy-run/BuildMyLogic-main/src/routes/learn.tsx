@@ -363,6 +363,13 @@ function Learn() {
       quote="Learn by doing, not just by watching."
       wide
     >
+      <Link to="/debugging" className="card-surface mb-5 block p-5">
+        <h2 className="font-bold">Debugging practice</h2>
+        <p className="mt-1 text-sm">
+          Fix broken Python code. Checked output feeds your Debugging radar and
+          Struggle DNA.
+        </p>
+      </Link>
       <a
         href="/challenge-ai"
         className="card-surface mb-5 flex items-center justify-between gap-4 border-primary/25 bg-primary-soft/40 p-5"
