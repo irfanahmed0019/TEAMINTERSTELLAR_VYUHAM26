@@ -24,7 +24,13 @@ export type FailureKind =
   "syntax" | "runtime" | "edge_case" | "logic" | "formatting";
 export type MisconceptionDepth = "slip" | "deep";
 
-export type PerformanceEvidence = { expectedMs?:number|undefined;activeMs?:number|undefined;timingQuality:'extension-observed'|'unavailable';hintsUsed?:number|undefined;attemptNumber?:number|undefined };
+export type PerformanceEvidence = {
+  expectedMs?: number | undefined;
+  activeMs?: number | undefined;
+  timingQuality: "extension-observed" | "unavailable";
+  hintsUsed?: number | undefined;
+  attemptNumber?: number | undefined;
+};
 export type PracticeAttempt = {
   performance?: PerformanceEvidence | undefined;
   synthetic?: true;
@@ -941,7 +947,7 @@ export function recordBuildSessionOutcome(
     ];
   } else {
     // A status label, compile, server start or bare completion is not a test result.
-    return {state:prev,outcome:null};
+    return { state: prev, outcome: null };
   }
 
   const { state: recorded, outcome } = recordPracticeAttempt(

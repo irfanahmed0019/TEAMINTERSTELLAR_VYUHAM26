@@ -85,7 +85,16 @@ export function StruggleDNA() {
 
   return (
     <div className="mt-5 space-y-5">
-      {sample && <p role="note" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm font-semibold text-amber-950">DEMO STRUGGLE DNA: All attempts, failures, passes and wins below are synthetic examples. They are not verified learner evidence or certification.</p>}
+      {sample && (
+        <p
+          role="note"
+          className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm font-semibold text-amber-950"
+        >
+          DEMO STRUGGLE DNA: All attempts, failures, passes and wins below are
+          synthetic examples. They are not verified learner evidence or
+          certification.
+        </p>
+      )}
       {/* Metrics from the PRD's success measures */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Metric
@@ -128,7 +137,49 @@ export function StruggleDNA() {
         />
       </div>
 
-      {!sample && attempts.some(a=>a.performance) && <section className="card-surface p-5"><h2 className="text-base font-extrabold">Recent performance evidence</h2><p className="mt-2 text-xs leading-5 text-muted-foreground">Expected time is a task benchmark, not a measured population average. Extension-observed foreground work excludes reported pauses and idle periods, but is not exact thinking time. Time alone never changes competency.</p><div className="mt-4 space-y-3">{attempts.filter(a=>a.performance).slice(0,4).map(a=>{const p=a.performance!;const summary=performanceSummary(a);return <div key={a.id} className="rounded-xl border p-3"><h3 className="text-sm font-bold">{a.topicTitle}: {a.passed}/{a.total} checks</h3><p className="mt-1 text-xs">Expected: {p.expectedMs?`${(p.expectedMs/60000).toFixed(1)} min`:"not set"} · Observed work: {p.timingQuality==='extension-observed'&&p.activeMs!==undefined?`${(p.activeMs/60000).toFixed(1)} min`:"unavailable"} · Hints: {p.hintsUsed??"unknown"} · Attempt: {p.attemptNumber??"unknown"}</p><p className="mt-2 text-xs leading-5">{summary.text}</p></div>})}</div></section>}
+      {!sample && attempts.some((a) => a.performance) && (
+        <section className="card-surface p-5">
+          <h2 className="text-base font-extrabold">
+            Recent performance evidence
+          </h2>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+            Expected time is a task benchmark, not a measured population
+            average. Extension-observed foreground work excludes reported pauses
+            and idle periods, but is not exact thinking time. Time alone never
+            changes competency.
+          </p>
+          <div className="mt-4 space-y-3">
+            {attempts
+              .filter((a) => a.performance)
+              .slice(0, 4)
+              .map((a) => {
+                const p = a.performance!;
+                const summary = performanceSummary(a);
+                return (
+                  <div key={a.id} className="rounded-xl border p-3">
+                    <h3 className="text-sm font-bold">
+                      {a.topicTitle}: {a.passed}/{a.total} checks
+                    </h3>
+                    <p className="mt-1 text-xs">
+                      Expected:{" "}
+                      {p.expectedMs
+                        ? `${(p.expectedMs / 60000).toFixed(1)} min`
+                        : "not set"}{" "}
+                      · Observed work:{" "}
+                      {p.timingQuality === "extension-observed" &&
+                      p.activeMs !== undefined
+                        ? `${(p.activeMs / 60000).toFixed(1)} min`
+                        : "unavailable"}{" "}
+                      · Hints: {p.hintsUsed ?? "unknown"} · Attempt:{" "}
+                      {p.attemptNumber ?? "unknown"}
+                    </p>
+                    <p className="mt-2 text-xs leading-5">{summary.text}</p>
+                  </div>
+                );
+              })}
+          </div>
+        </section>
+      )}
       {/* Failure pattern map */}
       <section className="card-surface p-5 sm:p-6">
         <div className="flex items-center gap-2.5">
@@ -254,10 +305,16 @@ export function StruggleDNA() {
       <section className="card-surface p-5 sm:p-6">
         <div className="flex items-center gap-2.5">
           <Trophy className="h-[18px] w-[18px] text-emerald-600" />
-          <h2 className="text-[16px] font-extrabold">{sample ? "Sample portfolio preview - not proof of real skills" : "Proof of Struggle"}</h2>
+          <h2 className="text-[16px] font-extrabold">
+            {sample
+              ? "Sample portfolio preview - not proof of real skills"
+              : "Proof of Struggle"}
+          </h2>
         </div>
         <p className="mt-1 text-[12px] font-medium text-muted-foreground">
-          {sample ? "Synthetic sample wins for exploring this view. Not genuine achievements." : "The weaknesses you actually beat, with the receipt for each one."}
+          {sample
+            ? "Synthetic sample wins for exploring this view. Not genuine achievements."
+            : "The weaknesses you actually beat, with the receipt for each one."}
         </p>
         <div className="mt-4 space-y-3">
           {conquered.length === 0 ? (

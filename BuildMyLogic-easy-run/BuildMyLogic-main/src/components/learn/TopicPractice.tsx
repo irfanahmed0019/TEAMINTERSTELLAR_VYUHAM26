@@ -174,7 +174,10 @@ export function TopicPractice({
         language,
         exerciseTitle: exercise.title,
         exerciseHint: exercise.hint,
-        performance:{timingQuality:'unavailable',hintsUsed:hintShown?1:0},
+        performance: {
+          timingQuality: "unavailable",
+          hintsUsed: hintShown ? 1 : 0,
+        },
         graded,
       });
     } catch (e) {
@@ -217,9 +220,8 @@ export function TopicPractice({
           : "Curated topic transfer task. The cause of the original error remains unresolved; passing verifies these checks, not unaided work or general mastery.",
       );
       setReassessCode(
-        learnerStorage.getItem(
-          `bml.reassess.${activeMisconception.id}.v1`,
-        ) || freshStarter(language),
+        learnerStorage.getItem(`bml.reassess.${activeMisconception.id}.v1`) ||
+          freshStarter(language),
       );
       setResults(null);
       setPassed(false);
@@ -277,7 +279,9 @@ export function TopicPractice({
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <div className="lg:col-span-2"><ThinkingScaffold key={`${topicId}-${language}`} /></div>
+      <div className="lg:col-span-2">
+        <ThinkingScaffold key={`${topicId}-${language}`} />
+      </div>
       {/* Task panel */}
       <div className="rounded-2xl border border-border bg-card p-5">
         {activeMisconception && (

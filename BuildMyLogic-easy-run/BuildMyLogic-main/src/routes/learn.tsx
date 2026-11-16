@@ -94,15 +94,19 @@ function Learn() {
     return [...new Set([...fromPlan, ...fromMissions])];
   }, [state.plan, missions]);
 
-  const priorities = useMemo(()=>priorityLearningTopics(state),[state]);
+  const priorities = useMemo(() => priorityLearningTopics(state), [state]);
   const { syllabusTopics, otherTopics } = useMemo(() => {
-    const inSyllabus = STUDY_TOPICS.filter((t) =>
-      topicMatchesSkills(t, allSkills) || priorities.has(t.id),
+    const inSyllabus = STUDY_TOPICS.filter(
+      (t) => topicMatchesSkills(t, allSkills) || priorities.has(t.id),
     );
-    inSyllabus.sort((a,b)=>Number(priorities.has(b.id))-Number(priorities.has(a.id)));
-    const rest = STUDY_TOPICS.filter((t) => !inSyllabus.some(topic=>topic.id===t.id));
+    inSyllabus.sort(
+      (a, b) => Number(priorities.has(b.id)) - Number(priorities.has(a.id)),
+    );
+    const rest = STUDY_TOPICS.filter(
+      (t) => !inSyllabus.some((topic) => topic.id === t.id),
+    );
     return { syllabusTopics: inSyllabus, otherTopics: rest };
-  }, [allSkills,priorities]);
+  }, [allSkills, priorities]);
 
   if (!state.plan || !activeMission) {
     return (
@@ -264,7 +268,8 @@ function Learn() {
             <p className="mt-1 text-[12.5px] text-muted-foreground">
               The video pauses when you move away and resumes when you're back.
               Away for more than 4 seconds? It replays from your last 2-minute
-              checkpoint. Topic questions check understanding, not independent coding mastery.
+              checkpoint. Topic questions check understanding, not independent
+              coding mastery.
             </p>
             {videos.length > 1 && (
               <div className="mt-3 flex flex-wrap gap-2">
@@ -350,8 +355,20 @@ function Learn() {
       quote="Learn by doing, not just by watching."
       wide
     >
-      <a href="/challenge-ai" className="card-surface mb-5 flex items-center justify-between gap-4 border-primary/25 bg-primary-soft/40 p-5">
-        <div><p className="text-xs font-bold uppercase tracking-widest text-primary">New: AI code-review lab</p><h2 className="mt-1 text-lg font-extrabold">Challenge the AI</h2><p className="mt-1 text-sm text-muted-foreground">The example passes. Write the edge-case test that proves the code wrong.</p></div>
+      <a
+        href="/challenge-ai"
+        className="card-surface mb-5 flex items-center justify-between gap-4 border-primary/25 bg-primary-soft/40 p-5"
+      >
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-primary">
+            New: AI code-review lab
+          </p>
+          <h2 className="mt-1 text-lg font-extrabold">Challenge the AI</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            The example passes. Write the edge-case test that proves the code
+            wrong.
+          </p>
+        </div>
         <ArrowRight className="h-5 w-5 shrink-0 text-primary" />
       </a>
       {/* Tabs */}
@@ -536,7 +553,9 @@ function Learn() {
                       <span className="flex items-center justify-between gap-2">
                         <span className="text-xl">{topic.emoji}</span>
                         <span className="pill bg-primary-soft text-[10px] font-bold text-accent-foreground">
-                          {priorities.has(topic.id) ? "Priority: recent difficulty" : "In your syllabus"}
+                          {priorities.has(topic.id)
+                            ? "Priority: recent difficulty"
+                            : "In your syllabus"}
                         </span>
                       </span>
                       <p className="mt-2 text-[14px] font-bold">
