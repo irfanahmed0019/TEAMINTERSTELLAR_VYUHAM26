@@ -692,7 +692,9 @@ export function recordEvent(
     // Progress (one successful step out of N) is not a failed assertion.
     const failed = results.length
       ? results.some((r) => r["passed"] === false)
-      : Number(safePayload["passed"] ?? 0) < Number(safePayload["total"] ?? 0);
+      : safePayload["status"] === "failed" ||
+        Number(safePayload["failed"] ?? 0) > 0 ||
+        Number(safePayload["errors"] ?? 0) > 0;
     const assertions = results.filter((r) => {
       const checkpoint = session.checkpoints[Number(r["index"])];
       return (
@@ -759,14 +761,20 @@ export function recordEvent(
     ) {
       const available = timing.lastReportAt
         ? Math.max(0, now - timing.lastReportAt)
-        : 0;
+        : Math.max(
+            0,
+            now - Date.parse(session.connectedAt ?? session.startedAt),
+          );
       if (!timing.paused)
         timing.activeMs += Math.round(Math.min(delta, available, 30_000));
       timing.lastSequence = sequence;
       timing.lastReportAt = now;
     }
   }
-  if (eventType === "project_context") {
+  if (
+    eventType === "project_context" &&
+    !session.challengeId.startsWith("python-decimal-contract:")
+  ) {
     const strings = (value: unknown, max: number) =>
       Array.isArray(value)
         ? value

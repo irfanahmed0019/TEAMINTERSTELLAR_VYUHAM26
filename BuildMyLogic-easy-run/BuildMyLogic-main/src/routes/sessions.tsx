@@ -31,11 +31,7 @@ import {
   useLoop,
 } from "@/lib/loop-store";
 import type { BuildSessionState, SessionReview } from "@/lib/loop-types";
-import {
-  aiRetunePlan,
-  aiReviewProjectZip,
-  aiReviewSession,
-} from "@/lib/sarvam.functions";
+import { aiReviewProjectZip, aiReviewSession } from "@/lib/sarvam.functions";
 import { getAuthSessionForApi } from "@/lib/auth";
 import type { ProjectReview } from "@/lib/project-review";
 
@@ -121,7 +117,6 @@ function Sessions() {
   const [copyNotice, setCopyNotice] = useState("");
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const startRef = useRef(planned * 60);
-  const retuneKeyRef = useRef("");
   const connectionTokenRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
@@ -243,31 +238,8 @@ function Sessions() {
       Boolean(remoteState.potential_struggle);
     if (!shouldRetune) return;
     applyBuildSessionEvidence(remoteState);
-    const retuneKey = `${remoteState.session_id}:${remoteState.status}:${remoteState.attempts}:${remoteState.test_score?.passed ?? 0}:${remoteState.potential_struggle ? "struggle" : "normal"}`;
-    if (retuneKeyRef.current === retuneKey) return;
-    retuneKeyRef.current = retuneKey;
-    const current = getLoopState();
-    if (current.sampleProvenance) return;
-    if (!current.profile || !current.plan) return;
-    void aiRetunePlan({
-      data: {
-        profile: current.profile,
-        plan: current.plan,
-        activity: current.activity,
-      },
-    })
-      .then((suggested) => {
-        applySarvamDashboardPlan(suggested);
-        logActivity({
-          kind: "ai",
-          text: completed
-            ? "BuildMyLogic Mentor retuned your path after a proven challenge."
-            : "BuildMyLogic Mentor retuned your path around the weak point.",
-        });
-      })
-      .catch(() => {
-        // Deterministic recovery/practice changes remain active when AI provider is unavailable.
-      });
+    // Ingest finite evidence only. Opening/polling Sessions must not spend AI
+    // credits or rewrite the learner's roadmap from a passive event signal.
   }, [activeMission, remoteState]);
 
   const elapsed = Math.max(1, Math.round((startRef.current - seconds) / 60));

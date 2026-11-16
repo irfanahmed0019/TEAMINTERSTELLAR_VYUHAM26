@@ -370,3 +370,56 @@ test("source-grounded challenge requires exact supported function, names its sou
     /fresh session/,
   );
 });
+
+test("legacy successful partial aggregates do not invent failed checks or struggle", async () => {
+  const s = await startLearningSession({
+    userId: "legacy-qa",
+    challenge_id: "legacy",
+    title: "Legacy",
+    language: "Python",
+    instructions: "Read",
+  });
+  for (let i = 0; i < 3; i++)
+    recordEvent(s, "test_result", { status: "passed", passed: 1, total: 4 });
+  assert.equal(stateOf(s).potential_struggle, false);
+  assert.equal(
+    s.events.filter(
+      (e) => e.eventType === "test_result" && e.payload.status === "failed",
+    ).length,
+    0,
+  );
+  assert.notEqual(stateOf(s).status, "completed");
+});
+test("assigned source digest and inspected paths stay pinned despite later manifest", async () => {
+  const s = await startLearningSession({
+    userId: "pin-qa",
+    challenge_id: "pending",
+    title: "Pending",
+    language: "Python",
+    instructions: "Inspect",
+  });
+  await assignProjectChallenge(s, {
+    path: "input.py",
+    source: "def parse(value):\n    return int(value)",
+  });
+  const original = structuredClone(stateOf(s).project_context);
+  recordEvent(s, "project_context", {
+    inspected_files: ["other.py"],
+    summary: "changed",
+  });
+  assert.deepEqual(stateOf(s).project_context, original);
+});
+
+test("first foreground work delta is bounded by authenticated session age, not discarded", async () => {
+  const s = await startLearningSession({ challenge_id: "first-time" });
+  s.connectedAt = new Date(Date.now() - 5000).toISOString();
+  recordEvent(s, "work_activity", { sequence: 1, active_ms: 4000 });
+  assert.equal(stateOf(s).timing.active_ms, 4000);
+});
+test("passive Sessions evidence polling cannot call paid AI retune", () => {
+  const source = readFileSync(
+    new URL("../routes/sessions.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(source, /aiRetunePlan/);
+});
