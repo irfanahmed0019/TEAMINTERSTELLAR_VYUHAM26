@@ -27,3 +27,21 @@ TanStack Router/Start + Vite/Nitro, React external LoopState store -> local cach
 ## Current external verification limits
 
 No paid AI tests authorized. No unsolicited sign-ins. Production authenticated account-isolation/RLS and local extension execution require appropriate test identity/device access; source/unit tests are not substitutes. Existing demo account uses explicit sample provenance. Do not run generated learner code on the application server without the existing sandbox/security boundary.
+
+## Connected implementation checkpoint, 2026-11-16
+
+- Resume analysis normalization is idempotent; unverified extracted claims survive the server/client round trip. Later user scope puts future resume-first onboarding changes in the separate login repository. The already-pushed interstellar intake is retained, not silently reverted.
+- Shared competency selector derives smoothed estimates from retained finite practice, reassessment, provisional AI-keyed checks and signed-in server-returned Mentor submissions. Explicit authored-topic aliases only. Legacy numeric fields remain recorded for compatibility, but are not authoritative competency. Course unlock/revision rules remain distinct from general competency estimates.
+- Mentor results retain finite test counts and hint use. Device-only runs are not imported as server-graded. Learn puts exact topics with repeated failures first. Struggle DNA shows expected benchmark versus observed work, correctness, hints and attempt number without time-only weakness labels.
+- Local learner-state ownership marker prevents a different or unknown uid cache from becoming the incoming account's baseline. Old/unbound cache is retained separately before reset. Existing cloud normalization preserves unknown fields. Live cross-account restoration is still not tested.
+- Video sections use120s question gates, strict >4000ms absence recovery to the last question-completed checkpoint, no absent watch credit, persisted account/video checkpoints and camera-free self-reported presence. Questions are authored TOPIC reviews, not timestamp-aligned transcript assessments, and repeat on long videos. Final-ended sampling has a bounded final-fraction regression check.
+- Extension0.3.6 uses high-entropy scoped pairing credentials, owner-authorized website reads and explicit local evidence/command consent. Display code alone cannot pair. Historical data stays, but reconnect requires installing0.3.6, reloading VS Code and starting a new session from the signed-in website.
+- Generic compile/start/project-suite output is not requirement completion. Only a matching checkpoint evaluator plus its declared output assertions may advance that checkpoint. Such results remain extension-reported, not tamper-resistant certification. Existing generic missions without a dedicated evaluator intentionally remain unverified. General project-aware challenge/evaluator generation is not finished.
+
+### Actual checks, not acceptance of the entire master
+
+-177 application tests pass, application typecheck/build pass;12 extension tests and extension typecheck pass. Tests use isolated fixtures for account/session behavior; no paid AI calls.
+- Real production YouTube camera-free playback paused at120.0s for the first question on `/videos`, inspected under explicitly labeled sample account. Stopped without submitting an answer or inventing completed learning.
+- Live extension install page points to0.3.6. Final deployed VSIX48229 bytes, SHA25655044d6add09987ea35c860cd8e2eb21431b9fcc11089554fa5188f3b8e40703.
+- Actual user's laptop connection, real camera absence behavior, paid model generation, live cross-account/RLS, full new-user to real-project reassessment journey remain unverified.
+- Lint remains failing:4,841 findings (4,821 errors,20 warnings), compared with baseline4,638. Most are formatting in legacy/changed files; no lint-clean claim and no unrelated bulk rewrite. Build/test results do not excuse lint debt.

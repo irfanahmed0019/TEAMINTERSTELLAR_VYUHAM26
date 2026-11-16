@@ -1,3 +1,4 @@
+import { performanceSummary } from "@/lib/performance-evidence";
 import { useState } from "react";
 import {
   Check,
@@ -127,6 +128,7 @@ export function StruggleDNA() {
         />
       </div>
 
+      {!sample && attempts.some(a=>a.performance) && <section className="card-surface p-5"><h2 className="text-base font-extrabold">Recent performance evidence</h2><p className="mt-2 text-xs leading-5 text-muted-foreground">Expected time is a task benchmark, not a measured population average. Extension-observed foreground work excludes reported pauses and idle periods, but is not exact thinking time. Time alone never changes competency.</p><div className="mt-4 space-y-3">{attempts.filter(a=>a.performance).slice(0,4).map(a=>{const p=a.performance!;const summary=performanceSummary(a);return <div key={a.id} className="rounded-xl border p-3"><h3 className="text-sm font-bold">{a.topicTitle}: {a.passed}/{a.total} checks</h3><p className="mt-1 text-xs">Expected: {p.expectedMs?`${(p.expectedMs/60000).toFixed(1)} min`:"not set"} · Observed work: {p.timingQuality==='extension-observed'&&p.activeMs!==undefined?`${(p.activeMs/60000).toFixed(1)} min`:"unavailable"} · Hints: {p.hintsUsed??"unknown"} · Attempt: {p.attemptNumber??"unknown"}</p><p className="mt-2 text-xs leading-5">{summary.text}</p></div>})}</div></section>}
       {/* Failure pattern map */}
       <section className="card-surface p-5 sm:p-6">
         <div className="flex items-center gap-2.5">
