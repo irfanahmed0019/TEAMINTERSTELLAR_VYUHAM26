@@ -1,3 +1,10 @@
+## 0.3.8
+
+- Choose an actual multi-function Python module and its own existing literal test file. Inspect only one standalone int(value) or int(value.strip()) baseline. Other module/test code is never imported or executed.
+- Repair assignment requires 2-32 matching literal assertions and an actual failing baseline. Already-passing and unsupported contexts get no invented repair task.
+- Exact source snippet, test path/digest, approved cases, skipped count and baseline failures are reviewed before sharing. Test digest is pinned and checked on every evaluation.
+- Selected corrected function uses a strict bounded grammar with no loops, imports, arbitrary calls or dependency resolution. Dedicated decimal contract and approved project cases remain extension-reported evidence, not server grading or general mastery.
+
 ## 0.3.7
 
 - Opt-in source-grounded Python challenge for a supported existing standalone int(value) function only. Exact snippet review happens before task selection.

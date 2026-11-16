@@ -13,6 +13,10 @@ export type RemoteSession = {
     ratio?: number;
   };
   project_context?: {
+    test_path?: string;
+    test_digest?: string;
+    test_cases?: number;
+    baseline_failures?: number;
     inspected_files: string[];
     languages: string[];
     technologies: string[];

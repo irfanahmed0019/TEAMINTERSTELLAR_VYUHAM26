@@ -101,6 +101,10 @@ export type BuildSessionState = {
   };
   evidence_provenance?: "extension-reported" | "legacy-client-reported";
   project_context?: {
+    test_path?: string;
+    test_digest?: string;
+    test_cases?: number;
+    baseline_failures?: number;
     inspected_files: string[];
     languages: string[];
     technologies: string[];

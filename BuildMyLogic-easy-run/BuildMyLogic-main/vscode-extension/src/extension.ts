@@ -114,7 +114,7 @@ class Sidebar implements vscode.WebviewViewProvider {
         params.get("token") || (await this.context.secrets.get(key));
       if (!token || !/^[A-Za-z0-9_-]{43}$/.test(token))
         throw new Error(
-          "Install v0.3.7, then choose Start new session and Open VS Code on the signed-in Sessions page. A display code alone cannot connect.",
+          "Install v0.3.8, then choose Start new session and Open VS Code on the signed-in Sessions page. A display code alone cannot connect.",
         );
       this.api.setSessionToken(token);
       await this.context.secrets.store(key, token);
@@ -725,73 +725,136 @@ class Sidebar implements vscode.WebviewViewProvider {
     await this.offerProjectChallenge();
   }
   private async offerProjectChallenge() {
-    const connection = this.connection;
+    const connection = this.connection,
+      root = vscode.workspace.workspaceFolders?.[0]?.uri;
     if (
       !connection ||
+      !root ||
       !this.evidenceConsent ||
       !vscode.workspace.isTrusted ||
-      this.session?.attempts
+      this.session?.attempts ||
+      this.session?.challenge_id.startsWith("python-decimal-contract:")
     )
       return;
-    const choice = await vscode.window.showInformationMessage(
-      "Inspect up to 20 small Python source files for a file containing only a standalone decimal-conversion function? Only the chosen function snippet (up to 600 characters), path and digest are shared after a second confirmation. Unsupported projects get no generic substitute.",
-      { modal: true },
-      "Inspect Python functions",
-    );
-    if (choice !== "Inspect Python functions" || this.connection !== connection)
-      return;
-    for (const uri of await vscode.workspace.findFiles(
-      "**/*.py",
-      "{**/venv/**,**/.venv/**,**/node_modules/**,**/.git/**,**/test*/**}",
-      20,
-    )) {
-      const relative = vscode.workspace
-        .asRelativePath(uri, false)
-        .replace(/\\/g, "/");
-      if (
-        !this.isInActiveWorkspace(uri) ||
-        !safeEvidencePath(relative) ||
-        !/^(?![./])(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.py$/.test(relative)
+    const selected = await vscode.window.showOpenDialog({
+      canSelectFiles: true,
+      canSelectFolders: false,
+      canSelectMany: false,
+      defaultUri: root,
+      filters: { Python: ["py"] },
+      title:
+        "Choose Python source module with standalone decimal-conversion function",
+    });
+    const test = selected?.[0]
+      ? await vscode.window.showOpenDialog({
+          canSelectFiles: true,
+          canSelectFolders: false,
+          canSelectMany: false,
+          defaultUri: root,
+          filters: { Python: ["py"] },
+          title: "Choose its existing literal test file (not executed)",
+        })
+      : undefined;
+    if (!selected?.[0] || !test?.[0] || this.connection !== connection) return;
+    const relative = (uri: vscode.Uri) =>
+      vscode.workspace.asRelativePath(uri, false).replace(/\\/g, "/");
+    const sourcePath = relative(selected[0]),
+      testPath = relative(test[0]);
+    if (
+      ![selected[0], test[0]].every((uri) => this.isInActiveWorkspace(uri)) ||
+      ![sourcePath, testPath].every(
+        (p) =>
+          safeEvidencePath(p) &&
+          /^(?![./])(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.py$/.test(p),
       )
-        continue;
-      const stat = await vscode.workspace.fs.stat(uri);
-      if (stat.size > 32000) continue;
-      const source = Buffer.from(
-        await vscode.workspace.fs.readFile(uri),
-      ).toString("utf8");
-      const match =
-        /^def ([A-Za-z][A-Za-z_0-9]*)\(([A-Za-z_][A-Za-z_0-9]*)\):\r?\n[ \t]+return int\(\2\)[ \t]*(?=\r?\n(?:[^ \t]|$)|$)/m.exec(
-          source,
-        );
-      if (!match || source.trim().replace(/\r/g, "") !== match[0].trim())
-        continue;
-      const snippet = match[0].replace(/\r/g, "").trimEnd();
-      const approved = await vscode.window.showInformationMessage(
-        `Use the existing ${relative}:${match[1]} for a medium input-validation task? This intentionally changes its contract: accept integers and signed decimal strings; reject bools, floats and malformed input with ValueError. Only this exact snippet is shared:\n${snippet}`,
-        { modal: true },
-        "Assign this project task",
+    )
+      throw new Error(
+        "Select safe source and test files inside this workspace.",
       );
-      if (
-        approved !== "Assign this project task" ||
-        this.connection !== connection
-      )
-        return;
-      const result = await this.api.projectChallenge(connection.sessionId, {
-        path: relative,
-        source: snippet,
-      });
-      if (this.connection === connection && result.state) {
-        this.session = result.state;
-        this.post({ type: "session", session: this.session });
-        this.status(
-          "Project-specific Python contract assigned. Run Tests asks before executing the dedicated evaluator.",
-        );
-      }
-      return;
+    if (
+      (await vscode.workspace.fs.stat(selected[0])).size > 32000 ||
+      (await vscode.workspace.fs.stat(test[0])).size > 32000
+    )
+      throw new Error("Source/test file exceeds32KB inspection limit.");
+    const source = Buffer.from(
+      await vscode.workspace.fs.readFile(selected[0]),
+    ).toString("utf8");
+    const names = [
+      ...source.matchAll(
+        /^def ([A-Za-z][A-Za-z_0-9]*)\([A-Za-z_][A-Za-z_0-9]*\):/gm,
+      ),
+    ].map((m) => m[1]);
+    const name = await vscode.window.showQuickPick(names, {
+      title:
+        "Choose standalone function. Inspector accepts only int(arg) or int(arg.strip()) baseline.",
+    });
+    if (!name || this.connection !== connection) return;
+    const quote = (v: string) =>
+      process.platform === "win32"
+        ? '"' + v.replace(/"/g, "") + '"'
+        : "'" + v.replace(/'/g, "'\\''") + "'";
+    const command =
+      (process.platform === "win32" ? "py -3" : "python3") +
+      " -I " +
+      quote(this.context.asAbsolutePath("media/python_decimal_contract.py")) +
+      " --inspect " +
+      quote(sourcePath) +
+      " " +
+      quote(name) +
+      " " +
+      quote(testPath);
+    const run = await this.runCommand(command, root.fsPath, 10000);
+    if (run.cancelled || this.connection !== connection) return;
+    if (!run.passed)
+      return this.status(
+        "No supported failing project contract assigned: " + run.output,
+        true,
+      );
+    let context: {
+      path: string;
+      source: string;
+      test_path: string;
+      test_digest: string;
+      cases: unknown[];
+      skipped: number;
+      baseline_failures: number;
+    };
+    try {
+      context = JSON.parse(run.output.trim());
+    } catch {
+      throw new Error(
+        "Inspector returned no bounded contract. No task assigned.",
+      );
     }
-    this.status(
-      "No supported one-function Python module found. No project-specific task or evaluator was fabricated. Session stays in inspection-pending state.",
+    if (
+      context.path !== sourcePath ||
+      context.test_path !== testPath ||
+      !Array.isArray(context.cases) ||
+      context.cases.length < 2 ||
+      context.cases.length > 32
+    )
+      throw new Error("Inspector provenance mismatch. No task assigned.");
+    const approved = await vscode.window.showInformationMessage(
+      `Assign a medium repair task for ${sourcePath}:${name}? Only the selected function runs, never module/test imports. Share this exact snippet and approved cases with BuildMyLogic. Existing tests: ${testPath}, SHA256 ${context.test_digest}. Accepted ${context.cases.length}; unsupported/skipped ${context.skipped}; actual baseline failures ${context.baseline_failures}. Agreed contract additionally rejects bool/float/malformed input with ValueError.\n${context.source}\n${JSON.stringify(context.cases)}`,
+      { modal: true },
+      "Assign inspected repair",
     );
+    if (
+      approved !== "Assign inspected repair" ||
+      this.connection !== connection
+    )
+      return;
+    const result = await this.api.projectChallenge(
+      connection.sessionId,
+      context as unknown as Record<string, unknown>,
+    );
+    if (this.connection === connection && result.state) {
+      this.session = result.state;
+      this.post({ type: "session", session: this.session });
+      this.status(
+        "Source/test-grounded decimal repair assigned. Other Python/framework tasks remain unsupported.",
+      );
+    }
   }
   private async sendDiagnostics() {
     if (!this.session || !this.connection) return;
@@ -945,8 +1008,19 @@ class Sidebar implements vscode.WebviewViewProvider {
         " " +
         quote(relative) +
         " " +
-        quote(fn);
-      result = await this.runCommand(runCommand, folder, 10000);
+        quote(fn) +
+        (context?.test_path && context.test_digest
+          ? " " + quote(context.test_path) + " " + quote(context.test_digest)
+          : "");
+      const evaluation = await this.runCommand(runCommand, folder, 10000);
+      if (evaluation.code === 3) {
+        this.status(
+          "Evaluation blocked, no attempt recorded: " + evaluation.output,
+          true,
+        );
+        return [];
+      }
+      result = evaluation;
     } else if (checkpoint.evaluator) {
       result = await this.runCommand(runCommand, folder, 60000);
     } else if (

@@ -341,6 +341,13 @@ test("source-grounded challenge requires exact supported function, names its sou
   const result = await assignProjectChallenge(s, {
     path: "app/input.py",
     source,
+    test_path: "test_input.py",
+    test_digest: "b".repeat(64),
+    cases: [
+      { input: "23", expected: 23 },
+      { input: true, raises: "ValueError" },
+    ],
+    baseline_failures: 1,
   });
   assert.match(result.title, /app\/input.py:parse_count/);
   assert.equal(result.language, "Python");
@@ -401,6 +408,13 @@ test("assigned source digest and inspected paths stay pinned despite later manif
   await assignProjectChallenge(s, {
     path: "input.py",
     source: "def parse(value):\n    return int(value)",
+    test_path: "test_input.py",
+    test_digest: "b".repeat(64),
+    cases: [
+      { input: "23", expected: 23 },
+      { input: true, raises: "ValueError" },
+    ],
+    baseline_failures: 1,
   });
   const original = structuredClone(stateOf(s).project_context);
   recordEvent(s, "project_context", {
@@ -422,4 +436,99 @@ test("passive Sessions evidence polling cannot call paid AI retune", () => {
     "utf8",
   );
   assert.doesNotMatch(source, /aiRetunePlan/);
+});
+
+test("source-test provenance is pinned and rejects invalid baseline claims", async () => {
+  const s = await startLearningSession({
+    challenge_id: "project-context-pending",
+  });
+  const context = {
+    path: "app/inputs.py",
+    source: "def parse_count(value):\n    return int(value.strip())",
+    test_path: "test_inputs.py",
+    test_digest: "a".repeat(64),
+    cases: [
+      { input: "23", expected: 23 },
+      { input: true, raises: "ValueError" },
+    ],
+    baseline_failures: 1,
+  };
+  await assert.rejects(
+    assignProjectChallenge(s, { ...context, baseline_failures: 0 }),
+    /failing baseline/,
+  );
+  await assert.rejects(
+    assignProjectChallenge(s, {
+      ...context,
+      cases: [
+        { input: true, expected: 1 },
+        { input: "2", expected: 2 },
+      ],
+    }),
+    /disagrees/,
+  );
+  await assert.rejects(
+    assignProjectChallenge(s, { ...context, test_path: "../private.py" }),
+    /provenance/,
+  );
+  const result = await assignProjectChallenge(s, context);
+  assert.equal(result.project_context.test_path, "test_inputs.py");
+  assert.equal(result.project_context.test_digest, context.test_digest);
+  assert.equal(result.project_context.test_cases, 2);
+  assert.equal(result.project_context.baseline_failures, 1);
+  assert.deepEqual(result.project_context.inspected_files, ["app/inputs.py"]);
+  assert.match(result.project_context.summary, /Source digest [a-f0-9]{64}\./);
+  assert.ok(
+    result.checkpoints[0].evaluator.expectedOutputIncludes.includes(
+      "BML_PINNED_TEST_" + context.test_digest,
+    ),
+  );
+  recordEvent(s, "project_context", {
+    inspected_files: ["wrong.py"],
+    summary: "overwrite",
+  });
+  assert.equal(stateOf(s).project_context.test_digest, context.test_digest);
+  assert.deepEqual(stateOf(s).project_context.inspected_files, [
+    "app/inputs.py",
+  ]);
+  await assert.rejects(assignProjectChallenge(s, context), /fresh session/);
+});
+
+test("new repair assignment refuses missing test provenance without deleting existing state", async () => {
+  const s = await startLearningSession({
+    challenge_id: "project-context-pending",
+  });
+  await assert.rejects(
+    assignProjectChallenge(s, {
+      path: "input.py",
+      source: "def parse(value):\n    return int(value)",
+    }),
+    /Upgrade/,
+  );
+  assert.equal(s.challengeId, "project-context-pending");
+  assert.equal(s.attempts, 0);
+});
+
+test("server refuses builtin-shadowing project source before assigning", async () => {
+  const s = await startLearningSession({ challenge_id: "pending" });
+  const context = {
+    path: "app.py",
+    test_path: "tests.py",
+    test_digest: "a".repeat(64),
+    cases: [
+      { input: "23", expected: 23 },
+      { input: true, raises: "ValueError" },
+    ],
+    baseline_failures: 1,
+  };
+  for (const source of [
+    "def int(value):\n    return int(value)",
+    "def parse(int):\n    return int(int)",
+  ]) {
+    await assert.rejects(
+      assignProjectChallenge(s, { ...context, source }),
+      /shadows/,
+    );
+    assert.equal(s.challengeId, "pending");
+  }
 });

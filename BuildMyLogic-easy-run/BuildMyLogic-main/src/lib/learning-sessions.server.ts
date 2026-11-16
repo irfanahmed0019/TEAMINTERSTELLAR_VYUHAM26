@@ -17,6 +17,10 @@ export type LearningSession = {
     lastReportAt?: number;
   };
   projectContext?: {
+    test_path?: string;
+    test_digest?: string;
+    test_cases?: number;
+    baseline_failures?: number;
     inspected_files: string[];
     languages: string[];
     technologies: string[];
@@ -873,6 +877,7 @@ export async function assignProjectChallenge(
 ) {
   if (
     session.attempts ||
+    session.challengeId.startsWith("python-decimal-contract:") ||
     session.status === "completed" ||
     session.status === "failed"
   )
@@ -887,12 +892,83 @@ export async function assignProjectChallenge(
   )
     throw new Error("Unsupported source path.");
   const match =
-    /^def ([a-zA-Z_][a-zA-Z_0-9]*)\(([a-zA-Z_][a-zA-Z_0-9]*)\):\n[ \t]+return int\(\2\)$/.exec(
+    /^def ([a-zA-Z_][a-zA-Z_0-9]*)\(([a-zA-Z_][a-zA-Z_0-9]*)\):\n[ \t]+return int\(\2(?:\.strip\(\))?\)$/.exec(
       source,
     );
   if (!match || match[1]!.startsWith("_"))
     throw new Error(
       "No supported standalone decimal conversion function was inspected. No generic project task was assigned.",
+    );
+  const testPath = text(input["test_path"], 180),
+    testDigest = text(input["test_digest"], 64);
+  const cases = input["cases"];
+  const failures = Number(input["baseline_failures"]);
+  const withTests = Boolean(testPath || testDigest || cases);
+  if (!withTests)
+    throw new Error(
+      "Upgrade to extension0.3.8 and select an existing source/test contract before repair assignment. Saved prior session results are unchanged.",
+    );
+  if (withTests) {
+    if (
+      !/^(?![./])(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.py$/.test(testPath) ||
+      /secret|credential/i.test(testPath) ||
+      !/^[a-f0-9]{64}$/.test(testDigest) ||
+      !Array.isArray(cases) ||
+      cases.length < 2 ||
+      cases.length > 32 ||
+      !Number.isInteger(failures) ||
+      failures < 1 ||
+      failures > cases.length
+    )
+      throw new Error(
+        "Bounded source/test provenance and an actual failing baseline are required.",
+      );
+    for (const item of cases) {
+      if (!item || typeof item !== "object")
+        throw new Error("Invalid project assertion.");
+      const c = item as Record<string, unknown>,
+        value = c["input"];
+      const valid =
+        (typeof value === "number" &&
+          Number.isInteger(value) &&
+          Math.abs(value) <= 1000000) ||
+        (typeof value === "string" &&
+          value.length <= 64 &&
+          /^[+-]?[0-9]+$/.test(value.trim()));
+      if (
+        valid
+          ? typeof c["expected"] !== "number" ||
+            c["expected"] !== Number(value) ||
+            c["raises"] !== undefined
+          : c["raises"] !== "ValueError" || c["expected"] !== undefined
+      )
+        throw new Error(
+          "Existing assertion disagrees with the authored decimal contract.",
+        );
+      if (!(
+        value === null ||
+        typeof value === "boolean" ||
+        (typeof value === "string" && value.length <= 64) ||
+        (typeof value === "number" &&
+          Number.isFinite(value) &&
+          Math.abs(value) <= 1000000)
+      ))
+        throw new Error("Project assertion literal exceeds supported bounds.");
+    }
+  }
+  const reserved = new Set([
+    "int",
+    "str",
+    "bool",
+    "float",
+    "isinstance",
+    "type",
+    "ValueError",
+    "TypeError",
+  ]);
+  if (reserved.has(match[1]!) || reserved.has(match[2]!))
+    throw new Error(
+      "Selected function or argument shadows evaluator builtins.",
     );
   const digest = createHash("sha256").update(source).digest("hex");
   const id = "python-decimal-contract:" + digest.slice(0, 16);
@@ -902,6 +978,8 @@ export async function assignProjectChallenge(
   session.expectedSkills = ["Python", "input validation", "edge cases"];
   session.title = `Harden ${path}:${match[1]} against invalid numeric input`;
   session.instructions = `Medium project challenge, opt-in scope: change the existing ${match[1]} function in ${path}. Keep accepting integers (except bool) and signed decimal strings, allowing surrounding whitespace. Reject booleans, floats, empty strings, decimal-point strings, and nonnumeric strings with ValueError. Do not change other project files or signatures. Keep the function standalone, with no imports or filesystem/network access. The evaluator extracts only this function AST; it does not import or run the whole module. Original inspected snippet SHA256: ${digest}. Expected duration is an authored 8-minute benchmark, not a measured population average. This proves only this contract, not the whole project.`;
+  if (withTests)
+    session.instructions += ` Repair is grounded in ${(cases as unknown[]).length} approved literal assertions from ${testPath}, with ${failures} baseline failures reported by the local inspector. The exact test file digest is pinned and rechecked before grading. Additional authored cases test the agreed decimal contract. Unsupported assertions were excluded during learner review, not claimed to be understood.`;
   session.expectedDurationMs = 8 * 60_000;
   session.checkpoints = [
     {
@@ -914,15 +992,26 @@ export async function assignProjectChallenge(
       evaluator: {
         id,
         command: "buildmylogic:python-decimal-contract",
-        expectedOutputIncludes: ["BML_DECIMAL_CONTRACT_14_PASS"],
+        expectedOutputIncludes: [
+          "BML_DECIMAL_CONTRACT_14_PASS",
+          ...(withTests ? ["BML_PINNED_TEST_" + testDigest] : []),
+        ],
       },
     },
   ];
   session.projectContext = {
+    ...(withTests
+      ? {
+          test_path: testPath,
+          test_digest: testDigest,
+          test_cases: (cases as unknown[]).length,
+          baseline_failures: failures,
+        }
+      : {}),
     inspected_files: [path],
     languages: ["Python"],
     technologies: [],
-    summary: `Inspected only the learner-approved function ${match[1]} in ${path}. Source digest ${digest}. Challenge selected after this inspection. Other module code and dependencies not understood.`,
+    summary: `Inspected only the learner-approved function ${match[1]} in ${path}. Source digest ${digest}. Challenge selected after this inspection. Other module code and dependencies not understood.${withTests ? ` Approved project test file ${testPath}, SHA256 ${testDigest}, ${(cases as unknown[]).length} matching literal cases, ${failures} baseline failures. Test bodies/imports not executed. Baseline failure is extension-reported, not server-verified.` : ""}`,
     at: new Date().toISOString(),
   };
   session.testCommand = "buildmylogic:python-decimal-contract";
