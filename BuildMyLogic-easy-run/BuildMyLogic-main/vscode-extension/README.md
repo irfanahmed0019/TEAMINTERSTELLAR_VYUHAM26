@@ -226,3 +226,11 @@ scope. Existing login, account, AI and camera rules are unchanged.
 ## 0.3.2 reliability update
 
 Timeouts stop the command process tree. Disconnect/session switches ignore stale responses. Connection errors stay on the configured API address. Commands still require workspace trust and explicit local execution approval.
+
+### Reviewed changed-input project recheck (0.3.10)
+
+Choose "Project utility repair + reviewed changed-input recheck (4+ cases)" for a bounded Python function with at least four distinct input tuples in your existing literal-equality tests. Review and approve the exact snippet and cases. Initial repair uses the first N-2 approved cases; the last two are reserved for a later recheck. The source session, owner, original source digest, test file, cases, signature and partition stay pinned. The repair body can change, but changed tests/signature or unsupported code block without recording a failed skill attempt.
+
+After actual initial failures and the initial repair pass, open the website learning step for this source session. Complete and save its reviewed lesson and prediction gate as the signed-in owner. Then use "Run reviewed changed-input recheck" in the extension. A saved owner/session binding is required before the two reserved cases run. The website validates the result before any recovery receipt. Initial task results are not overwritten.
+
+All cases were reviewed and the test file remains viewable. These are changed inputs from existing tests, not secret or unseen tests, independent transfer evidence, or proof of general mastery. Older finite-only tasks cannot be converted into a fresh recheck.

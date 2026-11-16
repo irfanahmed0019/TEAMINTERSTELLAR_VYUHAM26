@@ -91,6 +91,11 @@ export type SessionLog = {
   review?: SessionReview;
 };
 export type BuildSessionState = {
+  project_recheck_ready?: {
+    binding: import("./project-recovery").ProjectRecheckBinding;
+    at: number;
+  };
+  project_recheck_receipts?: import("./project-recovery").ProjectRecheckReceipt[];
   expected_skills?: string[];
   expected_duration_ms?: number;
   timing?: {
@@ -103,6 +108,14 @@ export type BuildSessionState = {
   evidence_provenance?: "extension-reported" | "legacy-client-reported";
   project_context?: {
     repair_contract?: {
+      partition?: {
+        version: 1;
+        initial_indices: number[];
+        recheck_indices: number[];
+        partition_digest: string;
+        source_session_id: string;
+      };
+      constructs?: string[];
       version: 1;
       function_name: string;
       arguments: string[];
@@ -273,6 +286,11 @@ export type LearningChat = {
 };
 
 export type LoopState = {
+  projectSessions?: Record<string, BuildSessionState>;
+  projectRecoveryReviews?: Record<
+    string,
+    import("./project-recovery").ProjectRecoveryReview
+  >;
   assessmentEvidence?: import("./assessment-evidence").AssessmentEvidence[];
   videoProgress?: Record<string, import("./video-learning").SavedVideoProgress>;
   sampleProvenance?: { version: 1; importedAt: number; label: string };

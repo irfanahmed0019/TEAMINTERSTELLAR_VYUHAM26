@@ -3,8 +3,32 @@ import type { ConquestReceipt } from "./shared-conquest";
 import { isSampleAccount } from "./sample-account.ts";
 import { sarvamJson } from "./sarvam.server";
 
+export type ProjectRecheckBinding = {
+  version: 1;
+  owner_id: string;
+  source_session_id: string;
+  challenge_id: string;
+  source_digest: string;
+  test_digest: string;
+  cases_digest: string;
+  partition_digest: string;
+  function_name: string;
+  arguments: string[];
+};
+export type ProjectRecheckReceipt = {
+  id: string;
+  binding: ProjectRecheckBinding;
+  at: number;
+  passed: number;
+  total: 2;
+  output: string;
+  provenance: "extension-reported";
+  test_source: "reviewed-existing-tests";
+};
 export type LearningSession = {
   conquestReceipts?: ConquestReceipt[];
+  projectRecheckReady?: { binding: ProjectRecheckBinding; at: number };
+  projectRecheckReceipts?: ProjectRecheckReceipt[];
   rev?: number;
   connectionTokenHash?: string;
   /** Returned once to the authenticated creator, never persisted or included in state. */
@@ -18,6 +42,14 @@ export type LearningSession = {
   };
   projectContext?: {
     repair_contract?: {
+      constructs?: string[];
+      partition?: {
+        version: 1;
+        initial_indices: number[];
+        recheck_indices: number[];
+        partition_digest: string;
+        source_session_id: string;
+      };
       version: 1;
       function_name: string;
       arguments: string[];
@@ -152,9 +184,18 @@ const STATUS_RANK: Record<string, number> = {
 };
 const statusRank = (status: string) => STATUS_RANK[status] ?? 0;
 
-async function persistSession(session: LearningSession): Promise<void> {
+async function persistSession(
+  session: LearningSession,
+  strict = false,
+): Promise<void> {
   const config = supabaseAdminConfig();
-  if (!config) return;
+  if (!config) {
+    if (strict)
+      throw new Error(
+        "Cloud session persistence is unavailable; no saved recheck evidence.",
+      );
+    return;
+  }
   try {
     const current = await fetch(
       `${config.url}/rest/v1/learning_sessions?session_id=eq.${encodeURIComponent(session.sessionId)}&select=status,session_data`,
@@ -162,6 +203,10 @@ async function persistSession(session: LearningSession): Promise<void> {
         headers: { apikey: config.key, authorization: `Bearer ${config.key}` },
       },
     );
+    if (strict && !current.ok)
+      throw new Error(
+        "Cannot validate cloud session before saving recheck evidence.",
+      );
     if (current.ok) {
       const rows = (await current.json()) as {
         status?: string;
@@ -176,11 +221,43 @@ async function persistSession(session: LearningSession): Promise<void> {
       if (receipts.size)
         session.conquestReceipts = [...receipts.values()].slice(-40);
       session.rev = Math.max(session.rev ?? 0, rows[0]?.session_data?.rev ?? 0);
+      const savedSession = rows[0]?.session_data;
+      const binding = projectRecheckBinding(session);
+      if (
+        strict &&
+        (!savedSession ||
+          !binding ||
+          !sameProjectBinding(projectRecheckBinding(savedSession), binding))
+      )
+        throw new Error(
+          "Cloud session owner/project binding differs; recheck evidence was not saved.",
+        );
+      if (binding && savedSession) {
+        const savedReady = savedSession.projectRecheckReady;
+        if (
+          !session.projectRecheckReady &&
+          savedReady &&
+          sameProjectBinding(savedReady.binding, binding)
+        )
+          session.projectRecheckReady = savedReady;
+        const projectReceipts = new Map(
+          [
+            ...(savedSession.projectRecheckReceipts ?? []),
+            ...(session.projectRecheckReceipts ?? []),
+          ]
+            .filter((r) => sameProjectBinding(r.binding, binding))
+            .map((r) => [r.id, r]),
+        );
+        session.projectRecheckReceipts = [...projectReceipts.values()].slice(
+          -20,
+        );
+      }
       const existing = rows[0]?.status;
       if (existing && statusRank(existing) > statusRank(session.status))
         session.status = existing as LearningSession["status"];
     }
-  } catch {
+  } catch (error) {
+    if (strict) throw error;
     // Best effort: if the read fails, write what this instance knows.
   }
   const userId =
@@ -218,12 +295,15 @@ async function persistSession(session: LearningSession): Promise<void> {
         session_data: { ...session, connectionToken: undefined },
       }),
     });
+    if (strict && !response.ok)
+      throw new Error("Cloud recheck save failed. No saved recheck evidence.");
     if (!response.ok)
       console.warn(
         "Supabase learning session save failed:",
         await response.text(),
       );
   } catch (error) {
+    if (strict) throw error;
     console.warn("Supabase learning session save exception:", error);
   }
 }
@@ -468,6 +548,8 @@ function compact(session: LearningSession) {
     },
     evidence_provenance: session.evidenceProvenance ?? "legacy-client-reported",
     project_context: session.projectContext,
+    project_recheck_ready: session.projectRecheckReady,
+    project_recheck_receipts: session.projectRecheckReceipts ?? [],
     session_id: session.sessionId,
     challenge_id: session.challengeId,
     title: session.title,
@@ -889,6 +971,245 @@ export async function getRunPlan(session: LearningSession, platform: string) {
   return { command: fallback.command, guidance: session.runGuidance, platform };
 }
 
+/** This binding identifies reviewed finite cases, not independently attested execution. */
+export function projectRecheckBinding(
+  session: LearningSession,
+): ProjectRecheckBinding | null {
+  const context = session.projectContext,
+    contract = context?.repair_contract,
+    p = contract?.partition;
+  const hex = (v: unknown): v is string =>
+    typeof v === "string" && /^[a-f0-9]{64}$/.test(v);
+  if (
+    !/^python-literal-repair:[a-f0-9]{24}$/.test(session.challengeId) ||
+    session.language !== "Python" ||
+    session.concept !== "project test repair" ||
+    !session.userId ||
+    !contract ||
+    contract.version !== 1 ||
+    !p ||
+    p.version !== 1 ||
+    p.source_session_id !== session.sessionId ||
+    !hex(contract.source_digest) ||
+    !hex(context?.test_digest) ||
+    !hex(contract.cases_digest) ||
+    !hex(p.partition_digest) ||
+    !context?.test_path ||
+    context.inspected_files.length !== 1 ||
+    !Array.isArray(contract.arguments) ||
+    contract.arguments.length < 1 ||
+    contract.arguments.length > 3 ||
+    !contract.arguments.every((a) => /^[A-Za-z][A-Za-z_0-9]*$/.test(a)) ||
+    !/^[A-Za-z][A-Za-z_0-9]*$/.test(contract.function_name)
+  )
+    return null;
+  const count = context.test_cases;
+  if (
+    !Number.isInteger(count) ||
+    count! < 4 ||
+    !Array.isArray(p.initial_indices) ||
+    !Array.isArray(p.recheck_indices) ||
+    p.initial_indices.length !== count! - 2 ||
+    p.recheck_indices.length !== 2 ||
+    JSON.stringify(p.initial_indices) !==
+      JSON.stringify(Array.from({ length: count! - 2 }, (_, i) => i)) ||
+    JSON.stringify(p.recheck_indices) !==
+      JSON.stringify([count! - 2, count! - 1])
+  )
+    return null;
+  const evaluator = session.checkpoints[0]?.evaluator;
+  if (
+    session.checkpoints.length !== 1 ||
+    evaluator?.id !== session.challengeId ||
+    evaluator.command !== "buildmylogic:python-literal-repair-v1" ||
+    JSON.stringify(evaluator.expectedOutputIncludes) !==
+      JSON.stringify([
+        "BML_LITERAL_REPAIR_V1_PASS",
+        "BML_PINNED_TEST_" + context.test_digest,
+        "BML_PARTITION_" + p.partition_digest,
+      ])
+  )
+    return null;
+  return {
+    version: 1,
+    owner_id: session.userId,
+    source_session_id: session.sessionId,
+    challenge_id: session.challengeId,
+    source_digest: contract.source_digest,
+    test_digest: context.test_digest,
+    cases_digest: contract.cases_digest,
+    partition_digest: p.partition_digest,
+    function_name: contract.function_name,
+    arguments: [...contract.arguments],
+  };
+}
+const sameProjectBinding = (a: unknown, b: ProjectRecheckBinding) => {
+  if (!a || typeof a !== "object") return false;
+  const o = a as Record<string, unknown>;
+  return (
+    Object.keys(b).every((k) =>
+      k === "arguments"
+        ? JSON.stringify(o[k]) === JSON.stringify(b.arguments)
+        : o[k] === b[k as keyof ProjectRecheckBinding],
+    ) && Object.keys(o).length === Object.keys(b).length
+  );
+};
+/** Route must FIRST validate the signed owner's saved cloud lesson/prediction gate. */
+export async function markProjectRecheckReady(
+  session: LearningSession,
+  binding: ProjectRecheckBinding,
+) {
+  const current = projectRecheckBinding(session);
+  const failures = session.events.filter((e) => {
+    if (e.eventType !== "test_result" || e.payload["status"] !== "failed")
+      return false;
+    let results: unknown = e.payload["checkpoint_results"];
+    try {
+      if (typeof results === "string") results = JSON.parse(results);
+    } catch {
+      return false;
+    }
+    return (
+      Array.isArray(results) &&
+      results.some(
+        (r) =>
+          r &&
+          r.index === 0 &&
+          r.evaluator_id === session.challengeId &&
+          r.passed === false &&
+          /^Approved finite project cases failed: [0-9,]+\s*$/.test(
+            String(r.output ?? ""),
+          ),
+      )
+    );
+  }).length;
+  if (
+    !current ||
+    !sameProjectBinding(binding, current) ||
+    session.status !== "completed" ||
+    session.checkpoints.some((c) => c.status !== "passed") ||
+    failures < 2
+  )
+    throw new Error(
+      "Matching owner/project binding, two recorded failures and initial completed repair are required before recheck readiness.",
+    );
+  const previousReady = session.projectRecheckReady,
+    previousRev = session.rev;
+  if (
+    !session.projectRecheckReady ||
+    !sameProjectBinding(session.projectRecheckReady.binding, current)
+  )
+    session.projectRecheckReady = {
+      binding: current,
+      at: Date.now(),
+    };
+  session.rev = (session.rev ?? 0) + 1;
+  try {
+    await persistSession(session, true);
+  } catch (error) {
+    if (previousReady) session.projectRecheckReady = previousReady;
+    else delete session.projectRecheckReady;
+    if (previousRev !== undefined) session.rev = previousRev;
+    else delete session.rev;
+    throw error;
+  }
+  return stateOf(session);
+}
+export async function recordProjectRecheck(
+  session: LearningSession,
+  payload: Record<string, unknown>,
+) {
+  const current = projectRecheckBinding(session),
+    ready = session.projectRecheckReady;
+  if (
+    !current ||
+    !ready ||
+    !sameProjectBinding(ready.binding, current) ||
+    !Number.isFinite(ready.at) ||
+    ready.at <= 0 ||
+    session.status !== "completed" ||
+    payload["source_session_id"] !== session.sessionId ||
+    payload["evaluator_id"] !== session.challengeId ||
+    payload["partition_digest"] !== current.partition_digest ||
+    typeof payload["passed"] !== "boolean" ||
+    typeof payload["output"] !== "string" ||
+    payload["output"].length > 5000
+  )
+    throw new Error(
+      "Owner-validated reviewed-learning readiness and exact project recheck binding are required.",
+    );
+  const output = payload["output"],
+    passed = payload["passed"];
+  const markers = [
+    "BML_LITERAL_RECHECK_V1_PASS",
+    "BML_PINNED_TEST_" + current.test_digest,
+    "BML_PARTITION_" + current.partition_digest,
+  ];
+  if (passed && !markers.every((m) => output.split(/\r?\n/).includes(m)))
+    throw new Error(
+      "Changed-input recheck pass markers do not match the pinned finite project contract.",
+    );
+  if (
+    !passed &&
+    !/^Reviewed changed-input cases failed: [0-9,]+\s*$/.test(output)
+  )
+    throw new Error(
+      "Blocked or unavailable execution is not a failed recheck attempt.",
+    );
+  const failedIndices = passed
+    ? []
+    : output.trim().split(": ")[1]!.split(",").map(Number);
+  const allowed =
+    session.projectContext!.repair_contract!.partition!.recheck_indices.map(
+      (i) => i + 1,
+    );
+  if (
+    !passed &&
+    (!failedIndices.length ||
+      failedIndices.length > 2 ||
+      new Set(failedIndices).size !== failedIndices.length ||
+      failedIndices.some((i) => !allowed.includes(i)) ||
+      output.trim() !==
+        "Reviewed changed-input cases failed: " + failedIndices.join(","))
+  )
+    throw new Error("Failed case indices do not match the reserved partition.");
+  const id =
+    "project-recheck:" +
+    createHash("sha256")
+      .update(JSON.stringify(current) + "\n" + passed + "\n" + output)
+      .digest("hex")
+      .slice(0, 32);
+  const previousReceipts = session.projectRecheckReceipts
+      ? [...session.projectRecheckReceipts]
+      : undefined,
+    previousRev = session.rev;
+  session.projectRecheckReceipts ??= [];
+  if (!session.projectRecheckReceipts.some((r) => r.id === id)) {
+    session.projectRecheckReceipts.push({
+      id,
+      binding: current,
+      at: Date.now(),
+      passed: passed ? 2 : 2 - failedIndices.length,
+      total: 2,
+      output,
+      provenance: "extension-reported",
+      test_source: "reviewed-existing-tests",
+    });
+    session.projectRecheckReceipts = session.projectRecheckReceipts.slice(-20);
+    session.rev = (session.rev ?? 0) + 1;
+    try {
+      await persistSession(session, true);
+    } catch (error) {
+      if (previousReceipts) session.projectRecheckReceipts = previousReceipts;
+      else delete session.projectRecheckReceipts;
+      if (previousRev !== undefined) session.rev = previousRev;
+      else delete session.rev;
+      throw error;
+    }
+  }
+  return stateOf(session);
+}
+
 /** Finite project-owned literal cases, not an inferred or AI-generated requirement oracle. */
 export async function assignLiteralProjectChallenge(
   session: LearningSession,
@@ -989,9 +1310,81 @@ export async function assignLiteralProjectChallenge(
       Object.keys(c).some((k) => !["args", "expected"].includes(k))
     )
       throw new Error("Only bounded scalar equality cases are supported.");
+  const constructs = Array.isArray(input["constructs"])
+    ? [
+        ...new Set(
+          input["constructs"].filter(
+            (c): c is string =>
+              typeof c === "string" &&
+              ["arithmetic", "conditionals", "string-normalization"].includes(
+                c,
+              ),
+          ),
+        ),
+      ]
+    : [];
+  let partition:
+    | {
+        version: 1;
+        initial_indices: number[];
+        recheck_indices: number[];
+        partition_digest: string;
+        source_session_id: string;
+      }
+    | undefined;
+  if (input["approved_partition"] === true) {
+    const inputKeys = cases.map((c) =>
+      JSON.stringify(
+        c.args.map((v: unknown) =>
+          typeof v === "number" || typeof v === "boolean"
+            ? ["number", Number(v)]
+            : [typeof v, v],
+        ),
+      ),
+    );
+    if (cases.length < 4 || new Set(inputKeys).size !== cases.length)
+      throw new Error(
+        "Changed-input recheck requires at least4distinct argument tuples.",
+      );
+    const initial_indices = cases.slice(0, -2).map((_, i) => i),
+      recheck_indices = [cases.length - 2, cases.length - 1];
+    const partition_digest = createHash("sha256")
+      .update(
+        casesJson + "\n" + JSON.stringify({ initial_indices, recheck_indices }),
+      )
+      .digest("hex");
+    const incoming = input["partition"] as Record<string, unknown> | undefined;
+    if (
+      !incoming ||
+      incoming["version"] !== 1 ||
+      incoming["partition_digest"] !== partition_digest ||
+      JSON.stringify(incoming["initial_indices"]) !==
+        JSON.stringify(initial_indices) ||
+      JSON.stringify(incoming["recheck_indices"]) !==
+        JSON.stringify(recheck_indices) ||
+      failures > initial_indices.length
+    )
+      throw new Error("Pinned case partition or initial baseline is invalid.");
+    partition = {
+      version: 1,
+      initial_indices,
+      recheck_indices,
+      partition_digest,
+      source_session_id: session.sessionId,
+    };
+  } else if (input["partition"] !== undefined)
+    throw new Error("Case partition requires explicit review consent.");
+  const initialCount = partition?.initial_indices.length ?? cases.length;
   const sourceDigest = createHash("sha256").update(source).digest("hex"),
     binding = createHash("sha256")
-      .update(source + "\n" + testDigest + "\n" + casesJson)
+      .update(
+        source +
+          "\n" +
+          testDigest +
+          "\n" +
+          casesJson +
+          (partition ? "\n" + partition.partition_digest : ""),
+      )
       .digest("hex");
   const id = "python-literal-repair:" + binding.slice(0, 24);
   session.challengeId = id;
@@ -1000,12 +1393,14 @@ export async function assignLiteralProjectChallenge(
   session.expectedSkills = ["Python", "project test repair"];
   session.title = `Repair ${path}:${name} against its approved project tests`;
   session.instructions = `Medium project utility repair: fix only ${name}(${args.join(", ")}) in ${path} to satisfy these ${cases.length} approved existing literal cases from ${testPath}: ${casesJson}. Local inspection observed ${failures} baseline failures (extension-reported, not server-verified). Test SHA256 ${testDigest}. Function signature is pinned; repair body may change. Only the selected bounded scalar function runs; module/test imports and other code never run. Supported code: return/if/else, bounded numeric arithmetic/comparisons, scalar conversions and strip/lower/upper. No loops, imports, recursion, helpers, mutable state or framework dependency resolution. Unsupported code/provenance blocks evaluation without failed skill evidence. This is not a secure arbitrary-Python sandbox. Passing proves only these finite existing cases, not hidden requirements, independence, general mastery or whole-project correctness. Expected8minutes is an authored benchmark, not a measured population average.`;
+  if (partition)
+    session.instructions += ` Approved case partition: initial repair uses case indices ${partition.initial_indices.map((i) => i + 1).join(",")}; later changed-input recheck uses indices ${partition.recheck_indices.map((i) => i + 1).join(",")}. All were reviewed and the test file is viewable: not secret, unseen, independent or a mastery certificate. Initial completion does not evaluate the reserved group. Relevant inspected constructs: ${constructs.join(", ") || "no mapped construct"}; these are code context, not a diagnosed cause. Source session ${session.sessionId}; partition SHA256 ${partition.partition_digest}.`;
   session.expectedDurationMs = 480000;
   session.checkpoints = [
     {
       index: 0,
       title: `Pass approved project cases for ${name}`,
-      detail: `All ${cases.length} finite literal equality cases must pass with unchanged tests and signature.`,
+      detail: `All ${initialCount} initial finite literal equality cases must pass with unchanged tests and signature.${partition ? " Two reviewed changed-input cases are reserved for a later recheck, not secret or unseen." : ""}`,
       status: "active",
       evidence: "not_verified",
       attempts: 0,
@@ -1015,6 +1410,7 @@ export async function assignLiteralProjectChallenge(
         expectedOutputIncludes: [
           "BML_LITERAL_REPAIR_V1_PASS",
           "BML_PINNED_TEST_" + testDigest,
+          ...(partition ? ["BML_PARTITION_" + partition.partition_digest] : []),
         ],
       },
     },
@@ -1035,6 +1431,8 @@ export async function assignLiteralProjectChallenge(
       arguments: args,
       cases_digest: casesDigest,
       source_digest: sourceDigest,
+      constructs,
+      ...(partition ? { partition } : {}),
     },
   };
   session.testCommand = "buildmylogic:python-literal-repair-v1";

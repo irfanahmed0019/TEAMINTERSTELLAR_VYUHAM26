@@ -5,6 +5,18 @@ export type ConquestReceipt = {
   conqueredAt: number;
 };
 export type RemoteSession = {
+  project_recheck_ready?: {
+    binding: { source_session_id: string; partition_digest: string };
+    at: number;
+  };
+  project_recheck_receipts?: Array<{
+    id: string;
+    passed: number;
+    total: 2;
+    at: number;
+    provenance: "extension-reported";
+    test_source: "reviewed-existing-tests";
+  }>;
   expected_duration_ms?: number;
   timing?: {
     active_ms: number;
@@ -14,6 +26,14 @@ export type RemoteSession = {
   };
   project_context?: {
     repair_contract?: {
+      constructs?: string[];
+      partition?: {
+        version: 1;
+        initial_indices: number[];
+        recheck_indices: number[];
+        partition_digest: string;
+        source_session_id: string;
+      };
       version: 1;
       function_name: string;
       arguments: string[];
@@ -178,6 +198,12 @@ export class SessionClient {
     return this.request(
       "/api/sessions/" + encodeURIComponent(sessionId) + "/project-challenge",
       { method: "POST", body: JSON.stringify(context) },
+    );
+  }
+  public projectRecheck(sessionId: string, payload: Record<string, unknown>) {
+    return this.request(
+      "/api/sessions/" + encodeURIComponent(sessionId) + "/project-recheck",
+      { method: "POST", body: JSON.stringify(payload) },
     );
   }
   public heartbeat(sessionId: string) {

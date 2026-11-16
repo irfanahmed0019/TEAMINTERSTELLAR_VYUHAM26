@@ -237,3 +237,80 @@ test("Python equality keeps None/string mismatches false without adding a type o
     );
     assert.equal(grade(run, info).status, 0);
   }));
+
+test("new reviewed partition grades initial group then different existing inputs, never retroactive holdout", () =>
+  fixture((dir, run) => {
+    const own =
+      "from shop.prices import sale_price\nassert sale_price(20,5)==15\nassert sale_price(4,5)==0\nassert sale_price(5,5)==0\nassert sale_price(100,20)==80";
+    inspect(dir, run, baseline, own);
+    const initial = run([
+      "--inspect-partition",
+      "shop/prices.py",
+      "sale_price",
+      "test_prices.py",
+    ]);
+    assert.equal(initial.status, 0, initial.stderr);
+    const info = JSON.parse(initial.stdout);
+    assert.deepEqual(info.partition.initial_indices, [0, 1]);
+    assert.deepEqual(info.partition.recheck_indices, [2, 3]);
+    assert.deepEqual(info.constructs, ["arithmetic"]);
+    const gradeArgs = [
+      "shop/prices.py",
+      "sale_price",
+      "test_prices.py",
+      info.test_digest,
+      info.arguments.join(","),
+      info.cases_digest,
+      info.partition.partition_digest,
+    ];
+    writeFileSync(
+      join(dir, "shop", "prices.py"),
+      "def sale_price(price, discount):\n    if price == 20:\n        return 15\n    return 0",
+    );
+    const first = run(gradeArgs);
+    assert.equal(first.status, 0, first.stderr);
+    assert.match(first.stdout, /BML_PARTITION_/);
+    const reserved = run(["--recheck", ...gradeArgs]);
+    assert.equal(reserved.status, 1);
+    assert.match(reserved.stdout, /cases failed: 4/);
+    writeFileSync(join(dir, "shop", "prices.py"), repaired);
+    const pass = run(["--recheck", ...gradeArgs]);
+    assert.equal(pass.status, 0, pass.stderr);
+    assert.match(pass.stdout, /BML_LITERAL_RECHECK_V1_PASS/);
+    const drift = run(["--recheck", ...gradeArgs.slice(0, -1), "a".repeat(64)]);
+    assert.equal(drift.status, 3);
+    // Legacy grading without partition still evaluates ALL approved project cases.
+    writeFileSync(
+      join(dir, "shop", "prices.py"),
+      "def sale_price(price, discount):\n    if price == 20:\n        return 15\n    return 0",
+    );
+    assert.equal(run(gradeArgs.slice(0, -1)).status, 1);
+  }));
+test("partition blocks insufficient/repeated/equivalent inputs and passing initial baseline", () =>
+  fixture((dir, run) => {
+    for (const own of [
+      tests,
+      "from shop.prices import sale_price\nassert sale_price(1,0)==0\nassert sale_price(1.0,0)==0\nassert sale_price(2,0)==0\nassert sale_price(3,0)==0",
+      "from shop.prices import sale_price\nassert sale_price(True,0)==0\nassert sale_price(1,0)==0\nassert sale_price(2,0)==0\nassert sale_price(3,0)==0",
+    ]) {
+      inspect(dir, run, baseline, own);
+      const result = run([
+        "--inspect-partition",
+        "shop/prices.py",
+        "sale_price",
+        "test_prices.py",
+      ]);
+      assert.equal(result.status, 3);
+    }
+    const own =
+      "from shop.prices import sale_price\nassert sale_price(20,5)==25\nassert sale_price(4,5)==9\nassert sale_price(5,5)==0\nassert sale_price(100,20)==80";
+    inspect(dir, run, baseline, own);
+    const result = run([
+      "--inspect-partition",
+      "shop/prices.py",
+      "sale_price",
+      "test_prices.py",
+    ]);
+    assert.equal(result.status, 3);
+    assert.match(result.stderr, /initial project cases already pass/);
+  }));

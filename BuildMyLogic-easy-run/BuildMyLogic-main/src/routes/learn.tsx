@@ -1,3 +1,4 @@
+import { ProjectRecoveryLessons } from "@/components/learn/ProjectRecoveryLessons";
 import { priorityLearningTopics } from "@/lib/adaptive-learning";
 import { learnerStorage } from "@/lib/demo-mode";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -371,6 +372,7 @@ function Learn() {
         </div>
         <ArrowRight className="h-5 w-5 shrink-0 text-primary" />
       </a>
+      <ProjectRecoveryLessons />
       {/* Tabs */}
       <div className="inline-flex flex-wrap gap-1 rounded-2xl border border-border bg-card p-1.5">
         {(

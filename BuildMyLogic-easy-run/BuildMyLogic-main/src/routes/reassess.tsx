@@ -1,3 +1,8 @@
+import { isReadyCloudOwner } from "@/lib/cloud-readiness";
+import { ProjectRecoveryLessons } from "@/components/learn/ProjectRecoveryLessons";
+import { isSupportedProjectEvidence } from "@/lib/project-evidence";
+import { useAuth } from "@/lib/auth";
+import { useCloudHydrated } from "@/lib/cloud-sync";
 import { publishSavedConquests } from "@/lib/publish-conquest";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
@@ -16,6 +21,8 @@ import type { BuildSessionState } from "@/lib/loop-types";
 export const Route = createFileRoute("/reassess")({ component: Reassess });
 function Reassess() {
   const state = useLoop();
+  const currentAuth = useAuth(),
+    hydrated = useCloudHydrated(currentAuth?.uid);
   const [params] = useState(
     () =>
       new URLSearchParams(
@@ -27,7 +34,7 @@ function Reassess() {
   const pattern = params.get("pattern");
   const planIdentity = state.plan?.projectTitle;
   useEffect(() => {
-    if (!session) return;
+    if (!session || !currentAuth?.uid || !hydrated) return;
     let cancelled = false;
     setStatus("Checking the linked VS Code session...");
     void (async () => {
@@ -45,15 +52,23 @@ function Reassess() {
           state?: BuildSessionState;
           error?: string;
         };
-        if (cancelled) return;
+        if (
+          cancelled ||
+          !currentAuth?.uid ||
+          getAuthSession()?.uid !== currentAuth.uid ||
+          !isReadyCloudOwner(currentAuth.uid)
+        )
+          return;
         if (
           !response.ok ||
           !result.ok ||
           !result.state ||
-          result.state.session_id !== session
+          result.state.session_id !== session ||
+          result.state.verified_owner_id !== currentAuth.uid
         )
           throw new Error(result.error || "Could not verify this session.");
         if (
+          !isSupportedProjectEvidence(result.state) &&
           !getLoopState().plan?.missions.some(
             (m) => m.id === result.state!.challenge_id,
           )
@@ -75,7 +90,7 @@ function Reassess() {
     return () => {
       cancelled = true;
     };
-  }, [session, planIdentity]);
+  }, [session, planIdentity, currentAuth?.uid, hydrated]);
   const patterns = (state.struggle?.misconceptions ?? []).filter(
     (m) =>
       m.status === "locked" &&
@@ -98,6 +113,7 @@ function Reassess() {
       title="Diagnose, then adapt"
       subtitle="A prediction probe is evidence about a specific idea. An output mismatch alone is not a diagnosis."
     >
+      <ProjectRecoveryLessons sessionId={session ?? undefined} />
       {status && (
         <p role="status" className="card-surface mb-4 p-4 text-sm">
           {status}
@@ -155,67 +171,69 @@ function Reassess() {
           </a>
         </section>
       )}
-      {patterns.map((m) => {
-        const topic = STUDY_TOPICS.find(
-          (t) =>
-            t.id ===
-            (m.transferTopicId ?? (m.sourceSessionId ? "" : m.topicId)),
-        );
-        const lang = supportedTransferLanguage(m.language);
-        const verified =
-          !m.sourceSessionId ||
-          Boolean(
-            m.recoveryOwnerId && m.recoveryOwnerId === getAuthSession()?.uid,
+      {patterns
+        .filter((m) => !m.topicId.startsWith("project-test-repair:owner:"))
+        .map((m) => {
+          const topic = STUDY_TOPICS.find(
+            (t) =>
+              t.id ===
+              (m.transferTopicId ?? (m.sourceSessionId ? "" : m.topicId)),
           );
-        return (
-          <section key={m.id} className="mb-6">
-            <div className="card-surface mb-4 p-5">
-              <h2 className="font-bold">{m.summary}</h2>
-              <p className="mt-2 text-sm">
-                Original context: {m.topicTitle}.{" "}
-                {m.sourceSessionId
-                  ? `VS Code session ${m.sourceSessionId}.`
-                  : "Website practice."}
-              </p>
-              {!verified ? (
-                <p className="mt-3 text-sm text-amber-800">
-                  This earlier session evidence is not verified for the
-                  currently signed-in owner. It cannot conquer a pattern or be
-                  promoted by signing in later. Open the owner-authenticated
-                  session handoff to import separately verified event evidence;
-                  old unsigned records remain unverified.
+          const lang = supportedTransferLanguage(m.language);
+          const verified =
+            !m.sourceSessionId ||
+            Boolean(
+              m.recoveryOwnerId && m.recoveryOwnerId === getAuthSession()?.uid,
+            );
+          return (
+            <section key={m.id} className="mb-6">
+              <div className="card-surface mb-4 p-5">
+                <h2 className="font-bold">{m.summary}</h2>
+                <p className="mt-2 text-sm">
+                  Original context: {m.topicTitle}.{" "}
+                  {m.sourceSessionId
+                    ? `VS Code session ${m.sourceSessionId}.`
+                    : "Website practice."}
                 </p>
-              ) : !topic || !lang ? (
-                <p className="mt-3 text-sm text-amber-800">
-                  This project or checkpoint has no verified concept-specific
-                  transfer specification yet. Its lock stays active. A generic
-                  command succeeding, a chosen study topic, or a recovery
-                  mission completing cannot prove this exact weakness was fixed.
-                  Return to the project, capture the failing input or behavior
-                  plus expected result, and verify a changed requirement with an
-                  executable check. This handoff does not run or certify
-                  arbitrary framework projects.
-                </p>
-              ) : (
-                <p className="mt-3 text-sm">
-                  Recovery scope: {topic.title} in{" "}
-                  {lang === "c" ? "C" : "Python"}. Passing the finite checks
-                  does not prove the entire original project works.
-                </p>
+                {!verified ? (
+                  <p className="mt-3 text-sm text-amber-800">
+                    This earlier session evidence is not verified for the
+                    currently signed-in owner. It cannot conquer a pattern or be
+                    promoted by signing in later. Open the owner-authenticated
+                    session handoff to import separately verified event
+                    evidence; old unsigned records remain unverified.
+                  </p>
+                ) : !topic || !lang ? (
+                  <p className="mt-3 text-sm text-amber-800">
+                    This project or checkpoint has no verified concept-specific
+                    transfer specification yet. Its lock stays active. A generic
+                    command succeeding, a chosen study topic, or a recovery
+                    mission completing cannot prove this exact weakness was
+                    fixed. Return to the project, capture the failing input or
+                    behavior plus expected result, and verify a changed
+                    requirement with an executable check. This handoff does not
+                    run or certify arbitrary framework projects.
+                  </p>
+                ) : (
+                  <p className="mt-3 text-sm">
+                    Recovery scope: {topic.title} in{" "}
+                    {lang === "c" ? "C" : "Python"}. Passing the finite checks
+                    does not prove the entire original project works.
+                  </p>
+                )}
+              </div>
+              {verified && topic && lang && (
+                <TopicPractice
+                  patternId={m.id}
+                  topicId={topic.id}
+                  topicTitle={topic.title}
+                  language={lang}
+                  exercise={topic.exercise[lang]}
+                />
               )}
-            </div>
-            {verified && topic && lang && (
-              <TopicPractice
-                patternId={m.id}
-                topicId={topic.id}
-                topicTitle={topic.title}
-                language={lang}
-                exercise={topic.exercise[lang]}
-              />
-            )}
-          </section>
-        );
-      })}
+            </section>
+          );
+        })}
     </AppShell>
   );
 }

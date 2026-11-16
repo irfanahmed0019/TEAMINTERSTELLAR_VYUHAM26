@@ -1,3 +1,10 @@
+## 0.3.10
+
+- Add opt-in reviewed changed-input partitions for actual Python utility functions with at least four distinct existing literal-test inputs.
+- Pin the initial/recheck partition to the owner and source session; older finite-only tasks cannot gain a recheck retroactively.
+- Keep initial task evidence separate from the later two-case recheck. Website learning/prediction prerequisites and saved readiness are required.
+- Report reviewed-existing-test results honestly as extension-reported finite evidence, never secret, unseen, independent, or general mastery.
+
 ## 0.3.9
 
 - Added separate finite Python utility repair flow from the actual selected function and its own failing literal equality tests, not decimal-input rules. Supports 1-3 scalar parameters and finite return/if/else utilities with bounded arithmetic/conversions/string strip/lower/upper.

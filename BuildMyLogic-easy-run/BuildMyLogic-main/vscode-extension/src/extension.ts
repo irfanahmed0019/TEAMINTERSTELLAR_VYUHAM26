@@ -28,6 +28,7 @@ type Message = {
     | "failed"
     | "disconnect"
     | "reassess"
+    | "projectRecheck"
     | "openMentor"
     | "checkSetup"
     | "installTool";
@@ -181,6 +182,7 @@ class Sidebar implements vscode.WebviewViewProvider {
           "Connect an active BuildMyLogic session first.",
           true,
         );
+      if (m.command === "projectRecheck") return await this.runProjectRecheck();
       if (m.command === "reassess") {
         const url = new URL("/reassess", this.api.getBaseUrl());
         url.searchParams.set("session", this.connection.sessionId);
@@ -740,7 +742,12 @@ class Sidebar implements vscode.WebviewViewProvider {
       return;
     const choice = await vscode.window.showQuickPick(
       [
-        { label: "Project literal-test utility repair", flow: "literal" },
+        {
+          label:
+            "Project utility repair + reviewed changed-input recheck (4+ cases)",
+          flow: "partition",
+        },
+        { label: "Project literal-test utility repair only", flow: "literal" },
         { label: "Decimal input-validation repair", flow: "decimal" },
       ],
       {
@@ -806,14 +813,14 @@ class Sidebar implements vscode.WebviewViewProvider {
         ? '"' + v.replace(/"/g, "") + '"'
         : "'" + v.replace(/'/g, "'\\''") + "'";
     const file =
-      choice.flow === "literal"
+      choice.flow !== "decimal"
         ? "python_literal_repair.py"
         : "python_decimal_contract.py";
     const command =
       (process.platform === "win32" ? "py -3" : "python3") +
       " -I " +
       quote(this.context.asAbsolutePath("media/" + file)) +
-      " --inspect " +
+      (choice.flow === "partition" ? " --inspect-partition " : " --inspect ") +
       quote(sourcePath) +
       " " +
       quote(name) +
@@ -836,7 +843,7 @@ class Sidebar implements vscode.WebviewViewProvider {
       context.source.length > 8000
     )
       throw new Error("Inspector provenance mismatch.");
-    const literal = choice.flow === "literal";
+    const literal = choice.flow !== "decimal";
     if (
       !literal &&
       (!Array.isArray(context.cases) ||
@@ -847,8 +854,12 @@ class Sidebar implements vscode.WebviewViewProvider {
         "Decimal inspector returned no bounded2-32case contract. No task assigned.",
       );
     const cases = literal ? context.cases_json : JSON.stringify(context.cases);
+    const partitionCopy =
+      choice.flow === "partition"
+        ? " Initial repair uses the first N-2 approved cases. The last 2 distinct inputs are reserved for later changed-input recheck after learning. All are reviewed and the file is viewable; NOT secret/unseen/independent. Learning context derives from inspected code constructs, not a diagnosed cause."
+        : "";
     const approved = await vscode.window.showInformationMessage(
-      `Assign repair for ${sourcePath}:${name}? Only selected bounded function runs, never module/test imports. Not an arbitrary Python sandbox. Share exact snippet and approved finite cases. Test file ${testPath}, SHA256 ${context.test_digest}; skipped ${context.skipped}; observed baseline failures ${context.baseline_failures}. Passing these cases is not hidden-test/whole-project correctness or mastery.${literal ? " No extra oracle is invented." : " Additional authored decimal-input rules apply."}\n${context.source}\n${cases}`,
+      `Assign repair for ${sourcePath}:${name}? Only selected bounded function runs, never module/test imports. Not an arbitrary Python sandbox. Share exact snippet and approved finite cases. Test file ${testPath}, SHA256 ${context.test_digest}; skipped ${context.skipped}; observed baseline failures ${context.baseline_failures}. Passing these cases is not hidden-test/whole-project correctness or mastery.${literal ? " No extra oracle is invented." : " Additional authored decimal-input rules apply."}\n${context.source}\n${cases}${partitionCopy}`,
       { modal: true },
       "Assign inspected repair",
     );
@@ -868,6 +879,106 @@ class Sidebar implements vscode.WebviewViewProvider {
         "Finite source/test-grounded repair assigned. Other projects and framework integration remain unassessed.",
       );
     }
+  }
+  private async runProjectRecheck() {
+    const connection = this.connection,
+      root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    if (!connection || !this.evidenceConsent || !vscode.workspace.isTrusted)
+      throw new Error(
+        "Connect a trusted workspace and approve scoped evidence sharing first.",
+      );
+    const fresh = await this.api.state(connection.sessionId);
+    if (this.connection !== connection) return;
+    const session = fresh.state ?? this.session;
+    if (session) this.session = session;
+    const context = session?.project_context,
+      contract = context?.repair_contract,
+      partition = contract?.partition;
+    if (
+      !connection ||
+      !session ||
+      !root ||
+      !context?.test_path ||
+      !context.test_digest ||
+      !contract ||
+      !partition ||
+      partition.source_session_id !== connection.sessionId ||
+      !/^python-literal-repair:/.test(session.challenge_id)
+    )
+      throw new Error(
+        "This session has no approved changed-input partition. Older finite-only tasks cannot claim a fresh recheck.",
+      );
+    if (session.status !== "completed")
+      throw new Error(
+        "Complete the initial repair first, then the owner-scoped website learning/diagnosis step.",
+      );
+    if (
+      session.project_recheck_ready?.binding.source_session_id !==
+        connection.sessionId ||
+      session.project_recheck_ready?.binding.partition_digest !==
+        partition.partition_digest
+    )
+      throw new Error(
+        "Finish and save the owner-scoped website learning and prediction step before this reviewed changed-input recheck.",
+      );
+    const approved = await vscode.window.showInformationMessage(
+      "Run the 2 reviewed changed-input cases from the same pinned project test file? They are NOT secret/unseen or proof of independence/mastery. The website verifies owner/session and learning prerequisites before accepting a recovery receipt. No unrelated module/test imports run.",
+      { modal: true },
+      "Run reviewed changed-input cases",
+    );
+    if (
+      approved !== "Run reviewed changed-input cases" ||
+      this.connection !== connection
+    )
+      return;
+    const quote = (v: string) =>
+      process.platform === "win32"
+        ? '"' + v.replace(/"/g, "") + '"'
+        : "'" + v.replace(/'/g, "'\\''") + "'";
+    const command =
+      (process.platform === "win32" ? "py -3" : "python3") +
+      " -I " +
+      quote(this.context.asAbsolutePath("media/python_literal_repair.py")) +
+      " --recheck " +
+      quote(context.inspected_files[0]) +
+      " " +
+      quote(contract.function_name) +
+      " " +
+      quote(context.test_path) +
+      " " +
+      quote(context.test_digest) +
+      " " +
+      quote(contract.arguments.join(",")) +
+      " " +
+      quote(contract.cases_digest) +
+      " " +
+      quote(partition.partition_digest);
+    const result = await this.runCommand(command, root.fsPath, 10000);
+    if (result.cancelled || this.connection !== connection) return;
+    if (result.code === 3) {
+      this.status(
+        "Recheck blocked, no recovery evidence recorded: " + result.output,
+        true,
+      );
+      return;
+    }
+    if (result.code !== 0 && result.code !== 1)
+      throw new Error("Recheck execution unavailable. No evidence recorded.");
+    const response = await this.api.projectRecheck(connection.sessionId, {
+      source_session_id: connection.sessionId,
+      evaluator_id: session.challenge_id,
+      partition_digest: partition.partition_digest,
+      passed: result.passed,
+      output: result.output,
+    });
+    if (this.connection !== connection) return;
+    if (response.state) {
+      this.session = response.state;
+      this.post({ type: "session", session: this.session });
+    }
+    this.status(
+      "Changed-input result returned to the owner-scoped website recovery gate. This alone does not establish conquest, unseen transfer or mastery.",
+    );
   }
   private async sendDiagnostics() {
     if (!this.session || !this.connection) return;
@@ -1032,7 +1143,10 @@ class Sidebar implements vscode.WebviewViewProvider {
         " " +
         quote(contract.arguments.join(",")) +
         " " +
-        quote(contract.cases_digest);
+        quote(contract.cases_digest) +
+        (contract.partition
+          ? " " + quote(contract.partition.partition_digest)
+          : "");
       const evaluation = await this.runCommand(runCommand, folder, 10000);
       if (evaluation.code === 3) {
         this.status(
@@ -1300,6 +1414,7 @@ function valid(v: unknown): v is Message {
       "failed",
       "disconnect",
       "reassess",
+      "projectRecheck",
       "openMentor",
       "checkSetup",
       "installTool",

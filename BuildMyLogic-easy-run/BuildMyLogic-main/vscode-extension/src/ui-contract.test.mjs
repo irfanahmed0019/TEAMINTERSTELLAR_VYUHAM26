@@ -8,3 +8,16 @@ import {mkdtempSync,existsSync,rmSync} from 'node:fs';import {tmpdir} from 'node
 test('timeout terminates descendants and reports timeout explicitly',async()=>{const dir=mkdtempSync(join(tmpdir(),'bml-runner-'));try{const marker=join(dir,'leak');const r=await executeLocalCommand(`python3 -c "import time; time.sleep(0.6); open('${marker}','w').write('leaked')"`,dir,100);assert.equal(r.passed,false);assert.match(r.output,/timed out/);await new Promise(r=>setTimeout(r,800));assert.equal(existsSync(marker),false);}finally{rmSync(dir,{recursive:true,force:true});}});
 test('command output bounded and nonzero exit is a failure',async()=>{const r=await executeLocalCommand(`python3 -c "print('x'*20000);raise SystemExit(7)"`,tmpdir(),3000);assert.equal(r.code,7);assert.equal(r.passed,false);assert.ok(r.output.length<=6000);});
 test('connection failure stays on configured host',async()=>{const old=globalThis.fetch,calls=[];globalThis.fetch=async url=>{calls.push(url);return new Response(JSON.stringify({ok:false,error:'expired'}),{status:410});};try{await assert.rejects(new SessionClient('http://127.0.0.1:19999').connect('BML-LOCALONLY'),/expired/);assert.deepEqual(calls,['http://127.0.0.1:19999/api/sessions/connect']);}finally{globalThis.fetch=old;}});
+
+test('all five panels are siblings and recovery actions do not hide Setup',()=>{
+ const html=sidebarHtml('');const stack=[],panels=[];let current=null;
+ for(const match of html.matchAll(/<\/?section\b[^>]*>/g)){
+  const tag=match[0];
+  if(tag.startsWith('</')){stack.pop();current=stack.at(-1)??null;continue;}
+  const panel=tag.match(/data-panel="([^"]+)"/)?.[1];
+  if(panel){assert.equal(current,null,`${panel} must not nest in ${current}`);panels.push(panel);}
+  stack.push(panel??current);current=stack.at(-1);
+ }
+ assert.deepEqual(panels,['mission','progress','mentor','recovery','setup']);assert.equal(stack.length,0);
+ for(const id of ['projectRecheck','failed','disconnect'])assert.ok(html.indexOf(`id="${id}"`)<html.indexOf('data-panel="setup"'));
+});

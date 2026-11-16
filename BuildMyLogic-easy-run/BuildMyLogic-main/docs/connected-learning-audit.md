@@ -91,3 +91,45 @@ The authored fallback first-session review now follows the latest finite coding 
 - At least one actual locally observed baseline failure is required; all-passing baselines create no fake repair task. Function signature, selected source digest, exact test digest and canonical cases digest are pinned. Repair body may change. Only all approved cases passing earns the dedicated marker; test/signature drift blocks without a failed attempt. Finite known cases are not unseen requirements or whole-project correctness.
 - New marker/concept maps to an owner-scoped `Python project test repair` evidence topic, not decimal DNA, broad Python, frameworks or original mission completion. Actual server assignment -> adapter -> one narrow attempt -> replay dedupe is tested. No concept-specific fresh-reassessment oracle is invented for arbitrary utility logic; such recovery remains explicitly unsupported rather than falsely conquered.
 - Independent grammar/security and separate adapter review are ready. Combined 316 app tests, 27 extension tests, both typechecks, app build and extension compile pass. Focused changed-code lint has zero errors and two pre-existing Sessions hook warnings. Final package is 59,083 bytes, SHA256 30e09bcc2f0057a1f6bd4f352cfdb66f6f160c82d9c10f4ab6d3f7dbe0c44729. Authenticated real-user laptop/cloud/full journey and broad project generation remain unverified/incomplete.
+
+## Connected project-test recovery, 2026-11-16
+
+The local connected harness is `node scripts/verify-connected-learning.mjs`.
+It runs the actual API router, Python inspector and evaluator, session helpers,
+project evidence adapter, competency selectors, Learn lesson selector and recovery
+importer together. Authentication and cloud REST are explicitly mocked in memory.
+No real user project, learner identity, paid AI call or remote runner is used.
+
+The checked path is: approve a new partitioned project-test task; fail its actual
+initial cases twice; import those events through the owner recovery endpoint;
+show the matching project-test lesson; pass the initial repair while keeping the
+pattern locked; save the lesson and prediction to the mock owner cloud; enable
+readiness twice without changing the original review timestamp; fail one of two
+reserved inputs; repair the actual implementation; pass both reserved inputs;
+save the exact bound receipt; import finite recovery into the existing struggle
+history; restore and retry without duplicate evidence.
+
+Negative checks include another owner, extension self-authorization of learning,
+missing/wrong prediction, stale test pins, failed strict persistence, changed
+project tests and blocked execution. None can create a recovered pattern.
+
+New project tasks may explicitly partition at least four Python-distinct input
+argument tuples. The first N-2 cases are initial repair cases, the final two are
+later changed-input recheck cases. All expected values come from the approved
+existing test file. No expected result is generated from the broken function or
+an AI answer. The original test file remains readable, so these are reviewed
+existing tests, not secret, unseen or independent checks. Older finite-only
+contracts cannot acquire a changed-input receipt retroactively.
+
+Bindings include owner, source session, challenge, original source digest, test
+file digest, case digest, function signature and partition digest. A repair may
+change the allowed function body, not the pinned identity or test contract.
+Ready and receipt timestamps use numeric epoch milliseconds. Session receipts
+remain extension-reported execution evidence; the server validates the contract
+and saves the report, but does not claim to have run the user's local code.
+
+This closes the bounded utility-test recovery implementation. It does not accept
+the entire product journey: real sign-in and cloud deployment, a user's actual
+VS Code pairing, generated resume/onboarding/roadmap behavior, camera absence and
+video restoration, and arbitrary framework project correctness still require
+separate connected acceptance. Passing this harness is not a full delivery claim.

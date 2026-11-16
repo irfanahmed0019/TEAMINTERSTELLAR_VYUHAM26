@@ -214,7 +214,7 @@ function Sessions() {
           setRemoteState(null);
           learnerStorage.removeItem("bml-vscode-session");
           setPickerError(
-            "This session could not be opened for the signed-in account. Existing learner history is unchanged. Start a new secure session with extension v0.3.9.",
+            "This session could not be opened for the signed-in account. Existing learner history is unchanged. Start a new secure session with extension v0.3.10.",
           );
         }
       } catch {

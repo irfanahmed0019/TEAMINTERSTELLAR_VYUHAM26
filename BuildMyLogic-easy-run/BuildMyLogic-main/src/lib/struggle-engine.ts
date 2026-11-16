@@ -27,7 +27,8 @@ export type MisconceptionDepth = "slip" | "deep";
 export type PerformanceEvidence = {
   expectedMs?: number | undefined;
   activeMs?: number | undefined;
-  timingQuality: "extension-observed" | "browser-interaction-observed" | "unavailable";
+  timingQuality:
+    "extension-observed" | "browser-interaction-observed" | "unavailable";
   hintsUsed?: number | undefined;
   attemptNumber?: number | undefined;
 };
@@ -87,6 +88,7 @@ export type Reassessment = {
 };
 
 export type Misconception = {
+  projectRecheckReceiptId?: string;
   synthetic?: true;
   id: string;
   topicId: string;
@@ -1250,7 +1252,9 @@ export function failureReplay(m: Misconception): {
         ? ` Elapsed time from the first recorded failure: ${mins} min.`
         : ` Elapsed time from the first recorded failure: about ${Math.round(mins / 60)} h.`;
   let after = m.reassessed
-    ? `You then passed this pattern's targeted reassessment - a changed task with new transfer checks.${took}`
+    ? m.projectRecheckReceiptId
+      ? `You then passed two changed-input checks from the reviewed existing project tests (extension-reported). They were not secret or independent tests.${took}`
+      : `You then passed this pattern's targeted reassessment - a changed task with new transfer checks.${took}`
     : `A later recorded attempt passed every check on ${m.topicTitle}.${took}`;
   const diagnosis = m.diagnosis;
   const probe = diagnosticProbe(

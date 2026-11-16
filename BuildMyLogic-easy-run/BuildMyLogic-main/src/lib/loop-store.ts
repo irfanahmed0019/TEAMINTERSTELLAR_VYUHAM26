@@ -1,4 +1,11 @@
-import { ingestProjectEvidence } from "./project-evidence.ts";
+import {
+  ingestProjectRechecks,
+  reviewProjectRecovery,
+} from "./project-recovery.ts";
+import {
+  ingestProjectEvidence,
+  isLiteralRepairEvidence,
+} from "./project-evidence.ts";
 import { makeSampleProgress } from "./sample-progress.ts";
 import { learnerStorage, isPublicDemo } from "./demo-mode.ts";
 /**
@@ -356,8 +363,17 @@ export function applyBuildSessionEvidence(remote: BuildSessionState) {
     if (
       remote.challenge_id.startsWith("python-decimal-contract:") ||
       remote.challenge_id.startsWith("python-literal-repair:")
-    )
-      return ingestProjectEvidence(prev, remote);
+    ) {
+      const next = ingestProjectEvidence(prev, remote);
+      const restored = ingestProjectRechecks(next, remote);
+      // Only owner-verified supported project records are saved for recovery.
+      if (!isLiteralRepairEvidence(remote)) return restored;
+      const sessions = {
+        ...(restored.projectSessions ?? {}),
+        [remote.session_id]: remote,
+      };
+      return { ...restored, projectSessions: sessions };
+    }
     if (!prev.plan) return prev;
     const plan = prev.plan;
     const mission = plan.missions.find(
@@ -736,4 +752,18 @@ export function saveDiagnosticPrediction(
       reviewed,
     ),
   }));
+}
+
+/** The prediction is recorded before feedback is revealed. No causal diagnosis is inferred. */
+export function saveProjectRecoveryReview(
+  sessionId: string,
+  owner: string,
+  prediction: number,
+) {
+  setLoopState((prev) => {
+    const remote = prev.projectSessions?.[sessionId];
+    return remote
+      ? reviewProjectRecovery(prev, remote, owner, prediction)
+      : prev;
+  });
 }

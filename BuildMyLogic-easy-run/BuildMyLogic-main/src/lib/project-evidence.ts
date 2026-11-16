@@ -11,6 +11,30 @@ export function isLiteralRepairEvidence(remote: BuildSessionState): boolean {
     e = remote.checkpoints?.[0]?.evaluator;
   const paths = c?.inspected_files ?? [];
   const markers = e?.expectedOutputIncludes ?? [];
+  const partition = contract?.partition;
+  const indices =
+    partition &&
+    Array.isArray(partition.initial_indices) &&
+    Array.isArray(partition.recheck_indices)
+      ? [...partition.initial_indices, ...partition.recheck_indices]
+      : [];
+  const partitionValid =
+    !!partition &&
+    partition.version === 1 &&
+    partition.source_session_id === remote.session_id &&
+    /^[a-f0-9]{64}$/.test(partition.partition_digest) &&
+    Array.isArray(partition.initial_indices) &&
+    partition.initial_indices.length >= 2 &&
+    Array.isArray(partition.recheck_indices) &&
+    partition.recheck_indices.length === 2 &&
+    indices.length === c?.test_cases &&
+    new Set(indices).size === indices.length &&
+    indices.every((i) => Number.isInteger(i) && i >= 0 && i < indices.length);
+  const markerContract = partition
+    ? partitionValid &&
+      markers.length === 3 &&
+      markers[2] === "BML_PARTITION_" + partition.partition_digest
+    : markers.length === 2;
   return (
     /^python-literal-repair:[a-f0-9]{24}$/.test(remote.challenge_id) &&
     !!remote.verified_owner_id &&
@@ -47,7 +71,7 @@ export function isLiteralRepairEvidence(remote: BuildSessionState): boolean {
     e?.id === remote.challenge_id &&
     e.command === "buildmylogic:python-literal-repair-v1" &&
     Array.isArray(markers) &&
-    markers.length === 2 &&
+    markerContract &&
     markers[0] === "BML_LITERAL_REPAIR_V1_PASS" &&
     markers[1] === "BML_PINNED_TEST_" + c.test_digest
   );

@@ -1,3 +1,5 @@
+import { validProjectReview } from "./lib/project-recovery";
+import type { LoopState, BuildSessionState } from "./lib/loop-types";
 import { savedConquestReceipt } from "./lib/shared-conquest";
 import type { StruggleState } from "./lib/struggle-engine";
 import { canReadRecoverySession } from "./lib/request-auth";
@@ -10,6 +12,8 @@ import { handleMentorApi } from "./lib/mentor/mentor.api.server";
 import {
   connectLearningSession,
   publishConquestReceipt,
+  markProjectRecheckReady,
+  recordProjectRecheck,
   refreshConquestReceipts,
   failSession,
   getHint,
@@ -287,12 +291,18 @@ async function handleBuildMyLogicApi(
   }
 
   const learningMatch = pathname.match(
-    /^\/api\/sessions\/([^/]+)(?:\/(events|project-challenge|test-result|hint|stuck|failed|complete|run-plan|submit|state|recovery-state|conquest))?$/,
+    /^\/api\/sessions\/([^/]+)(?:\/(events|project-challenge|test-result|hint|stuck|failed|complete|run-plan|submit|state|recovery-state|conquest|project-recheck|project-recheck-ready))?$/,
   );
   if (learningMatch) {
     const session = await verifySession(
       decodeURIComponent(learningMatch[1] ?? "").toUpperCase(),
-      ["state", "recovery-state", "conquest"].includes(learningMatch[2] ?? ""),
+      [
+        "state",
+        "recovery-state",
+        "conquest",
+        "project-recheck",
+        "project-recheck-ready",
+      ].includes(learningMatch[2] ?? ""),
     );
     if (!session)
       return jsonResponse(
@@ -383,6 +393,101 @@ async function handleBuildMyLogicApi(
     }
     if (request.method !== "POST")
       return jsonResponse({ ok: false, error: "Method not allowed." }, 405);
+    if (action === "project-recheck-ready") {
+      const uid = await authenticatedUserId(request);
+      if (!uid || uid !== session.userId)
+        return jsonResponse(
+          {
+            ok: false,
+            error:
+              "Only the signed-in session owner can enable a changed-input recheck.",
+          },
+          403,
+        );
+      const source = process.env["VITE_SUPABASE_URL"]?.trim(),
+        key = process.env["VITE_SUPABASE_ANON_KEY"]?.trim();
+      if (!source || !key)
+        return jsonResponse(
+          {
+            ok: false,
+            error:
+              "Owner cloud learning review is unavailable. Nothing was enabled.",
+          },
+          503,
+        );
+      try {
+        const response = await fetch(
+          `${source}/rest/v1/learner_memory?user_id=eq.${encodeURIComponent(uid)}&select=state_json`,
+          {
+            headers: {
+              apikey: key,
+              authorization: request.headers.get("authorization")!,
+            },
+            signal: AbortSignal.timeout(8000),
+          },
+        );
+        if (!response.ok) throw Error("Saved review could not be read.");
+        const rows = (await response.json()) as Array<{
+          state_json?: LoopState;
+        }>;
+        const remote = {
+          ...stateOf(session),
+          verified_owner_id: uid,
+        } as BuildSessionState;
+        const review =
+          rows[0]?.state_json &&
+          validProjectReview(rows[0].state_json, remote, uid);
+        if (!review)
+          return jsonResponse(
+            {
+              ok: false,
+              error:
+                "Save the matching project lesson and prediction after two failures and an initial repair pass, then retry.",
+            },
+            409,
+          );
+        return jsonResponse({
+          ok: true,
+          state: {
+            ...(await markProjectRecheckReady(session, review.binding)),
+            verified_owner_id: uid,
+          },
+        });
+      } catch (error) {
+        return jsonResponse(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : "Saved learning review is unavailable.",
+          },
+          409,
+        );
+      }
+    }
+    if (action === "project-recheck") {
+      if (rateLimited(`project-recheck:${session.sessionId}`, 12))
+        return jsonResponse(
+          { ok: false, error: "Too many rechecks. Wait one minute." },
+          429,
+        );
+      try {
+        return jsonResponse({
+          ok: true,
+          state: await recordProjectRecheck(session, await readJson(request)),
+        });
+      } catch (error) {
+        return jsonResponse(
+          {
+            ok: false,
+            error:
+              error instanceof Error ? error.message : "Recheck not accepted.",
+          },
+          409,
+        );
+      }
+    }
     if (action === "conquest") {
       const owner = await authenticatedUserId(request);
       if (!owner || owner !== session.userId)

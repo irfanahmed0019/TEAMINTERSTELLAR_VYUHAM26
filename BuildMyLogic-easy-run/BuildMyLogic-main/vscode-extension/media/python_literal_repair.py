@@ -208,10 +208,31 @@ def failed_cases(function,cases):
         if not ok:failed.append(index)
     return failed
 
+def constructs_from(fn):
+    result=[]
+    if any(isinstance(n,ast.BinOp) for n in ast.walk(fn)):result.append('arithmetic')
+    if any(isinstance(n,(ast.If,ast.Compare,ast.BoolOp)) for n in ast.walk(fn)):result.append('conditionals')
+    if any(isinstance(n,ast.Attribute) and n.attr in METHODS for n in ast.walk(fn)):result.append('string-normalization')
+    return result
+
+def partition_cases(cases,cases_json):
+    # Python-equal numeric/bool inputs are the same input, not fresh examples.
+    seen=[]
+    for case in cases:
+        if case['args'] in seen:raise Blocked('Changed-input recheck needs distinct input tuples, not repeated or numeric-equivalent inputs.')
+        seen.append(case['args'])
+    if len(cases)<4:raise Blocked('Need at least4distinct inputs for2initial plus2reviewed changed-input cases.')
+    indices={'initial_indices':list(range(len(cases)-2)),'recheck_indices':[len(cases)-2,len(cases)-1]}
+    digest=hashlib.sha256((cases_json+'\n'+json.dumps(indices,separators=(',',':'))).encode()).hexdigest()
+    return dict(indices,version=1,partition_digest=digest)
+
 def main():
     if len(sys.argv)<2:raise Blocked('Missing evaluator arguments; no attempt recorded.')
-    inspect=sys.argv[1]=='--inspect';args=sys.argv[2:] if inspect else sys.argv[1:]
-    if len(args)!=(3 if inspect else 6):raise Blocked('Invalid evaluator argument count; no attempt recorded.')
+    mode=sys.argv[1]
+    inspect=mode in ('--inspect','--inspect-partition')
+    recheck=mode=='--recheck'
+    args=sys.argv[2:] if inspect or recheck else sys.argv[1:]
+    if len(args) not in ((3,) if inspect else (7,) if recheck else (6,7)):raise Blocked('Invalid evaluator argument count; no attempt recorded.')
     path,name,test_path=args[:3]
     raw,tree=read(path);test_raw,test_tree=read(test_path)
     digest=hashlib.sha256(test_raw).hexdigest()
@@ -219,21 +240,25 @@ def main():
     if not inspect and digest!=args[3]:raise Blocked('Pinned test digest changed; inspect new session, no attempt recorded.')
     fn,names=selected(tree,name,signature)
     snippet=ast.unparse(fn)
+    constructs=constructs_from(fn)
     cases,skipped=cases_from(test_tree,path,name,len(names))
-    # Canonical JSON travels as an exact string; server hashes this exact data, never reorders it.
     cases_json=json.dumps(cases,sort_keys=True,separators=(',',':'),ensure_ascii=True,allow_nan=False)
     cases_digest=hashlib.sha256(cases_json.encode()).hexdigest()
     if not inspect and cases_digest!=args[5]:raise Blocked('Approved cases changed; no attempt recorded.')
-    failed=failed_cases(load(fn,names),cases)
+    partition=partition_cases(cases,cases_json) if mode=='--inspect-partition' or not inspect and len(args)==7 else None
+    if partition and not inspect and partition['partition_digest']!=args[6]:raise Blocked('Pinned case partition changed; no attempt recorded.')
+    indices=partition['recheck_indices' if recheck else 'initial_indices'] if partition else list(range(len(cases)))
+    failed=failed_cases(load(fn,names),[cases[i] for i in indices])
     if inspect:
-        if not failed:raise Blocked('Approved project cases already pass; no repair task fabricated.')
-        payload=json.dumps({'kind':'python-literal-repair-v1','path':path,'source':snippet,'function_name':name,'arguments':names,'test_path':test_path,'test_digest':digest,'cases_json':cases_json,'cases_digest':cases_digest,'baseline_failures':len(failed),'skipped':skipped},ensure_ascii=True)
+        if not failed:raise Blocked('Approved initial project cases already pass; no repair task fabricated.')
+        payload=json.dumps({'kind':'python-literal-repair-v1','path':path,'source':snippet,'function_name':name,'arguments':names,'test_path':test_path,'test_digest':digest,'cases_json':cases_json,'cases_digest':cases_digest,'baseline_failures':len(failed),'skipped':skipped,'constructs':constructs,**({'approved_partition':True,'partition':partition} if partition else {})},ensure_ascii=True)
         if len(payload)>5500:raise Blocked('Approved inspector payload exceeds5500character transport bound.')
         print(payload)
     elif failed:
-        print('Approved finite project cases failed: '+','.join(str(i+1) for i in failed));sys.exit(1)
+        print(('Reviewed changed-input cases failed: ' if recheck else 'Approved finite project cases failed: ')+','.join(str(indices[i]+1) for i in failed));sys.exit(1)
     else:
-        print('BML_LITERAL_REPAIR_V1_PASS\nBML_PINNED_TEST_'+digest)
+        print(('BML_LITERAL_RECHECK_V1_PASS' if recheck else 'BML_LITERAL_REPAIR_V1_PASS')+'\nBML_PINNED_TEST_'+digest)
+        if partition:print('BML_PARTITION_'+partition['partition_digest'])
 
 try:main()
 except (Blocked,SyntaxError,OSError,UnicodeError,IndexError,KeyError,RecursionError,TypeError) as error:
