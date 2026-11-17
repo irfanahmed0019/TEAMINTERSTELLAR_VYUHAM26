@@ -1,3 +1,8 @@
+## 0.3.24
+
+- Standalone practice Submit now runs the same consented local grader as Run Tests, saves a real new attempt and refreshes the results panel. It no longer sends practice files through project AI review. Completed tasks keep their saved result without duplicate credit.
+- AFK/idle tracking and AI/code-paste detection remain removed.
+
 ## 0.3.23
 
 - Removes AFK/idle tracking, activity timers, edit/focus listeners, work-activity reports and their notices.

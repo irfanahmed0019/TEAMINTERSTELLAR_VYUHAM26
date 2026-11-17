@@ -885,3 +885,18 @@ test("all twelve practice tasks consent to the bound ID and actual inputs; misma
     assert.match(f.posts.at(-1).text, /do not match/);
   }
 });
+
+test("practice Submit grades the current file instead of uploading project source or leaving old failure", async () => {
+  const f = await sidebarFixture();
+  f.sidebar.connection={sessionId:"BML-ABCDE"};
+  f.sidebar.session={session_id:"BML-ABCDE",challenge_id:"python-conditions-sign-v1",status:"connected",attempts:1,test_score:{passed:0,total:1}};
+  let graded=0;
+  f.sidebar.showCompletedPractice=async()=>false;
+  f.sidebar.test=async()=>{graded++;f.sidebar.session={...f.sidebar.session,status:"completed",attempts:2,test_score:{passed:1,total:1}};};
+  f.vscode.window.showWarningMessage=async()=>{throw Error("practice must never request source review");};
+  f.api.submit=async()=>{throw Error("practice must never upload source");};
+  await f.sidebar.submitProject();
+  assert.equal(graded,1);assert.equal(f.sidebar.session.attempts,2);assert.equal(f.sidebar.session.test_score.passed,1);
+  f.sidebar.showCompletedPractice=async()=>true;
+  await f.sidebar.submitProject();assert.equal(graded,1,"completed Submit never recredits");
+});

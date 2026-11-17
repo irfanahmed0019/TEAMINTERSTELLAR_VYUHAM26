@@ -1683,6 +1683,10 @@ class Sidebar implements vscode.WebviewViewProvider {
   private async submitProject() {
     if (!this.connection) return;
     if (await this.showCompletedPractice()) return;
+    // Standalone practice is graded by the same real local evaluator as Run
+    // Tests. Project source review cannot refresh a practice test result.
+    if (this.session && isPracticeTask(this.session.challenge_id))
+      return this.test();
     if (this.session?.challenge_id === "project-context-pending")
       return this.status(
         "No coding task yet. Choose a task on the website first.",

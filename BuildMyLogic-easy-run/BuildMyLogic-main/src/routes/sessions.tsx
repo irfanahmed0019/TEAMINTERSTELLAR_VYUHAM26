@@ -1578,7 +1578,7 @@ function Sessions() {
             )}
             <p className="mb-3 text-xs text-muted-foreground">
               Standalone practice, not a test of your project. Choose a topic
-              you want help with. Requires Python. Use extension v0.3.23 for the
+              you want help with. Requires Python. Use extension v0.3.24 for the
               latest version: local code tests stay, with no AFK/idle tracking
               or AI/code-paste detection.
             </p>
@@ -1963,7 +1963,7 @@ function Sessions() {
           <h2 className="text-lg font-black">Observed project evidence</h2>
           <p className="text-sm">
             Browser countdown is a planning timer, not measured active work.
-            Extension v0.3.23 does not track AFK/idle or active coding time.
+            Extension v0.3.24 does not track AFK/idle or active coding time.
             Earlier timing evidence, if present, is historical.
           </p>
           <p className="text-sm">
