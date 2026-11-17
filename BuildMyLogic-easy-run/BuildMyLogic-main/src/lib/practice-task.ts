@@ -96,6 +96,14 @@ export const PRACTICE_TASKS = [
       "Read a lowercase word, possibly empty. Use a loop to count letters other than a, e, i, o, u.\nPrint the count.",
     cases: 4,
   },
+  {
+    id: "python-arithmetic-add-v1",
+    concept: "arithmetic",
+    title: "Add two numbers",
+    question:
+      "Read two integers, one on each line. Store them in variables and add them.\nPrint only their sum.",
+    cases: 4,
+  },
 ] as const;
 export type PracticeTaskId = (typeof PRACTICE_TASKS)[number]["id"];
 export function practiceTaskBody(value: unknown) {
@@ -149,4 +157,51 @@ export function nextPracticeTaskId(
     .slice()
     .sort((a, b) => history.lastIndexOf(a.id) - history.lastIndexOf(b.id))[0]!
     .id;
+}
+
+/** Current task's real failed attempts only. Completed/passed tasks never prompt. */
+export function beginnerPracticeOffer(
+  session:
+    | {
+        surprise_test?: { enabled: true };
+        challenge_id?: string;
+        status?: string;
+        attempt_history?: Array<{
+          attempt: number;
+          passed: number;
+          total: number;
+        }>;
+      }
+    | null
+    | undefined,
+) {
+  if (
+    !session ||
+    session.surprise_test?.enabled ||
+    !PRACTICE_TASKS.some((t) => t.id === session.challenge_id) ||
+    session.challenge_id === "python-arithmetic-add-v1" ||
+    ["completed", "expired"].includes(session.status ?? "")
+  )
+    return false;
+  const seen = new Set<number>();
+  let failures = 0;
+  for (const a of [...(session.attempt_history ?? [])].sort(
+    (a, b) => b.attempt - a.attempt,
+  )) {
+    if (
+      !Number.isInteger(a.attempt) ||
+      a.attempt < 1 ||
+      seen.has(a.attempt) ||
+      !Number.isInteger(a.total) ||
+      a.total < 1 ||
+      !Number.isInteger(a.passed) ||
+      a.passed < 0 ||
+      a.passed > a.total
+    )
+      continue;
+    seen.add(a.attempt);
+    if (a.passed === a.total) break;
+    failures++;
+  }
+  return failures >= 3;
 }

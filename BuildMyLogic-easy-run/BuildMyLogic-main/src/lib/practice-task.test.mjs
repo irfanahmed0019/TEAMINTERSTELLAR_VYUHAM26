@@ -5,9 +5,10 @@ import {
   practiceTaskBody,
   suggestedPracticeId,
   nextPracticeTaskId,
+  beginnerPracticeOffer,
 } from "./practice-task.ts";
 test("four finite tasks keep short simple questions, owner-independent catalog and exact evaluator constants", () => {
-  assert.equal(PRACTICE_TASKS.length, 12);
+  assert.equal(PRACTICE_TASKS.length, 13);
   for (const t of PRACTICE_TASKS) {
     const body = practiceTaskBody(t.id);
     assert.equal(body.language, "Python");
@@ -55,4 +56,33 @@ test("same-topic next question avoids repeats until all variants tried, then lea
     assert.equal(nextPracticeTaskId(concept, seen), seen[0]);
   }
   assert.equal(nextPracticeTaskId("unknown", []), null);
+});
+
+test("beginner prompt requires three distinct genuine same-task failed attempts and stops on pass", () => {
+  const s = {
+    challenge_id: "python-loops-triangular-v1",
+    status: "connected",
+    attempt_history: [1, 2, 3].map((attempt) => ({
+      attempt,
+      passed: 0,
+      total: 1,
+    })),
+  };
+  assert.ok(beginnerPracticeOffer(s));
+  for (const p of [
+    { attempt_history: s.attempt_history.slice(0, 2) },
+    { status: "completed" },
+    { challenge_id: "python-arithmetic-add-v1" },
+    { challenge_id: "project-context-pending" },
+    {
+      attempt_history: [...s.attempt_history.slice(0, 2), s.attempt_history[1]],
+    },
+    {
+      attempt_history: [
+        ...s.attempt_history,
+        { attempt: 4, passed: 1, total: 1 },
+      ],
+    },
+  ])
+    assert.equal(beginnerPracticeOffer({ ...s, ...p }), false);
 });

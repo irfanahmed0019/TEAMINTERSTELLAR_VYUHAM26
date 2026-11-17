@@ -20,7 +20,7 @@ export function easierTaskOffer(state: LoopState) {
     !["c", "python"].includes(latest.language.toLowerCase()) ||
     latest.fullPass ||
     latest.passed === latest.total ||
-    latest.exerciseTitle === "Add two variables"
+    ["Add two variables", "Add two numbers"].includes(latest.exerciseTitle)
   )
     return null;
   const scope =
@@ -48,14 +48,15 @@ export function easierTaskOffer(state: LoopState) {
       failures.push(a);
     }
   }
-  if (failures.length < 4) return null;
+  if (failures.length < 3) return null;
   const id = "beginner-addition:" + failures[0]!.id;
   if (state.plan.missions.some((m) => m.id === id)) return null;
   return {
     id,
     language: latest.language.toLowerCase() as "c" | "python",
     sourceTitle: latest.exerciseTitle,
-    evidenceIds: failures.slice(0, 4).map((a) => a.id),
+    source: latest.source,
+    evidenceIds: failures.slice(0, 3).map((a) => a.id),
   };
 }
 export function chooseEasierTask(state: LoopState): LoopState {
@@ -96,7 +97,7 @@ export function chooseEasierTask(state: LoopState): LoopState {
         kind: "mission",
         at: Date.now(),
         text:
-          "Chose beginner addition after four recorded failed submissions on " +
+          "Chose beginner addition after three recorded failed submissions on " +
           offer.sourceTitle +
           ". Earlier work retained; no pass awarded.",
       },

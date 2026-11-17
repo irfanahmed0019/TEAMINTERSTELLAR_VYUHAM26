@@ -20,6 +20,11 @@ const practiceTaskDetails: Record<
   string,
   { title: string; cases: number; inputs: string }
 > = {
+  "python-arithmetic-add-v1": {
+    title: "Add two numbers",
+    cases: 4,
+    inputs: "two lines per case: 5 and 7; 0 and 0; -3 and 8; 12 and -4",
+  },
   "python-loops-fibonacci-v1": {
     title: "Fibonacci numbers",
     cases: 1,
@@ -99,6 +104,7 @@ type Message = {
     | "disconnect"
     | "reassess"
     | "projectRecheck"
+    | "beginnerPractice"
     | "openMentor"
     | "checkSetup"
     | "installTool";
@@ -224,6 +230,17 @@ class Sidebar implements vscode.WebviewViewProvider {
       if (m.command === "ready") {
         if (this.session) this.post({ type: "session", session: this.session });
         void this.checkSetup(false);
+        return;
+      }
+      if (m.command === "beginnerPractice") {
+        await vscode.env.openExternal(
+          vscode.Uri.parse(
+            new URL(
+              "/sessions#beginner-practice",
+              this.api.getBaseUrl(),
+            ).toString(),
+          ),
+        );
         return;
       }
       if (m.command === "openMentor") {
@@ -1405,7 +1422,7 @@ class Sidebar implements vscode.WebviewViewProvider {
         !doc.isClosed &&
         this.connection === connection;
       const yes = await vscode.window.showWarningMessage(
-        `Run ${doc.uri.fsPath} on your computer for this practice task? It can read or change files and use the network. This is not a sandbox. Task: ${task.title} (${taskId}). ${task.cases} fixed ${task.cases === 1 ? "case" : "cases"}; each run receives one input: ${task.inputs}. Nothing is read until you agree.`,
+        `Run ${doc.uri.fsPath} on your computer for this practice task? It can read or change files and use the network. This is not a sandbox. Task: ${task.title} (${taskId}). ${task.cases} fixed ${task.cases === 1 ? "case" : "cases"}; input cases: ${task.inputs}. Nothing is read until you agree.`,
         { modal: true },
         "Run my Python code",
       );

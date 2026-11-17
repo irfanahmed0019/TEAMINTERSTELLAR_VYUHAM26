@@ -292,7 +292,7 @@ function Progress() {
         <>
           <CompetencySummary />
           {/* Stat cards */}
-          <div className="mt-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="mt-5 grid grid-cols-2 gap-4 lg:grid-cols-3">
             <StatCard
               icon={Layers}
               value={completedMissions.length}
@@ -316,11 +316,6 @@ function Progress() {
               icon={Check}
               value={evidence.questionsPassed}
               label="Unique questions passed"
-            />
-            <StatCard
-              icon={Target}
-              value={evidence.topicCheckpoints}
-              label="Topic checkpoints passed"
             />
             <StatCard
               icon={Flame}
@@ -392,8 +387,8 @@ function Progress() {
                 retries of the same question do not add another completed
                 question. Passed distinct VS Code questions and validated topic
                 recheck questions count here. One recheck pass counts as a
-                question; both stages are needed for a topic checkpoint.
-                Projects stay separate.
+                question; topic recheck completion needs both stages. Projects
+                stay separate.
               </p>
               <Link
                 to="/debugging"

@@ -54,7 +54,7 @@ const args = (state, at = 4000) => {
   };
 };
 test("all4 require two DISTINCT full fresh contracts; first pass stays locked, second completes bounded checkpoint", () => {
-  for (const task of PRACTICE_TASKS) {
+  for (const task of PRACTICE_TASKS.filter((t) => t.concept !== "arithmetic")) {
     let s = locked(task);
     const id = s.misconceptions[0].id;
     const r = newPracticeReassessment(task.id, 1, 3000);
@@ -84,7 +84,7 @@ test("all4 require two DISTINCT full fresh contracts; first pass stays locked, s
   }
 });
 test("wrong owner, stale stage, changed cases/construct and original transfer-v1 cannot bypass progression", () => {
-  for (const task of PRACTICE_TASKS) {
+  for (const task of PRACTICE_TASKS.filter((t) => t.concept !== "arithmetic")) {
     let s = locked(task);
     s = attachReassessment(
       s,
@@ -164,7 +164,7 @@ function runs(code, spec) {
   });
 }
 test("actual Python: all8 fresh programs pass finite cases; original known answer and stage1 replay fail stage2", () => {
-  for (const task of PRACTICE_TASKS) {
+  for (const task of PRACTICE_TASKS.filter((t) => t.concept !== "arithmetic")) {
     const [a, b, old] = programs[task.concept],
       one = newPracticeReassessment(task.id, 1, 3000),
       two = newPracticeReassessment(task.id, 2, 5000);
@@ -216,3 +216,9 @@ test("fabricated1/2counter or missing prior actual pass cannot unlock stage2", (
   s = attachReassessment(s, m.id, newPracticeReassessment(task.id, 2, 4000));
   assert.equal(recordReassessmentAttempt(s, args(s, 5000)).outcome, null);
 });
+
+test("beginner arithmetic has no invented transfer or topic checkpoint contract", () =>
+  assert.equal(
+    newPracticeReassessment("python-arithmetic-add-v1", 1, 1000),
+    null,
+  ));

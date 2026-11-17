@@ -1,3 +1,8 @@
+## 0.3.25
+
+- Offers a signed-in beginner choice after three wrong attempts on the same question. Choosing Add two numbers on Sessions assigns a real four-case arithmetic task and syncs it to the extension, keeping earlier attempts in history.
+- Adds the finite Python addition evaluator. Existing local Submit grading and no AFK/AI-detection behavior stay.
+
 ## 0.3.24
 
 - Standalone practice Submit now runs the same consented local grader as Run Tests, saves a real new attempt and refreshes the results panel. It no longer sends practice files through project AI review. Completed tasks keep their saved result without duplicate credit.

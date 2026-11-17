@@ -1,5 +1,9 @@
 import { useCloudHydrated } from "@/lib/cloud-sync";
-import { PRACTICE_TASKS, suggestedPracticeId } from "@/lib/practice-task";
+import {
+  PRACTICE_TASKS,
+  suggestedPracticeId,
+  beginnerPracticeOffer,
+} from "@/lib/practice-task";
 import { learningSchedule } from "@/lib/learning-schedule";
 import { learnerStorage } from "@/lib/demo-mode";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -390,6 +394,18 @@ function Sessions() {
   const attemptsLabel = remoteState
     ? remoteState.attempts
     : Math.max(1, state.sessions.length + 1);
+  const remotePractice =
+    remoteState &&
+    PRACTICE_TASKS.some((t) => t.id === remoteState.challenge_id);
+  const displayPct = remotePractice
+    ? remoteCheckpoints.length
+      ? Math.round(
+          (100 *
+            remoteCheckpoints.filter((c) => c.status === "passed").length) /
+            remoteCheckpoints.length,
+        )
+      : 0
+    : undefined;
   const activeStepsDone = activeMission
     ? (state.missionProgress[activeMission.id]?.completedSteps?.length ?? 0)
     : 0;
@@ -1105,60 +1121,87 @@ function Sessions() {
                 Current Session
               </span>
               <h2 className="display mt-4 text-[22px] font-extrabold leading-tight tracking-[-0.02em]">
-                {activeMission?.title ?? "Your build"}
+                {remoteState &&
+                PRACTICE_TASKS.some((t) => t.id === remoteState.challenge_id)
+                  ? remoteState.title
+                  : (activeMission?.title ?? "Your build")}
               </h2>
               <p className="mt-2 max-w-md text-[13.5px] leading-6 text-muted-foreground">
-                {activeMission?.description ??
-                  "Build something useful and prove what you learned."}
+                {remoteState &&
+                PRACTICE_TASKS.some((t) => t.id === remoteState.challenge_id)
+                  ? remoteState.instructions
+                  : (activeMission?.description ??
+                    "Build something useful and prove what you learned.")}
               </p>
               <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12.5px] font-medium text-muted-foreground">
                 <span className="flex items-center gap-1.5">
                   <Timer className="h-4 w-4 text-primary" />
-                  Level {difficultyLabel(activeMission?.difficulty ?? 1)}
+                  Level{" "}
+                  {remotePractice
+                    ? "Beginner"
+                    : difficultyLabel(activeMission?.difficulty ?? 1)}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Sparkles className="h-4 w-4 text-primary" />
-                  {(activeMission?.skills ?? []).join(" · ") || "Skills"}
+                  {remotePractice
+                    ? `${remoteState?.language} · ${remoteState?.concept}`
+                    : (activeMission?.skills ?? []).join(" · ") || "Skills"}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Clock3 className="h-4 w-4 text-primary" />
-                  Est. Time ~{activeMission?.minutes ?? planned} min
+                  Est. Time ~
+                  {remotePractice
+                    ? Math.round(
+                        (remoteState?.expected_duration_ms ?? 300000) / 60000,
+                      )
+                    : (activeMission?.minutes ?? planned)}{" "}
+                  min
                 </span>
               </div>
-              <div className="mt-5 flex flex-wrap items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    void startSession();
-                  }}
-                  disabled={!activeMission || pickingProject}
-                  className="btn-base btn-primary-solid"
-                >
-                  {running ? (
-                    <Pause className="h-4 w-4" />
-                  ) : (
-                    <Play className="h-4 w-4" />
-                  )}
-                  {running
-                    ? "Pause Session"
-                    : seconds < startRef.current
-                      ? "Continue Session"
-                      : "Start Session"}
-                </button>
-                <a href="#session-tasks" className="btn-base btn-outline">
-                  View Tasks
-                </a>
-                {(running || seconds < startRef.current) && (
-                  <button
-                    type="button"
-                    onClick={restartSession}
-                    className="flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-[12px] font-semibold text-muted-foreground hover:bg-muted"
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" /> Restart
-                  </button>
-                )}
-              </div>
-              {(running || seconds < startRef.current) && (
+              {remotePractice ? (
+                <p className="mt-5 text-sm font-semibold">
+                  Work on this question in VS Code, then click Submit to check
+                  your code.
+                </p>
+              ) : (
+                <>
+                  {" "}
+                  <div className="mt-5 flex flex-wrap items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void startSession();
+                      }}
+                      disabled={!activeMission || pickingProject}
+                      className="btn-base btn-primary-solid"
+                    >
+                      {running ? (
+                        <Pause className="h-4 w-4" />
+                      ) : (
+                        <Play className="h-4 w-4" />
+                      )}
+                      {running
+                        ? "Pause Session"
+                        : seconds < startRef.current
+                          ? "Continue Session"
+                          : "Start Session"}
+                    </button>
+                    <a href="#session-tasks" className="btn-base btn-outline">
+                      View Tasks
+                    </a>
+                    {(running || seconds < startRef.current) && (
+                      <button
+                        type="button"
+                        onClick={restartSession}
+                        className="flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-[12px] font-semibold text-muted-foreground hover:bg-muted"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" /> Restart
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+              {!remotePractice && (running || seconds < startRef.current) && (
                 <p className="mt-3 text-[12px] font-semibold text-muted-foreground">
                   {running ? "● Live now" : "Ⅱ Paused"} · {elapsed} min elapsed
                   · {Math.max(0, Math.ceil(seconds / 60))} min remaining
@@ -1178,23 +1221,34 @@ function Sessions() {
           <div className="flex items-center justify-between">
             <h3 className="text-[16px] font-extrabold">Your Progress</h3>
             <span className="text-[13px] font-bold">
-              {missionPct}% Complete
+              {displayPct ?? missionPct}% Complete
             </span>
           </div>
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
             <div
               className="h-full rounded-full bg-primary transition-all"
-              style={{ width: `${missionPct}%` }}
+              style={{ width: `${displayPct ?? missionPct}%` }}
             />
           </div>
           <div className="mt-4 space-y-1.5">
-            {(activeMission?.steps ?? []).map((step, index) => {
-              const isDone = activeMission
-                ? (state.missionProgress[
-                    activeMission.id
-                  ]?.completedSteps?.includes(index) ?? false)
-                : false;
-              const isCurrent = !isDone && index === activeStepsDone;
+            {(remotePractice
+              ? remoteCheckpoints
+              : (activeMission?.steps ?? [])
+            ).map((step, index) => {
+              const isDone = remotePractice
+                ? remoteCheckpoints[index]?.status === "passed"
+                : activeMission
+                  ? (state.missionProgress[
+                      activeMission.id
+                    ]?.completedSteps?.includes(index) ?? false)
+                  : false;
+              const isCurrent =
+                !isDone &&
+                (remotePractice
+                  ? remoteCheckpoints.findIndex(
+                      (c) => c.status !== "passed",
+                    ) === index
+                  : index === activeStepsDone);
               return (
                 <div
                   key={step.title}
@@ -1472,6 +1526,52 @@ function Sessions() {
             >
               {practiceBusy ? "Selecting task..." : "Use this Python task"}
             </button>
+            {beginnerPracticeOffer(remoteState) && (
+              <section
+                id="beginner-practice"
+                className="mb-4 rounded-xl border border-primary/40 bg-primary-soft p-4"
+                aria-label="Beginner practice choice"
+              >
+                <h3 className="font-bold">Want to try beginner arithmetic?</h3>
+                <p className="my-2 text-sm">
+                  Three wrong attempts on this question. Start with adding two
+                  numbers, or keep trying. Your current question and all
+                  attempts stay saved; it is not marked passed.
+                </p>
+                <button
+                  type="button"
+                  className="btn-base btn-primary-solid"
+                  disabled={practiceBusy || pairingBusy}
+                  onClick={async () => {
+                    if (practiceStarting.current) return;
+                    practiceStarting.current = true;
+                    setPracticeBusy(true);
+                    setPickerError("");
+                    try {
+                      await createVscodeSession("python-arithmetic-add-v1");
+                      setPracticeSelection("python-arithmetic-add-v1");
+                      setPracticeNotice(
+                        "Beginner arithmetic selected: Add two numbers. Open your Python file in VS Code. Earlier attempts stay in history.",
+                      );
+                    } catch (e) {
+                      setPickerError(
+                        e instanceof Error
+                          ? e.message
+                          : "Could not choose beginner practice. Your task is unchanged.",
+                      );
+                    } finally {
+                      practiceStarting.current = false;
+                      setPracticeBusy(false);
+                    }
+                  }}
+                >
+                  Yes, start beginner arithmetic
+                </button>
+                <p className="mt-2 text-xs">
+                  Or keep working on the current question below.
+                </p>
+              </section>
+            )}
             {PRACTICE_TASKS.some((t) => t.id === remoteState?.challenge_id) && (
               <div className="mb-3 text-xs">
                 <p className="mb-2 font-bold">
@@ -1527,9 +1627,9 @@ function Sessions() {
                   Next different {remoteState?.concept} question
                 </button>
                 <p className="mt-2">
-                  Three authored questions per topic. After all three, the least
-                  recently used question returns. Finite practice, not a general
-                  skill test.
+                  Authored questions per topic. After the available questions,
+                  the least recently used question returns. Finite practice, not
+                  a general skill test.
                 </p>
               </div>
             )}
@@ -1578,7 +1678,7 @@ function Sessions() {
             )}
             <p className="mb-3 text-xs text-muted-foreground">
               Standalone practice, not a test of your project. Choose a topic
-              you want help with. Requires Python. Use extension v0.3.24 for the
+              you want help with. Requires Python. Use extension v0.3.25 for the
               latest version: local code tests stay, with no AFK/idle tracking
               or AI/code-paste detection.
             </p>
@@ -1963,7 +2063,7 @@ function Sessions() {
           <h2 className="text-lg font-black">Observed project evidence</h2>
           <p className="text-sm">
             Browser countdown is a planning timer, not measured active work.
-            Extension v0.3.24 does not track AFK/idle or active coding time.
+            Extension v0.3.25 does not track AFK/idle or active coding time.
             Earlier timing evidence, if present, is historical.
           </p>
           <p className="text-sm">

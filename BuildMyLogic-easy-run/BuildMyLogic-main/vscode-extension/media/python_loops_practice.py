@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 TASKS = {
+    'python-arithmetic-add-v1': [('5\n7', '12'), ('0\n0', '0'), ('-3\n8', '5'), ('12\n-4', '8')],
     'python-loops-fibonacci-v1': [('10', '0 1 1 2 3 5 8 13 21 34')],
     'python-conditions-sign-v1': [('-3', 'negative'), ('0', 'zero'), ('7', 'positive')],
     'python-functions-double-v1': [('-2', '-4'), ('0', '0'), ('9', '18')],
@@ -41,7 +42,10 @@ def main():
         print('Fix the Python syntax: ' + str(error))
         return 1
     nodes = list(ast.walk(tree))
-    if task.startswith(('python-loops-', 'python-strings-')):
+    if task == 'python-arithmetic-add-v1':
+        valid = any(isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add) for node in nodes)
+        requirement = 'Use addition (+) to add the two input numbers.'
+    elif task.startswith(('python-loops-', 'python-strings-')):
         valid = any(isinstance(node, (ast.For, ast.While)) for node in nodes)
         requirement = 'Use a for or while loop in your Python file.'
     elif task.startswith('python-conditions-'):

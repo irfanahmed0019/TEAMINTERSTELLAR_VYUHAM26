@@ -8,7 +8,7 @@ export function newPracticeReassessment(
 ): Reassessment | null {
   if (stage !== 1 && stage !== 2) return null;
   const concept = PRACTICE_TASKS.find((t) => t.id === source)?.concept;
-  if (!concept) return null;
+  if (!concept || concept === "arithmetic") return null;
   const catalog = {
     conditions: [
       {

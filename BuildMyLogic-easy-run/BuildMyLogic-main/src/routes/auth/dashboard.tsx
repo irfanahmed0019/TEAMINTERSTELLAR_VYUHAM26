@@ -198,15 +198,19 @@ function Dashboard() {
         <section className="card-surface my-4 p-5">
           <h2 className="text-lg font-bold">Try a smaller first step</h2>
           <p className="my-2">
-            Four failed submissions on {easierOffer.sourceTitle}. You can start
+            Three failed submissions on {easierOffer.sourceTitle}. You can start
             with adding two numbers. Your earlier work stays saved and is not
             marked passed.
           </p>
           <button
             className="btn-base btn-primary-solid"
-            onClick={() => startEasierTask()}
+            onClick={() =>
+              easierOffer.source === "vscode"
+                ? void navigate({ to: "/sessions", hash: "beginner-practice" })
+                : startEasierTask()
+            }
           >
-            Give up and start easier
+            Choose beginner practice
           </button>
         </section>
       )}

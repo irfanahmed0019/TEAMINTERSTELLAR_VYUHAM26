@@ -6,7 +6,7 @@ const base = () => ({
   missionProgress: { old: { status: "active", completedSteps: [0] } },
   activity: [],
   struggle: {
-    attempts: Array.from({ length: 4 }, (_, i) => ({
+    attempts: Array.from({ length: 3 }, (_, i) => ({
       id: "a" + i,
       topicId: "loops",
       exerciseTitle: "Hard loop",
@@ -19,7 +19,7 @@ const base = () => ({
     })),
   },
 });
-test("four distinct real failures enable explicit non-destructive beginner choice", () => {
+test("three distinct real failures enable explicit non-destructive beginner choice", () => {
   const s = base(),
     n = chooseEasierTask(s);
   assert.ok(easierTaskOffer(s));
@@ -36,7 +36,7 @@ test("no early offer, synthetic evidence, duplicate IDs, pass reset or cross-tas
     (s) => (s.sampleProvenance = {}),
     (s) => (s.struggle.attempts[0].synthetic = true),
     (s) => (s.struggle.attempts[0].id = "a1"),
-    (s) => (s.struggle.attempts[3].fullPass = true),
+    (s) => (s.struggle.attempts[2].fullPass = true),
     (s) => (s.struggle.attempts[0].exerciseTitle = "Other"),
   ]) {
     const s = base();
