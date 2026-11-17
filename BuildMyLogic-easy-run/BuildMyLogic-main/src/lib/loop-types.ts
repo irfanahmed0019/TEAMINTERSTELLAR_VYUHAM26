@@ -97,6 +97,7 @@ export type SessionLog = {
   review?: SessionReview;
 };
 export type BuildSessionState = {
+  surprise_test?: { enabled: true };
   project_recheck_ready?: {
     binding: import("./project-recovery").ProjectRecheckBinding;
     at: number;
@@ -300,6 +301,7 @@ export type LearningChat = {
 };
 
 export type LoopState = {
+  surpriseTests?: Record<string, import("./surprise-tests").SurpriseTestResult>;
   /** Owner/session/generation/catalog task watermarks, not scores. */
   debuggingReceipts?: Record<string, true>;
   practiceEvidenceReceipts?: Record<string, number>;

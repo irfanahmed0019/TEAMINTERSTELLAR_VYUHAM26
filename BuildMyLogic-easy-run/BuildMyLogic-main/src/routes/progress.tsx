@@ -93,12 +93,20 @@ function Progress() {
   const state = useLoop();
   const sample = !!state.sampleProvenance;
   const [tab, setTab] = useState<
-    "Overview" | "Skills" | "Missions" | "Struggle DNA" | "Activity"
+    | "Overview"
+    | "Skills"
+    | "Missions"
+    | "Struggle DNA"
+    | "Activity"
+    | "Surprise Tests"
   >(
     typeof window !== "undefined" &&
       new URLSearchParams(window.location.search).get("view") === "struggle"
       ? "Struggle DNA"
-      : "Overview",
+      : typeof window !== "undefined" &&
+          new URLSearchParams(window.location.search).get("view") === "surprise"
+        ? "Surprise Tests"
+        : "Overview",
   );
   const [selectedMission, setSelectedMission] = useState<string | null>(null);
   const plan = competencyPlan(state);
@@ -266,6 +274,7 @@ function Progress() {
             "Missions",
             "Struggle DNA",
             "Activity",
+            "Surprise Tests",
           ] as const
         ).map((item) => (
           <button
@@ -801,6 +810,43 @@ function Progress() {
       )}
 
       {tab === "Struggle DNA" && <StruggleDNA />}
+
+      {tab === "Surprise Tests" && (
+        <section className="card-surface mt-5 p-6">
+          <h2 className="text-xl font-extrabold">Surprise Tests</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Private results revealed after a question ends. Finite
+            extension-reported checks, not a general skill certificate.
+            Career-readiness scores and your roadmap are unchanged.
+          </p>
+          {!Object.keys(state.surpriseTests ?? {}).length && (
+            <p className="mt-5">
+              No completed surprise tests yet. Finish your next different
+              Sessions question or supported project repair, then open Sessions
+              to sync its result.
+            </p>
+          )}
+          {Object.values(state.surpriseTests ?? {})
+            .sort((a, b) => b.at - a.at)
+            .map((result) => (
+              <article
+                key={result.id}
+                className="mt-4 rounded-xl border border-border p-4"
+              >
+                <h3 className="font-bold">{result.title}</h3>
+                <p className="mt-2">
+                  {result.outcome === "passed" ? "Passed" : "Ended"}:{" "}
+                  {result.passed}/{result.total} checks · {result.attempts}{" "}
+                  {result.attempts === 1 ? "attempt" : "attempts"}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {result.language} · {new Date(result.at).toLocaleString()} ·{" "}
+                  {result.sessionId} · Extension-reported local execution
+                </p>
+              </article>
+            ))}
+        </section>
+      )}
 
       {tab === "Activity" && (
         <section className="card-surface mt-5 p-6">

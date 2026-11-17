@@ -29,6 +29,10 @@ const source = readFileSync(
     "const isSampleAccount=()=>false;",
   )
   .replace(
+    'import { claimNextSurprise } from "./surprise-slot.server.ts";',
+    "const claimNextSurprise = async () => false;",
+  )
+  .replace(
     'import { sarvamJson } from "./sarvam.server";',
     'const sarvamJson=()=>{throw Error("Paid AI forbidden in regression");};',
   );

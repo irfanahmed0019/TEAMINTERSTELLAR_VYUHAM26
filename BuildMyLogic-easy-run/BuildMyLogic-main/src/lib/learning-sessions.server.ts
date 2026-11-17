@@ -1,3 +1,4 @@
+import { claimNextSurprise } from "./surprise-slot.server.ts";
 import {
   PRACTICE_TASKS,
   practiceTaskBody,
@@ -31,6 +32,7 @@ export type ProjectRecheckReceipt = {
   test_source: "reviewed-existing-tests";
 };
 export type LearningSession = {
+  surpriseTest?: boolean;
   conquestReceipts?: ConquestReceipt[];
   projectRecheckReady?: { binding: ProjectRecheckBinding; at: number };
   projectRecheckReceipts?: ProjectRecheckReceipt[];
@@ -569,6 +571,9 @@ function compact(session: LearningSession) {
     )
     .join("\n");
   return {
+    ...(session.surpriseTest
+      ? { surprise_test: { enabled: true as const } }
+      : {}),
     rev: session.rev ?? 0,
     task_generation: session.taskGeneration ?? 0,
     practice_history: session.practiceHistory ?? [],
@@ -1434,6 +1439,7 @@ export async function assignLiteralProjectChallenge(
       )
       .digest("hex");
   const id = "python-literal-repair:" + binding.slice(0, 24);
+  const surpriseTest = await claimNextSurprise({ ...session, challengeId: id });
   session.challengeId = id;
   session.language = "Python";
   session.concept = "project test repair";
@@ -1482,6 +1488,7 @@ export async function assignLiteralProjectChallenge(
       ...(partition ? { partition } : {}),
     },
   };
+  session.surpriseTest = surpriseTest;
   session.testCommand = "buildmylogic:python-literal-repair-v1";
   session.rev = (session.rev ?? 0) + 1;
   session.events.push({
@@ -1582,6 +1589,7 @@ export async function assignPracticeTask(
   next.expectedDurationMs = task.expected_duration_ms;
   next.testCommand = task.test_command;
   next.checkpoints = makeCheckpoints(task, task.instructions);
+  next.surpriseTest = changing ? await claimNextSurprise(next) : false;
   next.rev = (next.rev ?? 0) + 1;
   next.events.push({
     eventType: "practice_task_assigned",
@@ -1779,6 +1787,7 @@ export async function assignProjectChallenge(
     );
   const digest = createHash("sha256").update(source).digest("hex");
   const id = "python-decimal-contract:" + digest.slice(0, 16);
+  const surpriseTest = await claimNextSurprise({ ...session, challengeId: id });
   session.challengeId = id;
   session.language = "Python";
   session.concept = "input validation";
@@ -1821,6 +1830,7 @@ export async function assignProjectChallenge(
     summary: `Inspected only the learner-approved function ${match[1]} in ${path}. Source digest ${digest}. Challenge selected after this inspection. Other module code and dependencies not understood.${withTests ? ` Approved project test file ${testPath}, SHA256 ${testDigest}, ${(cases as unknown[]).length} matching literal cases, ${failures} baseline failures. Test bodies/imports not executed. Baseline failure is extension-reported, not server-verified.` : ""}`,
     at: new Date().toISOString(),
   };
+  session.surpriseTest = surpriseTest;
   session.testCommand = "buildmylogic:python-decimal-contract";
   session.rev = (session.rev ?? 0) + 1;
   session.events.push({

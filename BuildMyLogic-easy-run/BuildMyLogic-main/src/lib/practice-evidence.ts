@@ -52,6 +52,7 @@ export function ingestPracticeEvidence(
     const task = PRACTICE_TASKS.find((t) => t.id === s.challenge_id),
       checkpoint = s.checkpoints?.[0];
     if (
+      s.surprise_test?.enabled ||
       !task ||
       !Number.isSafeInteger(generation) ||
       generation < 0 ||

@@ -1,3 +1,4 @@
+import { ingestSurpriseTests } from "./surprise-tests.ts";
 import { isReadyCloudOwner } from "./cloud-readiness.ts";
 import { ingestPracticeEvidence } from "./practice-evidence.ts";
 import { PRACTICE_TASKS } from "./practice-task.ts";
@@ -433,11 +434,13 @@ export function applyBuildSessionEvidence(
   currentOwner?: string,
 ) {
   setLoopState((prev) => {
+    prev = ingestSurpriseTests(prev, remote, currentOwner);
     if (
       PRACTICE_TASKS.some((t) => t.id === remote.challenge_id) ||
       remote.practice_history?.length
     )
       return ingestPracticeEvidence(prev, remote, currentOwner);
+    if (remote.surprise_test?.enabled) return prev;
     if (
       remote.challenge_id.startsWith("python-decimal-contract:") ||
       remote.challenge_id.startsWith("python-literal-repair:")

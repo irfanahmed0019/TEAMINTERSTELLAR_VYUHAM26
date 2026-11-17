@@ -1055,6 +1055,39 @@ function Sessions() {
         </div>
       </section>
 
+      {remoteState?.surprise_test?.enabled &&
+        ["completed", "failed"].includes(remoteState.status) &&
+        remoteState.attempts > 0 &&
+        Object.values(state.surpriseTests ?? {}).some(
+          (result) =>
+            result.id ===
+            `${pairingAuth?.uid}:${remoteState.session_id}:${remoteState.task_generation ?? 0}:${remoteState.challenge_id}`,
+        ) && (
+          <section
+            className="card-surface mt-5 p-5"
+            aria-label="Surprise test result"
+          >
+            <h2 className="text-lg font-bold">Surprise test revealed</h2>
+            <p className="mt-2">
+              This question was a surprise test.{" "}
+              {remoteState.test_score?.passed ?? 0}/
+              {remoteState.test_score?.total ?? 0} finite checks passed across{" "}
+              {remoteState.attempts} attempts.
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Your result is kept privately in Progress → Surprise Tests after
+              sync. Local execution is extension-reported, not general mastery.
+              Career-readiness scores and your roadmap are unchanged.
+            </p>
+            <a
+              className="mt-3 inline-block text-primary underline"
+              href="/progress?view=surprise"
+            >
+              Open Surprise Tests
+            </a>
+          </section>
+        )}
+
       {remoteState?.project_review && (
         <SessionProjectReview review={remoteState.project_review} />
       )}
