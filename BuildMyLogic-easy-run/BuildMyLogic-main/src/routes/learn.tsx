@@ -55,8 +55,12 @@ function Learn() {
     missions.find((m) => state.missionProgress[m.id]?.status === "active") ??
     missions[0];
   const [tab, setTab] = useState<"syllabus" | "topics" | "resources">("topics");
-  const [activeTopicId, setActiveTopicId] = useState<string | null>(null);
+  const [activeTopicId, setActiveTopicId] = useState<string | null>(
+    activeMission?.id.startsWith("beginner-addition:") ? "variables" : null,
+  );
   const [language, setLanguage] = useState<TopicLanguage | null>(() => {
+    if (activeMission?.id.startsWith("beginner-addition:"))
+      return activeMission.stack === "Python" ? "python" : "c";
     try {
       const saved = learnerStorage.getItem("bml.learn.lang");
       return saved === "c" || saved === "python" ? saved : null;

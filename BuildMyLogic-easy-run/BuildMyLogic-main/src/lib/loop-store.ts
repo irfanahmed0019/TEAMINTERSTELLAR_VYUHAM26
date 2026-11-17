@@ -1,3 +1,4 @@
+import { chooseEasierTask } from "./easier-task.ts";
 import { ingestSurpriseTests } from "./surprise-tests.ts";
 import { isReadyCloudOwner } from "./cloud-readiness.ts";
 import { ingestPracticeEvidence } from "./practice-evidence.ts";
@@ -847,4 +848,8 @@ export function saveProjectRecoveryReview(
       ? reviewProjectRecovery(prev, remote, owner, prediction)
       : prev;
   });
+}
+
+export function startEasierTask() {
+  setLoopState((prev) => chooseEasierTask(prev));
 }

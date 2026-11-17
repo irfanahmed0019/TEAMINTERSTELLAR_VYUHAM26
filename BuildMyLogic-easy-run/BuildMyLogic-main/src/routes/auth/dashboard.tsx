@@ -1,3 +1,5 @@
+import { easierTaskOffer } from "@/lib/easier-task";
+import { startEasierTask } from "@/lib/loop-store";
 import { TargetJobRecommendation } from "@/components/TargetJobRecommendation";
 import { isReadyCloudOwner } from "@/lib/cloud-readiness";
 import { PRACTICE_TASKS } from "@/lib/practice-task";
@@ -59,6 +61,7 @@ function Dashboard() {
   const state = useLoop();
   const navigate = useNavigate();
   const plan = competencyPlan(state);
+  const easierOffer = easierTaskOffer(state);
   const name = state.profile?.name?.trim() || "Builder";
   const missions = plan?.missions ?? [];
   const current =
@@ -191,6 +194,22 @@ function Dashboard() {
       wide
     >
       <TargetJobRecommendation profile={state.profile} />
+      {easierOffer && (
+        <section className="card-surface my-4 p-5">
+          <h2 className="text-lg font-bold">Try a smaller first step</h2>
+          <p className="my-2">
+            Four failed submissions on {easierOffer.sourceTitle}. You can start
+            with adding two numbers. Your earlier work stays saved and is not
+            marked passed.
+          </p>
+          <button
+            className="btn-base btn-primary-solid"
+            onClick={() => startEasierTask()}
+          >
+            Give up and start easier
+          </button>
+        </section>
+      )}
       {/* Schedule & Google Calendar Modal */}
       <ScheduleModal
         isOpen={scheduleModalOpen}
@@ -299,6 +318,10 @@ function Dashboard() {
                     type="button"
                     className="btn-base btn-primary-solid mt-6"
                     onClick={() => {
+                      if (current.id.startsWith("beginner-addition:")) {
+                        void navigate({ to: "/learn" });
+                        return;
+                      }
                       setMissionProgress(current.id, { status: "active" });
                       learnerStorage.setItem("loop-auto-start-session", "1");
                       void navigate({ to: "/sessions" });
