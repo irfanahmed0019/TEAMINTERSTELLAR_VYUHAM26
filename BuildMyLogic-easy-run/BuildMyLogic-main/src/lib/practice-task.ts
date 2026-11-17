@@ -205,3 +205,26 @@ export function beginnerPracticeOffer(
   }
   return failures >= 3;
 }
+
+/** Repeat the learner's own earlier loop/conditions task, never invent a topic. */
+export function harderPracticeRestart(
+  session:
+    | {
+        challenge_id?: string;
+        practice_history?: Array<{ challenge_id: string; title: string }>;
+      }
+    | null
+    | undefined,
+) {
+  if (session?.challenge_id !== "python-arithmetic-add-v1") return null;
+  const previous = [...(session.practice_history ?? [])]
+    .reverse()
+    .find(
+      (h) =>
+        /^python-(loops|conditions)-/.test(h.challenge_id) &&
+        PRACTICE_TASKS.some((t) => t.id === h.challenge_id),
+    );
+  return previous
+    ? (PRACTICE_TASKS.find((t) => t.id === previous.challenge_id) ?? null)
+    : null;
+}

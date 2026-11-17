@@ -6,6 +6,7 @@ import {
   suggestedPracticeId,
   nextPracticeTaskId,
   beginnerPracticeOffer,
+  harderPracticeRestart,
 } from "./practice-task.ts";
 test("four finite tasks keep short simple questions, owner-independent catalog and exact evaluator constants", () => {
   assert.equal(PRACTICE_TASKS.length, 13);
@@ -85,4 +86,21 @@ test("beginner prompt requires three distinct genuine same-task failed attempts 
     },
   ])
     assert.equal(beginnerPracticeOffer({ ...s, ...p }), false);
+});
+
+test("harder-first restart uses most recent actual loop or conditions history and never resets itself", () => {
+  const s = {
+    challenge_id: "python-arithmetic-add-v1",
+    practice_history: [
+      { challenge_id: "python-loops-triangular-v1", title: "Sum from1to n" },
+      { challenge_id: "python-conditions-sign-v1", title: "Conditions" },
+    ],
+  };
+  assert.equal(harderPracticeRestart(s).id, "python-conditions-sign-v1");
+  assert.equal(s.practice_history.length, 2);
+  assert.equal(harderPracticeRestart({ ...s, practice_history: [] }), null);
+  assert.equal(
+    harderPracticeRestart({ ...s, challenge_id: "python-loops-triangular-v1" }),
+    null,
+  );
 });

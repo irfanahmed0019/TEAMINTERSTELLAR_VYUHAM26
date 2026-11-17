@@ -2,7 +2,7 @@ import { easierTaskOffer } from "@/lib/easier-task";
 import { startEasierTask } from "@/lib/loop-store";
 import { TargetJobRecommendation } from "@/components/TargetJobRecommendation";
 import { isReadyCloudOwner } from "@/lib/cloud-readiness";
-import { PRACTICE_TASKS } from "@/lib/practice-task";
+import { PRACTICE_TASKS, harderPracticeRestart } from "@/lib/practice-task";
 import { getAuthSession, getAuthSessionForApi } from "@/lib/auth";
 import { learningSchedule } from "@/lib/learning-schedule";
 import { competencyPlan, competencyView } from "@/lib/competency";
@@ -352,6 +352,22 @@ function Dashboard() {
                     </span>
                     <ArrowRight className="h-4 w-4" />
                   </button>
+                  {harderPracticeRestart(remotePractice) && (
+                    <div className="mt-3">
+                      <Link
+                        to="/sessions"
+                        hash="harder-question"
+                        className="btn-base btn-outline"
+                      >
+                        Start harder question first
+                      </Link>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Your earlier loop/if-else question first. After 3 wrong
+                        attempts, sum of two numbers starts automatically. Saved
+                        results stay.
+                      </p>
+                    </div>
+                  )}
                 </div>
                 <div className="relative hidden h-36 w-44 shrink-0 items-center justify-center sm:flex">
                   <div className="absolute inset-0 rounded-full bg-primary-soft" />

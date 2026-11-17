@@ -2,6 +2,7 @@ import { useCloudHydrated } from "@/lib/cloud-sync";
 import {
   PRACTICE_TASKS,
   suggestedPracticeId,
+  harderPracticeRestart,
 } from "@/lib/practice-task";
 import { learningSchedule } from "@/lib/learning-schedule";
 import { learnerStorage } from "@/lib/demo-mode";
@@ -1525,6 +1526,49 @@ function Sessions() {
             >
               {practiceBusy ? "Selecting task..." : "Use this Python task"}
             </button>
+            {harderPracticeRestart(remoteState) && (
+              <section
+                id="harder-question"
+                className="mb-4 rounded-xl border border-primary/40 bg-primary-soft p-4"
+              >
+                <h3 className="font-bold">Start with a harder question</h3>
+                <p className="my-2 text-sm">
+                  First: {harderPracticeRestart(remoteState)?.title}. After 3
+                  wrong attempts, it automatically switches to Add two numbers.
+                  All earlier results stay saved.
+                </p>
+                <button
+                  type="button"
+                  className="btn-base btn-primary-solid"
+                  disabled={practiceBusy || pairingBusy}
+                  onClick={async () => {
+                    const task = harderPracticeRestart(remoteState);
+                    if (!task || practiceStarting.current) return;
+                    practiceStarting.current = true;
+                    setPracticeBusy(true);
+                    setPickerError("");
+                    try {
+                      await createVscodeSession(task.id);
+                      setPracticeSelection(task.id);
+                      setPracticeNotice(
+                        "Harder question started. After 3 wrong attempts, Add two numbers starts automatically. Earlier results stay in history.",
+                      );
+                    } catch (e) {
+                      setPickerError(
+                        e instanceof Error
+                          ? e.message
+                          : "Could not start harder question. Saved results are unchanged.",
+                      );
+                    } finally {
+                      practiceStarting.current = false;
+                      setPracticeBusy(false);
+                    }
+                  }}
+                >
+                  Start harder question first
+                </button>
+              </section>
+            )}
             {PRACTICE_TASKS.some((t) => t.id === remoteState?.challenge_id) && (
               <div className="mb-3 text-xs">
                 <p className="mb-2 font-bold">
