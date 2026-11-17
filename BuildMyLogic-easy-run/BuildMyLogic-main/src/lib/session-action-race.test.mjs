@@ -99,3 +99,63 @@ test("normal same-owner create still stores token only in memory and display met
   assert.equal(f.effects.length, 3);
   assert.ok(!JSON.stringify(f.effects).includes("A".repeat(43)));
 });
+test("pair code after reload never replaces existing saved session", async () => {
+  const code = ts.transpileModule(
+    route.slice(
+      route.indexOf("  async function showPairingCode("),
+      route.indexOf(
+        "\n  useEffect(() => {\n    const saved = learnerStorage",
+        route.indexOf("  async function showPairingCode("),
+      ),
+    ),
+    {
+      compilerOptions: {
+        target: ts.ScriptTarget.ES2022,
+        module: ts.ModuleKind.None,
+      },
+    },
+  ).outputText;
+  for (const token of [undefined, "A".repeat(43)]) {
+    const effects = [],
+      auth = { uid: "owner-a", idToken: "approved-owner" };
+    const ctx = vm.createContext({
+      Error,
+      JSON,
+      pairingBusy: false,
+      practiceStarting: { current: false },
+      connectionTokenRef: { current: token },
+      vscodeSession: { sessionId: "BML-EXIST" },
+      getAuthEpoch: () => 1,
+      getAuthSession: () => auth,
+      getAuthSessionForApi: async () => auth,
+      setPairingBusy: () => {},
+      setPairingError: (e) => effects.push(["error", e]),
+      setPairingCode: () => {},
+      setPairingExpiry: () => {},
+      createVscodeSession: async () => {
+        throw Error("MUST NOT REPLACE");
+      },
+      fetch: async (path) => {
+        effects.push(["fetch", path]);
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            code: "ABCD-EF23",
+            expires_at: "later",
+          }),
+        };
+      },
+    });
+    vm.runInContext(code, ctx);
+    await vm.runInContext("showPairingCode()", ctx);
+    if (!token) {
+      assert.match(effects.at(-1)[1], /saved task is preserved/);
+      assert.ok(!effects.some((e) => e[0] === "fetch"));
+    } else
+      assert.deepEqual(
+        effects.filter((e) => e[0] === "fetch"),
+        [["fetch", "/api/sessions/BML-EXIST/pairing/create"]],
+      );
+  }
+});

@@ -167,6 +167,10 @@ function Sessions() {
       const auth = await getAuthSessionForApi();
       if (!auth?.idToken)
         throw Error("Sign in before creating a pairing code.");
+      if (vscodeSession && !connectionTokenRef.current)
+        throw Error(
+          "Your saved task is preserved. Reconnect this Session ID in the VS Code extension that already paired it. A new pairing code cannot be created after this page was reloaded; no replacement session was started.",
+        );
       const linked =
         connectionTokenRef.current && vscodeSession
           ? vscodeSession
