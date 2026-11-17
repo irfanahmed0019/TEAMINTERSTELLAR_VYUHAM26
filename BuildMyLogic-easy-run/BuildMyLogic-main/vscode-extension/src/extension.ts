@@ -1,8 +1,4 @@
-import {
-  IDLE_WINDOW_MS,
-  largeCodeInsertion,
-  sessionActivityClock,
-} from "./sessionActivity";
+import { IDLE_WINDOW_MS, sessionActivityClock } from "./sessionActivity";
 import { claimPairingCode, normalizePairingCode } from "./pairingCode";
 import * as vscode from "vscode";
 import * as path from "node:path";
@@ -123,7 +119,6 @@ class Sidebar implements vscode.WebviewViewProvider {
   private activityTimer?: NodeJS.Timeout;
   private activityDisplayTimer?: NodeJS.Timeout;
   private activityTaskKey = "";
-  private insertionSignal?: { characters: number; lines: number };
   private connectEpoch = 0;
   private credentialWrites: Promise<void> = Promise.resolve();
   private connectionSettings: Promise<void> = Promise.resolve();
@@ -748,7 +743,6 @@ class Sidebar implements vscode.WebviewViewProvider {
     if (this.activityDisplayTimer) clearInterval(this.activityDisplayTimer);
     this.activityDisplayTimer = undefined;
     this.activityAt = 0;
-    this.insertionSignal = undefined;
     this.publishActivityState();
     this.evidenceSubscriptions.forEach((subscription) =>
       subscription.dispose(),
@@ -779,21 +773,6 @@ class Sidebar implements vscode.WebviewViewProvider {
           )
         ) {
           this.noteActivity();
-          if (
-            vscode.window.state.focused &&
-            !this.session?.timing?.paused &&
-            this.session?.status !== "completed" &&
-            this.session?.status !== "expired"
-          ) {
-            const signal = largeCodeInsertion(
-              event.contentChanges ?? [],
-              event.document.languageId,
-              event.reason !== undefined,
-            );
-            // A notice describes the latest edit only, never the author or later typing.
-            this.insertionSignal = signal;
-            this.publishActivityState();
-          }
         }
       }),
     );
@@ -940,7 +919,6 @@ class Sidebar implements vscode.WebviewViewProvider {
         finished:
           session?.status === "completed" || session?.status === "expired",
       }),
-      insertion: this.insertionSignal ?? null,
     });
   }
   private async flushActivity(foregroundUntilNow = false) {
@@ -964,7 +942,7 @@ class Sidebar implements vscode.WebviewViewProvider {
     if (!this.connection || !vscode.workspace.isTrusted) return;
     const connection = this.connection;
     const yes = await vscode.window.showInformationMessage(
-      "Share bounded project context, file names, language, error messages and foreground edit/run timing with BuildMyLogic during this session? Secret paths are excluded. Large code insertions get a local uncertain notice, not an AI-origin verdict or source upload. Full source uploads still ask separately. Pausing the website session stops active-time credit. Disconnect to stop sharing.",
+      "Share bounded project context, file names, language, error messages and foreground edit/run timing with BuildMyLogic during this session? Secret paths are excluded. Full source uploads still ask separately. Pausing the website session stops active-time credit. Disconnect to stop sharing.",
       { modal: true },
       "Share session evidence",
     );
@@ -1871,11 +1849,8 @@ class Sidebar implements vscode.WebviewViewProvider {
         m.session.challenge_id,
         m.session.task_generation ?? 0,
       ].join(":");
-      if (m.session.status === "completed" || m.session.status === "expired")
-        this.insertionSignal = undefined;
       if (key !== this.activityTaskKey) {
         this.activityTaskKey = key;
-        this.insertionSignal = undefined;
         this.activityAt = 0;
       }
     }

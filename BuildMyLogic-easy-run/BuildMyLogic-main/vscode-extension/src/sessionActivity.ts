@@ -51,38 +51,3 @@ export function sessionActivityClock(input: {
         text: "AFK - idle limit reached; no active-time credit",
       };
 }
-const codeLanguages = new Set([
-  "python",
-  "c",
-  "cpp",
-  "java",
-  "javascript",
-  "typescript",
-  "javascriptreact",
-  "typescriptreact",
-  "go",
-  "rust",
-  "csharp",
-  "kotlin",
-  "swift",
-  "php",
-  "ruby",
-  "html",
-  "css",
-  "sql",
-]);
-/** Heuristic only. Content is inspected transiently, never retained or uploaded. */
-export function largeCodeInsertion(
-  changes: readonly { text: string; rangeLength?: number }[],
-  language: string,
-  undoOrRedo: boolean,
-) {
-  if (undoOrRedo || !codeLanguages.has(language)) return undefined;
-  // Several small edits, replacements and formatting are not one insertion.
-  if (changes.length !== 1 || (changes[0].rangeLength ?? 0) !== 0)
-    return undefined;
-  const characters = changes[0].text.length;
-  const lines = changes[0].text ? changes[0].text.split(/\r?\n/).length : 0;
-  if (characters < 400 && !(characters >= 120 && lines >= 3)) return undefined;
-  return { characters, lines };
-}

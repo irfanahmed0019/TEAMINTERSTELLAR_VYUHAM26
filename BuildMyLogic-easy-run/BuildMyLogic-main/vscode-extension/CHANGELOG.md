@@ -1,3 +1,8 @@
+## 0.3.22
+
+- Removes the entire AI/code-paste and large-edit notice feature, including its heuristic, state and UI.
+- Keeps the consented AFK countdown, code tests, results and learning history unchanged.
+
 ## 0.3.21
 
 - Replaces the misleading AI copy-paste headline with a neutral large-edit notice. A text insertion cannot establish AI authorship.

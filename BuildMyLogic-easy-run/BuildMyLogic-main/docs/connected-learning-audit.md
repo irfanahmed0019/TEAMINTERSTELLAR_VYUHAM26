@@ -523,3 +523,11 @@ The user's request for similar questions leading to mastery is implemented as an
 - Existing consent, workspace/foreground/paused guards, AFK accounting, graded results, submission access and cloud evidence remain unchanged. No clipboard reads, insertion-content uploads or new AI calls.
 - Exact installed 0.3.21 VSIX verified in isolated desktop using real Ctrl+V of 469 synthetic characters across 35 lines, then ordinary typing, same-task completion and task change. Neutral notice appeared only for large insertions, cleared as intended; Submit stayed enabled. 30-second countdown and idle cap still work.
 - 418 web tests, 65 extension tests, both TypeScript checks and production build pass. Focused lint has zero errors (two existing sessions hook warnings). Screenshots show controlled local QA, not the user's private session.
+
+## 2026-11-17: remove AI/code-paste notice feature (0.3.22)
+
+- At the user's explicit removal request, removed the large-insertion heuristic, state, listener processing, notice DOM/rendering and consent-text reference. This is removal, not a hidden headline.
+- Kept existing consented foreground AFK timing, task reset timing and code-test/result paths unchanged. No new calls, uploads, account changes or penalties.
+- 64 extension tests, 418 web tests, both TypeScript checks and production build pass. Focused lint: zero errors, two existing Sessions hook warnings.
+- Exact 0.3.22 VSIX installed in isolated desktop. Real Ctrl+V of 469 synthetic characters across 35 lines and subsequent normal typing showed no notice element. Existing AFK countdown/31-second idle transition and enabled Submit verified. API events contain no insertion/code content.
+- Actual screenshots inspected: no notice after paste, AFK timer still present and correct. Website download/install commands and Sessions latest-version text now use 0.3.22. User must install it and reload VS Code; older installations are not remotely changed.
