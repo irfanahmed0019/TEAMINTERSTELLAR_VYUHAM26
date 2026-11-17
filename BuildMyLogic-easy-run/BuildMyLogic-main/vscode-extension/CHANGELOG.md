@@ -1,3 +1,9 @@
+## 0.3.23
+
+- Removes AFK/idle tracking, activity timers, edit/focus listeners, work-activity reports and their notices.
+- AI/code-paste and large-edit detection remain absent.
+- Keeps pairing, saved-session reconnect, local Run Tests, results and learning history. Historical timing evidence is not deleted or replaced with invented time.
+
 ## 0.3.22
 
 - Removes the entire AI/code-paste and large-edit notice feature, including its heuristic, state and UI.

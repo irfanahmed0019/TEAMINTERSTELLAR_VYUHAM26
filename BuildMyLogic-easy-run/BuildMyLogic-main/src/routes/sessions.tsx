@@ -1578,9 +1578,9 @@ function Sessions() {
             )}
             <p className="mb-3 text-xs text-muted-foreground">
               Standalone practice, not a test of your project. Choose a topic
-              you want help with. Requires Python. Use extension v0.3.22 for the
-              latest version: AFK timing and code tests stay, with no
-              AI/code-paste or large-edit notices.
+              you want help with. Requires Python. Use extension v0.3.23 for the
+              latest version: local code tests stay, with no AFK/idle tracking
+              or AI/code-paste detection.
             </p>
             <button
               type="button"
@@ -1962,9 +1962,9 @@ function Sessions() {
         <section className="card-surface p-5">
           <h2 className="text-lg font-black">Observed project evidence</h2>
           <p className="text-sm">
-            Browser countdown is a planning timer, not measured active work. VS
-            Code measures only consented foreground activity with a 30-second
-            idle limit.
+            Browser countdown is a planning timer, not measured active work.
+            Extension v0.3.23 does not track AFK/idle or active coding time.
+            Earlier timing evidence, if present, is historical.
           </p>
           <p className="text-sm">
             Expected:{" "}

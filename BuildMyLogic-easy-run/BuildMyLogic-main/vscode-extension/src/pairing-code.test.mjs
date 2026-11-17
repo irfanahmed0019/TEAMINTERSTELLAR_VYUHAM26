@@ -434,13 +434,10 @@ test("claim storage rejection never connects and cannot expose secrets in error 
     globalThis.fetch = old;
   }
 });
-test("actual desktop event flow: only connected consented safe-workspace edits count; focus loss flushes final active interval, idle capped", async () => {
+test("consented safe-file evidence remains without edit/focus timers or activity reports", async () => {
   const f = await sidebarFixture(),
-    oldNow = Date.now;
-  let now = 100000;
-  Date.now = () => now;
-  const activity = [],
-    saved = [];
+    saved = [],
+    activity = [];
   f.api.event = async (id, type, payload) => {
     activity.push({ id, type, payload });
     return {};
@@ -452,81 +449,25 @@ test("actual desktop event flow: only connected consented safe-workspace edits c
   });
   try {
     f.sidebar.installEvidenceSubscriptions();
-    assert.equal(
-      Object.keys(f.events).length,
-      0,
-      "no watchers before authenticated connection/consent",
-    );
+    assert.equal(Object.keys(f.events).length, 0);
     f.sidebar.connection = { sessionId: "BML-ABCDE" };
     f.sidebar.session = { session_id: "BML-ABCDE" };
     f.sidebar.evidenceConsent = true;
     f.sidebar.installEvidenceSubscriptions();
-    assert.equal(
-      f.sidebar.activityAt,
-      0,
-      "file merely open is not evidence of active coding",
-    );
-    f.events.edit({ document: doc("/outside/file.py") });
-    assert.equal(f.sidebar.activityAt, 0);
-    f.events.edit({ document: doc("/project/.env") });
-    assert.equal(f.sidebar.activityAt, 0);
-    f.events.edit({ document: doc("/project/main.py") });
-    now += 5000;
-    await f.sidebar.flushActivity();
-    assert.equal(activity.at(-1).payload.active_ms, 5000);
-    now += 2000;
-    f.vscode.window.state.focused = false;
-    f.events.focus({ focused: false });
-    await settle();
-    assert.equal(
-      activity.at(-1).payload.active_ms,
-      2000,
-      "final foreground edit interval must not be lost on blur",
-    );
-    now += 10000;
-    f.events.edit({ document: doc("/project/main.py") });
-    assert.equal(
-      f.sidebar.activityAt,
-      0,
-      "programmatic hidden edit cannot start clock",
-    );
-    f.events.focus({ focused: false });
-    await settle();
-    assert.equal(
-      activity.at(-1).payload.active_ms,
-      0,
-      "repeated blur cannot credit hidden edit",
-    );
-    await f.sidebar.flushActivity();
-    assert.equal(activity.at(-1).payload.active_ms, 0, "hidden time excluded");
-    f.vscode.window.state.focused = true;
-    f.events.focus({ focused: true });
-    now += 1000;
-    await f.sidebar.flushActivity();
-    assert.equal(
-      activity.at(-1).payload.active_ms,
-      0,
-      "focus without new activity must not restart clock",
-    );
+    assert.equal(f.events.edit, undefined);
+    assert.equal(f.events.focus, undefined);
+    assert.equal(f.sidebar.activityTimer, undefined);
+    assert.equal(f.sidebar.activityDisplayTimer, undefined);
+    f.events.save(doc("/outside/file.py"));
+    f.events.save(doc("/project/.env"));
     f.events.save(doc("/project/main.py"));
     await settle();
     assert.deepEqual(saved, ["/project/main.py"]);
-    now += 60000;
-    await f.sidebar.flushActivity();
-    assert.equal(
-      activity.at(-1).payload.active_ms,
-      30000,
-      "idle edit window capped at30s",
-    );
-    f.sidebar.clearEvidenceSubscriptions();
-    assert.equal(Object.keys(f.events).length, 0);
-    const count = activity.length;
-    await f.sidebar.flushActivity();
-    assert.equal(activity.length, count, "disconnect/no consent stops timing");
+    assert.equal(activity.length, 0);
   } finally {
     f.sidebar.clearEvidenceSubscriptions();
-    Date.now = oldNow;
   }
+  assert.equal(Object.keys(f.events).length, 0);
 });
 
 test("pending container blocks Run, Submit and Failed without any API evidence or file upload", async () => {
