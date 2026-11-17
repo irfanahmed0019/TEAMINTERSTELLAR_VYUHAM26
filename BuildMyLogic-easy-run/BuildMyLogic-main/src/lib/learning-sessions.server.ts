@@ -3,6 +3,7 @@ import {
   PRACTICE_TASKS,
   practiceTaskBody,
   nextPracticeTaskId,
+  beginnerPracticeOffer,
 } from "./practice-task.ts";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { ConquestReceipt } from "./shared-conquest";
@@ -201,6 +202,7 @@ const statusRank = (status: string) => STATUS_RANK[status] ?? 0;
 async function persistSession(
   session: LearningSession,
   strict = false,
+  practiceWrite = false,
 ): Promise<void> {
   const config = supabaseAdminConfig();
   if (!config) {
@@ -242,6 +244,7 @@ async function persistSession(
       const binding = projectRecheckBinding(session);
       if (
         strict &&
+        !practiceWrite &&
         (!savedSession ||
           !binding ||
           !sameProjectBinding(projectRecheckBinding(savedSession), binding))
@@ -815,6 +818,7 @@ export function recordEvent(
   session: LearningSession,
   eventType: string,
   payload: Record<string, unknown>,
+  persist = true,
 ) {
   if (!allowedEvents.has(eventType))
     throw new Error("Unsupported session event.");
@@ -940,7 +944,7 @@ export function recordEvent(
     };
   }
   if (eventType === "session_ended") session.status = "expired";
-  void persistSession(session);
+  if (persist) void persistSession(session);
   return stateOf(session);
 }
 
@@ -2095,4 +2099,26 @@ export async function refreshConquestReceipts(session: LearningSession) {
     );
     session.conquestReceipts = [...receipts.values()].slice(-40);
   }
+}
+
+/** User-requested automatic scaffold, only after three real same-task failures. */
+export async function recordPracticeTestResult(
+  session: LearningSession,
+  payload: Record<string, unknown>,
+) {
+  if (session.surpriseTest || !/^python-(loops|conditions)-/.test(session.challengeId))
+    return recordEvent(session,"test_result",payload);
+  recordEvent(session, "test_result", payload, false);
+  await persistSession(session, true, true);
+  const snapshot = stateOf(session);
+  if (
+    !session.surpriseTest &&
+    /^python-(loops|conditions)-/.test(session.challengeId) &&
+    beginnerPracticeOffer(snapshot)
+  )
+    return assignPracticeTask(session, "python-arithmetic-add-v1", {
+      challenge: session.challengeId,
+      generation: session.taskGeneration ?? 0,
+    });
+  return snapshot;
 }

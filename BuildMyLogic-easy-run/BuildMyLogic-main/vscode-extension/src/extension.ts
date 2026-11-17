@@ -104,7 +104,6 @@ type Message = {
     | "disconnect"
     | "reassess"
     | "projectRecheck"
-    | "beginnerPractice"
     | "openMentor"
     | "checkSetup"
     | "installTool";
@@ -230,17 +229,6 @@ class Sidebar implements vscode.WebviewViewProvider {
       if (m.command === "ready") {
         if (this.session) this.post({ type: "session", session: this.session });
         void this.checkSetup(false);
-        return;
-      }
-      if (m.command === "beginnerPractice") {
-        await vscode.env.openExternal(
-          vscode.Uri.parse(
-            new URL(
-              "/sessions#beginner-practice",
-              this.api.getBaseUrl(),
-            ).toString(),
-          ),
-        );
         return;
       }
       if (m.command === "openMentor") {
@@ -1330,6 +1318,17 @@ class Sidebar implements vscode.WebviewViewProvider {
     });
     if (!sameTask()) return;
     this.session = r.state || this.session;
+    if (
+      this.session.challenge_id !== challenge ||
+      (this.session.task_generation ?? 0) !== generation
+    ) {
+      this.results.update(this.session);
+      this.post({ type: "session", session: this.session });
+      this.status(
+        "Three wrong attempts. Switched to beginner arithmetic. Earlier question and attempts stay in history.",
+      );
+      return;
+    }
     if (this.session.status === "completed") {
       this.clearEvidenceSubscriptions();
       this.post({

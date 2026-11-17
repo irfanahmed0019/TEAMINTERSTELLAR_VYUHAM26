@@ -2,7 +2,6 @@ import { useCloudHydrated } from "@/lib/cloud-sync";
 import {
   PRACTICE_TASKS,
   suggestedPracticeId,
-  beginnerPracticeOffer,
 } from "@/lib/practice-task";
 import { learningSchedule } from "@/lib/learning-schedule";
 import { learnerStorage } from "@/lib/demo-mode";
@@ -1526,52 +1525,6 @@ function Sessions() {
             >
               {practiceBusy ? "Selecting task..." : "Use this Python task"}
             </button>
-            {beginnerPracticeOffer(remoteState) && (
-              <section
-                id="beginner-practice"
-                className="mb-4 rounded-xl border border-primary/40 bg-primary-soft p-4"
-                aria-label="Beginner practice choice"
-              >
-                <h3 className="font-bold">Want to try beginner arithmetic?</h3>
-                <p className="my-2 text-sm">
-                  Three wrong attempts on this question. Start with adding two
-                  numbers, or keep trying. Your current question and all
-                  attempts stay saved; it is not marked passed.
-                </p>
-                <button
-                  type="button"
-                  className="btn-base btn-primary-solid"
-                  disabled={practiceBusy || pairingBusy}
-                  onClick={async () => {
-                    if (practiceStarting.current) return;
-                    practiceStarting.current = true;
-                    setPracticeBusy(true);
-                    setPickerError("");
-                    try {
-                      await createVscodeSession("python-arithmetic-add-v1");
-                      setPracticeSelection("python-arithmetic-add-v1");
-                      setPracticeNotice(
-                        "Beginner arithmetic selected: Add two numbers. Open your Python file in VS Code. Earlier attempts stay in history.",
-                      );
-                    } catch (e) {
-                      setPickerError(
-                        e instanceof Error
-                          ? e.message
-                          : "Could not choose beginner practice. Your task is unchanged.",
-                      );
-                    } finally {
-                      practiceStarting.current = false;
-                      setPracticeBusy(false);
-                    }
-                  }}
-                >
-                  Yes, start beginner arithmetic
-                </button>
-                <p className="mt-2 text-xs">
-                  Or keep working on the current question below.
-                </p>
-              </section>
-            )}
             {PRACTICE_TASKS.some((t) => t.id === remoteState?.challenge_id) && (
               <div className="mb-3 text-xs">
                 <p className="mb-2 font-bold">
@@ -1678,7 +1631,7 @@ function Sessions() {
             )}
             <p className="mb-3 text-xs text-muted-foreground">
               Standalone practice, not a test of your project. Choose a topic
-              you want help with. Requires Python. Use extension v0.3.25 for the
+              you want help with. Requires Python. Use extension v0.3.26 for the
               latest version: local code tests stay, with no AFK/idle tracking
               or AI/code-paste detection.
             </p>
@@ -2063,7 +2016,7 @@ function Sessions() {
           <h2 className="text-lg font-black">Observed project evidence</h2>
           <p className="text-sm">
             Browser countdown is a planning timer, not measured active work.
-            Extension v0.3.25 does not track AFK/idle or active coding time.
+            Extension v0.3.26 does not track AFK/idle or active coding time.
             Earlier timing evidence, if present, is historical.
           </p>
           <p className="text-sm">

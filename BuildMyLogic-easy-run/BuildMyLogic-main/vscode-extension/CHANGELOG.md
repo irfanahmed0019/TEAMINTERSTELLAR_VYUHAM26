@@ -1,3 +1,7 @@
+## 0.3.26
+
+- After three wrong attempts on a loop or if/else practice question, automatically assigns beginner arithmetic without asking. Keeps the old question and its failed attempts in history.
+
 ## 0.3.25
 
 - Offers a signed-in beginner choice after three wrong attempts on the same question. Choosing Add two numbers on Sessions assigns a real four-case arithmetic task and syncs it to the extension, keeping earlier attempts in history.

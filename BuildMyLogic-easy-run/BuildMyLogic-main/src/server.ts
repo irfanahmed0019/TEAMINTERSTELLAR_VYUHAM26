@@ -28,6 +28,7 @@ import {
   getHint,
   getRunPlan,
   recordEvent,
+  recordPracticeTestResult,
   startLearningSession,
   stateOf,
   submitProject,
@@ -903,7 +904,7 @@ async function handleBuildMyLogicApi(
       if (action === "test-result")
         return jsonResponse({
           ok: true,
-          state: recordEvent(session, "test_result", body),
+          state: await recordPracticeTestResult(session, body),
         });
       if (action === "hint")
         return jsonResponse({ ok: true, ...(await getHint(session)) });
