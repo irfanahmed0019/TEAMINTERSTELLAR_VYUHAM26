@@ -62,6 +62,8 @@ function Dashboard() {
   const navigate = useNavigate();
   const plan = competencyPlan(state);
   const easierOffer = easierTaskOffer(state);
+  const [remotePractice, setRemotePractice] =
+    useState<BuildSessionState | null>(null);
   const name = state.profile?.name?.trim() || "Builder";
   const missions = plan?.missions ?? [];
   const current =
@@ -89,13 +91,19 @@ function Dashboard() {
     let cancelled = false;
     const syncBuildSession = async () => {
       const owner = getAuthSession()?.uid;
-      if (!owner || cancelled || !isReadyCloudOwner(owner)) return;
+      if (!owner || cancelled || !isReadyCloudOwner(owner)) {
+        if (!cancelled) setRemotePractice(null);
+        return;
+      }
       const isCurrent = () =>
         !cancelled &&
         getAuthSession()?.uid === owner &&
         isReadyCloudOwner(owner);
       const raw = learnerStorage.getItem("bml-vscode-session");
-      if (!raw) return;
+      if (!raw) {
+        setRemotePractice(null);
+        return;
+      }
       try {
         const saved = JSON.parse(raw) as { sessionId?: string };
         if (!saved.sessionId) return;
@@ -108,7 +116,10 @@ function Dashboard() {
             headers: { Authorization: `Bearer ${auth.idToken}` },
           },
         );
-        if (!response.ok) return;
+        if (!response.ok) {
+          if (isCurrent()) setRemotePractice(null);
+          return;
+        }
         const result = (await response.json()) as {
           ok?: boolean;
           state?: BuildSessionState;
@@ -122,6 +133,7 @@ function Dashboard() {
         const finitePractice = PRACTICE_TASKS.some(
           (t) => t.id === remote.challenge_id,
         );
+        setRemotePractice(finitePractice ? remote : null);
         if (!shouldRetune && !finitePractice) return;
         applyBuildSessionEvidence(remote, owner);
         if (finitePractice) return; // Evidence sync is deterministic and never spends AI credits.
@@ -194,7 +206,7 @@ function Dashboard() {
       wide
     >
       <TargetJobRecommendation profile={state.profile} />
-      {easierOffer && (
+      {easierOffer && easierOffer.source !== "vscode" && (
         <section className="card-surface my-4 p-5">
           <h2 className="text-lg font-bold">Try a smaller first step</h2>
           <p className="my-2">
@@ -313,15 +325,19 @@ function Dashboard() {
                     Current Task
                   </span>
                   <h2 className="display mt-4 text-[24px] font-extrabold leading-tight tracking-[-0.02em]">
-                    {current.title}
+                    {remotePractice?.title ?? current.title}
                   </h2>
                   <p className="mt-2 max-w-md text-[14px] leading-6 text-muted-foreground">
-                    {current.description}
+                    {remotePractice?.instructions ?? current.description}
                   </p>
                   <button
                     type="button"
                     className="btn-base btn-primary-solid mt-6"
                     onClick={() => {
+                      if (remotePractice) {
+                        void navigate({ to: "/sessions" });
+                        return;
+                      }
                       if (current.id.startsWith("beginner-addition:")) {
                         void navigate({ to: "/learn" });
                         return;
@@ -331,7 +347,9 @@ function Dashboard() {
                       void navigate({ to: "/sessions" });
                     }}
                   >
-                    <span>Start Task</span>
+                    <span>
+                      {remotePractice ? "Open current question" : "Start Task"}
+                    </span>
                     <ArrowRight className="h-4 w-4" />
                   </button>
                 </div>
@@ -347,16 +365,26 @@ function Dashboard() {
             <section className="card-surface p-6 lg:col-span-5">
               <div className="flex items-center justify-between">
                 <h3 className="text-[16px] font-extrabold">Your Progress</h3>
-                <span className="display text-[22px] font-black">{pct}%</span>
+                <span className="display text-[22px] font-black">
+                  {remotePractice
+                    ? Math.round(
+                        (100 * (remotePractice.test_score?.passed ?? 0)) /
+                          (remotePractice.test_score?.total || 1),
+                      )
+                    : pct}
+                  %
+                </span>
               </div>
               <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
                 <div
                   className="h-full rounded-full bg-primary transition-all"
-                  style={{ width: `${pct}%` }}
+                  style={{
+                    width: `${remotePractice ? Math.round((100 * (remotePractice.test_score?.passed ?? 0)) / (remotePractice.test_score?.total || 1)) : pct}%`,
+                  }}
                 />
               </div>
               <div className="mt-4 space-y-2">
-                {doneMissions.slice(-1).map((m) => (
+                {(remotePractice ? [] : doneMissions.slice(-1)).map((m) => (
                   <div
                     key={m.id}
                     className="flex items-center gap-3 rounded-xl bg-emerald-50 px-3.5 py-3"
@@ -372,13 +400,15 @@ function Dashboard() {
                 <div className="flex items-center gap-3 rounded-xl bg-primary-soft px-3.5 py-3">
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-card" />
                   <p className="truncate text-[13px] font-semibold">
-                    {current.title}{" "}
+                    {remotePractice?.title ?? current.title}{" "}
                     <span className="font-bold text-accent-foreground">
-                      (Current)
+                      {remotePractice?.status === "completed"
+                        ? "(Passed)"
+                        : "(Current)"}
                     </span>
                   </p>
                 </div>
-                {nextMission && (
+                {!remotePractice && nextMission && (
                   <div className="flex items-center gap-3 px-3.5 py-3">
                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-border" />
                     <p className="truncate text-[13px] font-medium text-muted-foreground">
