@@ -1,3 +1,7 @@
+import {
+  sessionViewState,
+  classifyStateResponse,
+} from "@/lib/session-state-view";
 import { useCloudHydrated } from "@/lib/cloud-sync";
 import {
   PRACTICE_TASKS,
@@ -127,6 +131,7 @@ function Sessions() {
   const [remoteState, setRemoteState] = useState<RemoteSessionState | null>(
     null,
   );
+  const [stateLoadFailed, setStateLoadFailed] = useState(false);
   const [pickerError, setPickerError] = useState("");
   const [practiceNotice, setPracticeNotice] = useState("");
   const [practiceSelection, setPracticeSelection] = useState("");
@@ -276,6 +281,7 @@ function Sessions() {
   useEffect(() => {
     if (!vscodeSession) return;
     let cancelled = false;
+    setStateLoadFailed(false);
     const sync = async () => {
       try {
         const epoch = getAuthEpoch();
@@ -301,7 +307,13 @@ function Sessions() {
         };
         if (getAuthEpoch() !== epoch || getAuthSession()?.uid !== auth.uid)
           return;
-        if (!cancelled && result.ok && result.state) {
+        const outcome = classifyStateResponse({
+          ok: Boolean(result.ok),
+          status: response.status,
+          hasState: Boolean(result.state),
+        });
+        if (!cancelled && outcome === "apply" && result.state) {
+          setStateLoadFailed(false);
           setRemoteState(result.state);
           setVscodeSession((current) => {
             if (!current) return current;
@@ -309,21 +321,20 @@ function Sessions() {
               result.state?.extension_status ?? result.state?.status;
             return status ? { ...current, status } : current;
           });
-        } else if (
-          !cancelled &&
-          (response.status === 401 ||
-            response.status === 403 ||
-            response.status === 404)
-        ) {
+        } else if (!cancelled && outcome === "reset") {
           setVscodeSession(null);
           setRemoteState(null);
           learnerStorage.removeItem("bml-vscode-session");
           setPickerError(
             "This session could not be opened for the signed-in account. Existing learner history is unchanged. Start a new secure session with extension v0.3.10.",
           );
+        } else if (!cancelled) {
+          setStateLoadFailed(true);
         }
       } catch {
-        /* Retain the last confirmed state while offline. */
+        // Keep the last confirmed state; with none yet, say so instead of
+        // showing local plan data as if it were the session.
+        if (!cancelled) setStateLoadFailed(true);
       }
     };
     void sync();
@@ -367,6 +378,12 @@ function Sessions() {
   const extensionConnected = remoteState?.connection_status
     ? remoteState.connection_status === "connected"
     : extensionStatus === "active" || extensionStatus === "connected";
+  const viewState = sessionViewState({
+    hasSessionId: Boolean(vscodeSession),
+    hasRemoteState: Boolean(remoteState),
+    loadFailed: stateLoadFailed,
+  });
+  const remotePending = viewState === "loading" || viewState === "error";
   const sessionLabel =
     extensionStatus === "completed"
       ? "Challenge completed"
@@ -388,12 +405,16 @@ function Sessions() {
       ).length
     : done.length;
   const tasksTotal = remoteCheckpoints.length || currentTasks.length;
-  const testsLabel = remoteState?.test_score
-    ? `${remoteState.test_score.passed} / ${remoteState.test_score.total}`
-    : `${verifiedCount} / ${tasksTotal}`;
-  const attemptsLabel = remoteState
-    ? remoteState.attempts
-    : Math.max(1, state.sessions.length + 1);
+  const testsLabel = remotePending
+    ? "..."
+    : remoteState?.test_score
+      ? `${remoteState.test_score.passed} / ${remoteState.test_score.total}`
+      : `${verifiedCount} / ${tasksTotal}`;
+  const attemptsLabel = remotePending
+    ? "..."
+    : remoteState
+      ? remoteState.attempts
+      : Math.max(1, state.sessions.length + 1);
   const remotePractice =
     remoteState &&
     PRACTICE_TASKS.some((t) => t.id === remoteState.challenge_id);
@@ -1029,20 +1050,30 @@ function Sessions() {
           <div className="flex flex-wrap items-center gap-2.5">
             <h2 className="text-[16px] font-extrabold">VS Code Integration</h2>
             <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${extensionConnected ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${remotePending ? "bg-muted text-muted-foreground" : extensionConnected ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}
             >
               <span
-                className={`h-1.5 w-1.5 rounded-full ${extensionConnected ? "bg-emerald-500" : "bg-red-500"}`}
+                className={`h-1.5 w-1.5 rounded-full ${remotePending ? "bg-muted-foreground" : extensionConnected ? "bg-emerald-500" : "bg-red-500"}`}
               />
-              {extensionConnected ? "Connected" : "Not connected"}
+              {remotePending
+                ? viewState === "error"
+                  ? "Status unavailable"
+                  : "Checking..."
+                : extensionConnected
+                  ? "Connected"
+                  : "Not connected"}
             </span>
           </div>
           <p className="mt-0.5 text-[13px] text-muted-foreground">
-            {extensionConnected
-              ? "BuildMyLogic extension is running and tracking your progress."
-              : vscodeSession
-                ? `${sessionLabel}. Keep your saved result. If VS Code shows another ID, use "Already connected in VS Code?" below.`
-                : "Connect the BuildMyLogic extension to track your real work."}
+            {remotePending
+              ? viewState === "error"
+                ? "Could not load this session's state. Retrying. Your saved result is not affected."
+                : "Loading this session's state from your account."
+              : extensionConnected
+                ? "BuildMyLogic extension is running and tracking your progress."
+                : vscodeSession
+                  ? `${sessionLabel}. Keep your saved result. If VS Code shows another ID, use "Already connected in VS Code?" below.`
+                  : "Connect the BuildMyLogic extension to track your real work."}
           </p>
         </div>
         <div className="flex items-center gap-2.5">
@@ -1121,19 +1152,33 @@ function Sessions() {
                 Current Session
               </span>
               <h2 className="display mt-4 text-[22px] font-extrabold leading-tight tracking-[-0.02em]">
-                {remoteState &&
-                PRACTICE_TASKS.some((t) => t.id === remoteState.challenge_id)
-                  ? remoteState.title
-                  : (activeMission?.title ?? "Your build")}
+                {remotePending
+                  ? viewState === "error"
+                    ? "Could not load this session"
+                    : "Loading your session..."
+                  : remoteState &&
+                      PRACTICE_TASKS.some(
+                        (t) => t.id === remoteState.challenge_id,
+                      )
+                    ? remoteState.title
+                    : (activeMission?.title ?? "Your build")}
               </h2>
               <p className="mt-2 max-w-md text-[13.5px] leading-6 text-muted-foreground">
-                {remoteState &&
-                PRACTICE_TASKS.some((t) => t.id === remoteState.challenge_id)
-                  ? remoteState.instructions
-                  : (activeMission?.description ??
-                    "Build something useful and prove what you learned.")}
+                {remotePending
+                  ? viewState === "error"
+                    ? "Retrying every few seconds."
+                    : "Fetching the latest state."
+                  : remoteState &&
+                      PRACTICE_TASKS.some(
+                        (t) => t.id === remoteState.challenge_id,
+                      )
+                    ? remoteState.instructions
+                    : (activeMission?.description ??
+                      "Build something useful and prove what you learned.")}
               </p>
-              <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12.5px] font-medium text-muted-foreground">
+              <div
+                className={`mt-4 ${remotePending ? "hidden" : "flex"} flex-wrap items-center gap-x-5 gap-y-2 text-[12.5px] font-medium text-muted-foreground`}
+              >
                 <span className="flex items-center gap-1.5">
                   <Timer className="h-4 w-4 text-primary" />
                   Level{" "}
@@ -1223,19 +1268,23 @@ function Sessions() {
           <div className="flex items-center justify-between">
             <h3 className="text-[16px] font-extrabold">Your Progress</h3>
             <span className="text-[13px] font-bold">
-              {displayPct ?? missionPct}% Complete
+              {remotePending ? "..." : `${displayPct ?? missionPct}% Complete`}
             </span>
           </div>
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
             <div
               className="h-full rounded-full bg-primary transition-all"
-              style={{ width: `${displayPct ?? missionPct}%` }}
+              style={{
+                width: `${remotePending ? 0 : (displayPct ?? missionPct)}%`,
+              }}
             />
           </div>
           <div className="mt-4 space-y-1.5">
-            {(remotePractice
-              ? remoteCheckpoints
-              : (activeMission?.steps ?? [])
+            {(remotePending
+              ? []
+              : remotePractice
+                ? remoteCheckpoints
+                : (activeMission?.steps ?? [])
             ).map((step, index) => {
               const isDone = remotePractice
                 ? remoteCheckpoints[index]?.status === "passed"
@@ -1274,7 +1323,7 @@ function Sessions() {
                 </div>
               );
             })}
-            {!activeMission && (
+            {!remotePending && !activeMission && (
               <p className="text-[13px] font-semibold text-muted-foreground">
                 Finish onboarding to unlock your session plan.
               </p>
