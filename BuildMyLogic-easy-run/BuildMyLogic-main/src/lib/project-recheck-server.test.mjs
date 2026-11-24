@@ -59,24 +59,14 @@ const server = await import(
 );
 process.env.SUPABASE_SERVICE_ROLE_KEY = "regression-only-mock";
 process.env.VITE_SUPABASE_URL = "https://session-regression.invalid";
-const db = new Map();
+import { createMockSupabase } from "./mock-supabase.test-helper.mjs";
+const mock = createMockSupabase();
+const db = mock.state.db;
 let rejectWrites = false;
 globalThis.fetch = async (url, options = {}) => {
-  if (
-    !String(url).startsWith(
-      "https://session-regression.invalid/rest/v1/learning_sessions",
-    )
-  )
-    throw Error("Real network forbidden");
-  if (options.method === "POST") {
-    if (rejectWrites) return new Response("unavailable", { status: 503 });
-    const row = JSON.parse(options.body);
-    db.set(row.session_id, structuredClone(row));
-    return new Response(null, { status: 204 });
-  }
-  const id = new URL(url).searchParams.get("session_id")?.slice(3);
-  const row = db.get(id);
-  return Response.json(row ? [row] : []);
+  if (options.method && options.method !== "GET" && rejectWrites)
+    return new Response("unavailable", { status: 503 });
+  return mock.fetchImpl(url, options);
 };
 const hash = (v) => createHash("sha256").update(v).digest("hex");
 function contract() {

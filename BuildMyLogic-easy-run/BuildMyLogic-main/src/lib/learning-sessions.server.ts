@@ -37,6 +37,8 @@ export type LearningSession = {
   projectRecheckReady?: { binding: ProjectRecheckBinding; at: number };
   projectRecheckReceipts?: ProjectRecheckReceipt[];
   rev?: number;
+  /** Count of committed evidence events; only commitEvidenceEvent increments it. */
+  evidenceSeq?: number;
   connectionTokenHash?: string;
   /** Returned once to the authenticated creator, never persisted or included in state. */
   connectionToken?: string;
@@ -127,6 +129,7 @@ export type LearningSession = {
   };
   runGuidance?: string;
   events: Array<{
+    id?: string;
     eventType: string;
     at: string;
     payload: Record<string, unknown>;
@@ -198,20 +201,88 @@ const STATUS_RANK: Record<string, number> = {
 };
 const statusRank = (status: string) => STATUS_RANK[status] ?? 0;
 
+type PersistOptions = {
+  /** Evidence commits compare against the revision they were built on and never adopt stored evidence. */
+  expectRev?: number | null;
+  evidence?: boolean;
+};
+
+const EVIDENCE_GROUP = [
+  "events",
+  "attempts",
+  "checkpoints",
+  "testScore",
+  "potentialStruggle",
+  "struggleSignal",
+  "evidenceSeq",
+] as const;
+
+function sameSessionBinding(a: LearningSession, b: LearningSession) {
+  return (
+    a.sessionId === b.sessionId &&
+    a.userId === b.userId &&
+    a.challengeId === b.challengeId &&
+    (a.taskGeneration ?? 0) === (b.taskGeneration ?? 0)
+  );
+}
+
+/**
+ * The evidence group (events, attempts, checkpoints, testScore, struggle fields)
+ * is only ever taken whole from ONE snapshot, so derived state always matches
+ * its events. Adopt the stored group when it is further along (evidenceSeq).
+ */
+export function adoptStoredEvidence(
+  session: LearningSession,
+  saved: LearningSession | undefined,
+) {
+  if (
+    !saved ||
+    !sameSessionBinding(session, saved) ||
+    (saved.evidenceSeq ?? 0) <= (session.evidenceSeq ?? 0)
+  )
+    return false;
+  const copy = JSON.parse(JSON.stringify(saved)) as LearningSession;
+  for (const key of EVIDENCE_GROUP) {
+    if (copy[key] === undefined) delete session[key];
+    else (session as Record<string, unknown>)[key] = copy[key];
+  }
+  return true;
+}
+
 async function persistSession(
   session: LearningSession,
   strict = false,
   practiceWrite = false,
 ): Promise<void> {
+  // Optimistic concurrency: a conflicting write re-reads the stored row and tries again.
+  for (let attempt = 0; attempt < 3; attempt += 1)
+    if (await persistOnce(session, strict, practiceWrite, {})) return;
+  if (strict)
+    throw new Error(
+      "Cloud recheck save conflicted. No saved recheck evidence.",
+    );
+  console.warn(
+    "Supabase learning session save skipped after repeated conflicts",
+  );
+}
+
+async function persistOnce(
+  session: LearningSession,
+  strict: boolean,
+  practiceWrite: boolean,
+  opts: PersistOptions,
+): Promise<boolean> {
   const config = supabaseAdminConfig();
   if (!config) {
     if (strict)
       throw new Error(
         "Cloud session persistence is unavailable; no saved recheck evidence.",
       );
-    return;
+    return true;
   }
   let existingRow = false;
+  let readOk = false;
+  let storedRev: number | undefined;
   try {
     const current = await fetch(
       `${config.url}/rest/v1/learning_sessions?session_id=eq.${encodeURIComponent(session.sessionId)}&select=status,session_data`,
@@ -229,6 +300,9 @@ async function persistSession(
         session_data?: LearningSession;
       }[];
       existingRow = rows.length > 0;
+      readOk = true;
+      storedRev = rows[0]?.session_data?.rev;
+      if (!opts.evidence) adoptStoredEvidence(session, rows[0]?.session_data);
       const receipts = new Map(
         [
           ...(rows[0]?.session_data?.conquestReceipts ?? []),
@@ -288,10 +362,14 @@ async function persistSession(
   try {
     const pending = session.challengeId === "project-context-pending";
     const authoredPractice = Boolean(practiceTaskBody(session.challengeId));
-    const conditionalPending = (pending || authoredPractice) && existingRow;
-    const pendingQuery = new URLSearchParams({
+    // A failed read cannot prove what is stored: never write blind.
+    if (!readOk) return false;
+    const rev = opts.expectRev === undefined ? storedRev : opts.expectRev;
+    const casQuery = new URLSearchParams({
       session_id: "eq." + session.sessionId,
-      challenge_id: "eq." + session.challengeId,
+      ...(pending || authoredPractice
+        ? { challenge_id: "eq." + session.challengeId }
+        : {}),
       ...(authoredPractice
         ? {
             "session_data->>taskGeneration":
@@ -300,18 +378,27 @@ async function persistSession(
                 : "eq." + session.taskGeneration,
           }
         : {}),
+      ...(!pending
+        ? {
+            "session_data->>rev":
+              rev === undefined || rev === null ? "is.null" : "eq." + rev,
+          }
+        : {}),
+      select: "session_id",
     });
     const response = await fetch(
-      `${config.url}/rest/v1/learning_sessions${conditionalPending ? "?" + pendingQuery : ""}`,
+      `${config.url}/rest/v1/learning_sessions${existingRow ? "?" + casQuery : "?on_conflict=session_id&select=session_id"}`,
       {
-        method: conditionalPending ? "PATCH" : "POST",
+        method: existingRow ? "PATCH" : "POST",
         headers: {
           apikey: config.key,
           authorization: `Bearer ${config.key}`,
           "content-type": "application/json",
           prefer: pending
             ? "resolution=ignore-duplicates,return=minimal"
-            : "resolution=merge-duplicates,return=minimal",
+            : existingRow
+              ? "return=representation"
+              : "resolution=ignore-duplicates,return=representation",
         },
         body: JSON.stringify({
           session_id: session.sessionId,
@@ -334,16 +421,26 @@ async function persistSession(
         }),
       },
     );
+    if (response.ok && !pending) {
+      const written = (await response.json().catch(() => undefined)) as
+        unknown[] | undefined;
+      // Zero matched rows: another writer changed the row first. Not saved.
+      if (!Array.isArray(written) || written.length === 0) return false;
+    }
     if (strict && !response.ok)
       throw new Error("Cloud recheck save failed. No saved recheck evidence.");
-    if (!response.ok)
+    if (!response.ok) {
       console.warn(
         "Supabase learning session save failed:",
         await response.text(),
       );
+      return false;
+    }
+    return true;
   } catch (error) {
     if (strict) throw error;
     console.warn("Supabase learning session save exception:", error);
+    return false;
   }
 }
 
@@ -811,6 +908,90 @@ function applyDetectedEvidence(
     if (checkpointWasDetected(checkpoint, payload))
       checkpoint.evidence = "detected";
   }
+}
+
+const EVIDENCE_EVENT_TYPES = new Set([
+  "test_result",
+  "build_result",
+  "compiler_error",
+  "runtime_error",
+]);
+export const isEvidenceEvent = (eventType: string) =>
+  EVIDENCE_EVENT_TYPES.has(eventType);
+
+const unavailable = (message: string, statusCode = 503) =>
+  Object.assign(new Error(message), { statusCode });
+
+/**
+ * Durable evidence write. Every accepted result is committed under a revision
+ * check before the caller answers. On a conflict the stored row is re-read and
+ * ONLY this one request's event is applied to it, so no earlier committed event
+ * is replayed, aged out or dropped. If it cannot be saved the request fails
+ * (HTTP 503/409) and the result is not accepted; nothing is kept only in memory.
+ * A retry of the same request (same task generation, attempt and payload) is
+ * recognised by its event id and answered from the stored row.
+ */
+export async function commitEvidenceEvent(
+  session: LearningSession,
+  eventType: string,
+  payload: Record<string, unknown>,
+) {
+  const config = supabaseAdminConfig();
+  if (!config) return recordEvent(session, eventType, payload);
+  const attempt = payload["attempt"];
+  const id = createHash("sha256")
+    .update(
+      JSON.stringify([
+        session.sessionId,
+        session.taskGeneration ?? 0,
+        eventType,
+        attempt ?? null,
+        attempt === undefined ? Date.now() + Math.random() : null,
+        boundedPayload(payload),
+      ]),
+    )
+    .digest("hex")
+    .slice(0, 24);
+  for (let tries = 0; tries < 3; tries += 1) {
+    const stored = await restoreSession(session.sessionId);
+    if (!stored)
+      throw unavailable("Result could not be saved. Run the task again.");
+    if (!sameSessionBinding(session, stored))
+      throw unavailable(
+        "The task changed before this result was saved. No attempt recorded.",
+        409,
+      );
+    adoptStoredEvidence(session, stored);
+    if (
+      stored.status !== session.status &&
+      statusRank(stored.status) > statusRank(session.status)
+    )
+      session.status = stored.status;
+    if (session.events.some((event) => event.id === id))
+      return stateOf(session);
+    const baseRev = stored.rev;
+    const copy = JSON.parse(
+      JSON.stringify({ ...session, connectionToken: undefined }),
+    ) as LearningSession;
+    recordEvent(session, eventType, payload, false);
+    const added = session.events[session.events.length - 1];
+    if (added) added.id = id;
+    session.evidenceSeq = (session.evidenceSeq ?? 0) + 1;
+    if (
+      await persistOnce(session, false, false, {
+        expectRev: baseRev ?? null,
+        evidence: true,
+      })
+    )
+      return stateOf(session);
+    // Not saved: restore the pre-event snapshot, then re-read and try again.
+    const token = session.connectionToken;
+    for (const key of Object.keys(session) as Array<keyof LearningSession>)
+      delete session[key];
+    Object.assign(session, copy);
+    if (token) session.connectionToken = token;
+  }
+  throw unavailable("Result could not be saved. Run the task again.");
 }
 
 export function recordEvent(
@@ -2105,5 +2286,5 @@ export async function recordPracticeTestResult(
   session: LearningSession,
   payload: Record<string, unknown>,
 ) {
-  return recordEvent(session, "test_result", payload);
+  return commitEvidenceEvent(session, "test_result", payload);
 }

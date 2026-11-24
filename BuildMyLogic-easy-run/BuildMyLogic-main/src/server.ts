@@ -28,6 +28,8 @@ import {
   getHint,
   getRunPlan,
   recordEvent,
+  commitEvidenceEvent,
+  isEvidenceEvent,
   recordPracticeTestResult,
   startLearningSession,
   stateOf,
@@ -888,7 +890,11 @@ async function handleBuildMyLogicApi(
       if (action === "events")
         return jsonResponse({
           ok: true,
-          state: recordEvent(
+          state: await (
+            isEvidenceEvent(clean(body["event_type"], 80))
+              ? commitEvidenceEvent
+              : recordEvent
+          )(
             session,
             clean(body["event_type"], 80),
             body["payload"] && typeof body["payload"] === "object"
