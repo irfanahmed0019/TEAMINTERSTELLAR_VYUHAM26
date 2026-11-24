@@ -995,9 +995,17 @@ export function recordReassessmentAttempt(
  * honestly instead of calling every failure a wrong answer.
  */
 export function failureStatusFromOutput(output: string): string {
-  if (/\b(SyntaxError|IndentationError|TabError)\b/.test(output))
+  if (
+    /\b(SyntaxError|IndentationError|TabError)\b|^Fix the Python syntax:/m.test(
+      output,
+    )
+  )
     return "Compilation Error";
-  if (/Traceback \(most recent call last\)|\b[A-Z][A-Za-z]*Error:/.test(output))
+  if (
+    /Code stopped: time or output limit|Traceback \(most recent call last\)|\b[A-Z][A-Za-z]*Error:/.test(
+      output,
+    )
+  )
     return "Runtime Error (NZEC)";
   return "Wrong Answer";
 }

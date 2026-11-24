@@ -979,6 +979,16 @@ test("local Python output separates syntax errors, exceptions and wrong answers"
     ),
     "Runtime Error (NZEC)",
   );
+  assert.equal(
+    failureStatusFromOutput(
+      "Fix the Python syntax: '(' was never closed (main.py, line 3)",
+    ),
+    "Compilation Error",
+  );
+  assert.equal(
+    failureStatusFromOutput("Input: 5\nExpected: 120\nYour output: 24"),
+    "Wrong Answer",
+  );
   assert.equal(failureStatusFromOutput("retry"), "Wrong Answer");
   assert.equal(failureStatusFromOutput(""), "Wrong Answer");
   const kind = (out) =>
