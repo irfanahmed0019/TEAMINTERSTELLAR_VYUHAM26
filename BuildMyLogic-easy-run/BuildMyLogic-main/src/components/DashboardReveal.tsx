@@ -16,7 +16,11 @@ import {
   Timer,
 } from "lucide-react";
 import type { Plan, Profile } from "@/lib/loop-types";
-import { REVEAL_STAGES, REVEAL_TOTAL_MS, revealGreeting } from "@/lib/reveal-schedule";
+import {
+  REVEAL_STAGES,
+  REVEAL_TOTAL_MS,
+  revealGreeting,
+} from "@/lib/reveal-schedule";
 
 const LOOP_STEPS: [string, string][] = [
   ["Learn", "Understand the concept"],
@@ -72,13 +76,17 @@ export function DashboardReveal({
   // Stage timeline. On error we freeze the visuals on the final stage so the
   // error card is the only thing the learner is asked to look at.
   useEffect(() => {
-    const reduceMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     if (reduceMotion) {
       setStage(REVEAL_STAGES.length - 1);
       const timer = window.setTimeout(() => setTimerDone(true), 1200);
       return () => window.clearTimeout(timer);
     }
-    const timers = REVEAL_STAGES.map((s, index) => window.setTimeout(() => setStage(index), s.at));
+    const timers = REVEAL_STAGES.map((s, index) =>
+      window.setTimeout(() => setStage(index), s.at),
+    );
     timers.push(window.setTimeout(() => setTimerDone(true), REVEAL_TOTAL_MS));
     return () => timers.forEach((timer) => window.clearTimeout(timer));
   }, []);
@@ -97,22 +105,30 @@ export function DashboardReveal({
 
   const name = profile.name?.trim() || "Builder";
   const firstName = name.split(" ")[0] ?? name;
-  const tech = profile.technologies[0]?.name?.trim() || plan?.projectTitle || "coding";
+  const tech =
+    profile.technologies[0]?.name?.trim() || plan?.projectTitle || "coding";
   const missions = plan?.missions ?? [];
   const current = missions[0];
   const next = missions[1];
-  const schedule=learningSchedule(profile);
+  const schedule = learningSchedule(profile);
   const lastStage = REVEAL_STAGES.length - 1;
-  const baseCaption = REVEAL_STAGES[Math.min(stage, lastStage)]?.caption ?? "Preparing your dashboard…";
+  const baseCaption =
+    REVEAL_STAGES[Math.min(stage, lastStage)]?.caption ??
+    "Preparing your dashboard…";
   const caption =
-    status === "error" ? "" : stage >= lastStage && status !== "ready" ? "Finishing your learning path…" : baseCaption;
+    status === "error"
+      ? ""
+      : stage >= lastStage && status !== "ready"
+        ? "Finishing your learning path…"
+        : baseCaption;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
       {/* Header - mirrors the real app header, non-interactive during the reveal */}
       <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border/60 px-4 sm:px-6 lg:h-[76px] lg:px-8">
         <div className="display flex items-center text-lg font-black tracking-[-0.05em]">
-          BuildMyLogic<span className="mb-2 ml-0.5 h-1.5 w-1.5 rounded-full bg-primary" />
+          BuildMyLogic
+          <span className="mb-2 ml-0.5 h-1.5 w-1.5 rounded-full bg-primary" />
         </div>
         <div className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-ink text-xs font-semibold text-ink-foreground">
@@ -127,9 +143,12 @@ export function DashboardReveal({
         {status === "error" ? (
           /* Honest failure: the topic research did not complete. No fake dashboard. */
           <section className="reveal-rise card-surface mx-auto mt-16 max-w-xl p-8 text-center">
-            <h1 className="display text-[24px] font-extrabold tracking-[-0.02em]">I couldn't research your topics just now</h1>
+            <h1 className="display text-[24px] font-extrabold tracking-[-0.02em]">
+              I couldn't research your topics just now
+            </h1>
             <p className="mt-3 text-[14px] leading-6 text-muted-foreground">
-              {errorMessage?.trim() || "Something went wrong while building your learning path. Your answers are saved - please try again."}
+              {errorMessage?.trim() ||
+                "Something went wrong while building your learning path. Your answers are saved - please try again."}
             </p>
             <button
               type="button"
@@ -148,14 +167,18 @@ export function DashboardReveal({
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
               </span>
-              <span key={caption} className="reveal-rise">{caption}</span>
+              <span key={caption} className="reveal-rise">
+                {caption}
+              </span>
             </div>
 
             {/* Stage 1+: greeting header */}
             {stage >= 1 && (
               <div className="reveal-rise mb-7 flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
                 <div>
-                  <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Dashboard</p>
+                  <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Dashboard
+                  </p>
                   <h1 className="display text-[28px] font-extrabold leading-[1.08] tracking-[-0.055em] sm:text-[42px] sm:leading-[1.04]">
                     {revealGreeting()}, {firstName}.
                   </h1>
@@ -178,7 +201,9 @@ export function DashboardReveal({
                       <Calendar className="h-5 w-5" />
                     </div>
                     <div>
-                      <h4 className="text-[15px] font-bold text-foreground">Set your daily learning time</h4>
+                      <h4 className="text-[15px] font-bold text-foreground">
+                        Set your daily learning time
+                      </h4>
                       <p className="mt-0.5 text-[13px] text-muted-foreground">
                         {schedule.banner}
                       </p>
@@ -189,19 +214,28 @@ export function DashboardReveal({
                       <Calendar className="h-3.5 w-3.5" />
                       <span>Add to Google Calendar</span>
                     </span>
-                    <span className="rounded-xl px-2.5 py-2 text-xs font-semibold text-muted-foreground">Dismiss</span>
+                    <span className="rounded-xl px-2.5 py-2 text-xs font-semibold text-muted-foreground">
+                      Dismiss
+                    </span>
                   </div>
                 </div>
                 <section className="reveal-rise grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
                   {LOOP_STEPS.map(([label, stepCaption], i) => (
-                    <div key={label} className={`rounded-2xl border px-4 py-4 ${i === 0 ? "border-primary/20 bg-primary-soft" : "border-border bg-card"}`}>
+                    <div
+                      key={label}
+                      className={`rounded-2xl border px-4 py-4 ${i === 0 ? "border-primary/20 bg-primary-soft" : "border-border bg-card"}`}
+                    >
                       <div className="flex items-center gap-2.5">
-                        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${i === 0 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                        <span
+                          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${i === 0 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
+                        >
                           {i + 1}
                         </span>
                         <span className="text-[13px] font-bold">{label}</span>
                       </div>
-                      <p className="mt-1.5 text-[11px] leading-4 text-muted-foreground">{stepCaption}</p>
+                      <p className="mt-1.5 text-[11px] leading-4 text-muted-foreground">
+                        {stepCaption}
+                      </p>
                     </div>
                   ))}
                 </section>
@@ -214,9 +248,15 @@ export function DashboardReveal({
                 <section className="reveal-rise card-surface p-6 sm:p-7 lg:col-span-7">
                   <div className="flex h-full flex-col justify-between gap-6 sm:flex-row sm:items-center">
                     <div className="min-w-0">
-                      <span className="pill bg-primary-soft text-accent-foreground">Current Task</span>
-                      <h2 className="display mt-4 text-[24px] font-extrabold leading-tight tracking-[-0.02em]">{current.title}</h2>
-                      <p className="mt-2 max-w-md text-[14px] leading-6 text-muted-foreground">{current.description}</p>
+                      <span className="pill bg-primary-soft text-accent-foreground">
+                        Current Task
+                      </span>
+                      <h2 className="display mt-4 text-[24px] font-extrabold leading-tight tracking-[-0.02em]">
+                        {current.title}
+                      </h2>
+                      <p className="mt-2 max-w-md text-[14px] leading-6 text-muted-foreground">
+                        {current.description}
+                      </p>
                       <span className="btn-base btn-primary-solid mt-6 inline-flex">
                         <span>Start Task</span>
                         <ArrowRight className="h-4 w-4" />
@@ -235,23 +275,33 @@ export function DashboardReveal({
                 {stage >= 4 && (
                   <section className="reveal-rise card-surface p-6 lg:col-span-5">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-[16px] font-extrabold">Your Progress</h3>
+                      <h3 className="text-[16px] font-extrabold">
+                        Your Progress
+                      </h3>
                       <span className="display text-[22px] font-black">0%</span>
                     </div>
                     <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-                      <div className="h-full rounded-full bg-primary transition-all" style={{ width: "0%" }} />
+                      <div
+                        className="h-full rounded-full bg-primary transition-all"
+                        style={{ width: "0%" }}
+                      />
                     </div>
                     <div className="mt-4 space-y-2">
                       <div className="flex items-center gap-3 rounded-xl bg-primary-soft px-3.5 py-3">
                         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-card" />
                         <p className="truncate text-[13px] font-semibold">
-                          {current.title} <span className="font-bold text-accent-foreground">(Current)</span>
+                          {current.title}{" "}
+                          <span className="font-bold text-accent-foreground">
+                            (Current)
+                          </span>
                         </p>
                       </div>
                       {next && (
                         <div className="flex items-center gap-3 px-3.5 py-3">
                           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-border" />
-                          <p className="truncate text-[13px] font-medium text-muted-foreground">Next: {next.title}</p>
+                          <p className="truncate text-[13px] font-medium text-muted-foreground">
+                            Next: {next.title}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -264,8 +314,12 @@ export function DashboardReveal({
             {stage >= 5 && plan && missions.length > 0 && (
               <section className="reveal-rise card-surface mt-5 p-6 sm:p-7">
                 <div className="flex items-center justify-between gap-3">
-                  <h3 className="display text-[19px] font-extrabold tracking-[-0.02em]">Your Learning Path – {plan.projectTitle}</h3>
-                  <span className="shrink-0 text-[13px] font-bold text-accent-foreground">View Full Path →</span>
+                  <h3 className="display text-[19px] font-extrabold tracking-[-0.02em]">
+                    Your Learning Path – {plan.projectTitle}
+                  </h3>
+                  <span className="shrink-0 text-[13px] font-bold text-accent-foreground">
+                    View Full Path →
+                  </span>
                 </div>
                 <div className="mt-8 overflow-x-auto pb-2">
                   <div className="flex min-w-[640px] items-start">
@@ -273,17 +327,34 @@ export function DashboardReveal({
                       const isCurrent = index === 0;
                       const last = index === Math.min(9, missions.length) - 1;
                       return (
-                        <div key={mission.id} className="flex flex-1 flex-col items-center text-center">
+                        <div
+                          key={mission.id}
+                          className="flex flex-1 flex-col items-center text-center"
+                        >
                           <div className="flex w-full items-center">
-                            <span className={`h-[3px] flex-1 ${index === 0 ? "bg-transparent" : isCurrent ? "bg-primary" : "bg-border"}`} />
-                            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ${isCurrent ? "bg-primary text-primary-foreground" : "border border-border bg-muted text-muted-foreground"}`}>
-                              {isCurrent ? <Check className="h-4 w-4" strokeWidth={3.2} /> : index + 1}
+                            <span
+                              className={`h-[3px] flex-1 ${index === 0 ? "bg-transparent" : isCurrent ? "bg-primary" : "bg-border"}`}
+                            />
+                            <span
+                              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ${isCurrent ? "bg-primary text-primary-foreground" : "border border-border bg-muted text-muted-foreground"}`}
+                            >
+                              {isCurrent ? (
+                                <Check className="h-4 w-4" strokeWidth={3.2} />
+                              ) : (
+                                index + 1
+                              )}
                             </span>
-                            <span className={`h-[3px] flex-1 ${last ? "bg-transparent" : "bg-border"}`} />
+                            <span
+                              className={`h-[3px] flex-1 ${last ? "bg-transparent" : "bg-border"}`}
+                            />
                           </div>
-                          <p className="mt-3 max-w-[110px] text-[11.5px] font-semibold leading-4">{mission.title}</p>
+                          <p className="mt-3 max-w-[110px] text-[11.5px] font-semibold leading-4">
+                            {mission.title}
+                          </p>
                           {isCurrent && (
-                            <span className="mt-1.5 rounded-full bg-primary-soft px-2.5 py-0.5 text-[10px] font-bold text-accent-foreground">Now</span>
+                            <span className="mt-1.5 rounded-full bg-primary-soft px-2.5 py-0.5 text-[10px] font-bold text-accent-foreground">
+                              Now
+                            </span>
                           )}
                         </div>
                       );
@@ -297,7 +368,10 @@ export function DashboardReveal({
       </main>
 
       {/* Bottom navigation - matches the current app chrome on every screen size */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur" aria-label="Preview">
+      <nav
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
+        aria-label="Preview"
+      >
         <div className="mx-auto flex w-full max-w-3xl">
           {NAV_ITEMS.map(({ label, icon: Icon, active }) => (
             <div

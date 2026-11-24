@@ -33,21 +33,46 @@ const baseInput = {
   exerciseHint: "range(a, b) stops before b.",
 };
 
-
 function prepare(state) {
-  const m = state.misconceptions.find(m => m.status === "locked");
-  return attachReassessment(state, m.id, newReassessment(m.topicId, m.language, 3000));
+  const m = state.misconceptions.find((m) => m.status === "locked");
+  return attachReassessment(
+    state,
+    m.id,
+    newReassessment(m.topicId, m.language, 3000),
+  );
 }
 function transferGraded() {
-  return newReassessment("loops", "python", 3000).tests.map(t => ({
-    name: t.name, hidden: false, passed: true, expected: t.expected, actual: t.expected, status: "Accepted", stderr: "",
+  return newReassessment("loops", "python", 3000).tests.map((t) => ({
+    name: t.name,
+    hidden: false,
+    passed: true,
+    expected: t.expected,
+    actual: t.expected,
+    status: "Accepted",
+    stderr: "",
   }));
 }
 
 function graded(fails) {
   const all = [
-    { name: "basic sum", hidden: false, passed: true, expected: "15", actual: "15", status: "Accepted", stderr: "" },
-    { name: "edge case: n = 1", hidden: false, passed: true, expected: "1", actual: "1", status: "Accepted", stderr: "" },
+    {
+      name: "basic sum",
+      hidden: false,
+      passed: true,
+      expected: "15",
+      actual: "15",
+      status: "Accepted",
+      stderr: "",
+    },
+    {
+      name: "edge case: n = 1",
+      hidden: false,
+      passed: true,
+      expected: "1",
+      actual: "1",
+      status: "Accepted",
+      stderr: "",
+    },
   ];
   for (const name of fails) {
     const t = all.find((x) => x.name === name);
@@ -61,24 +86,87 @@ function graded(fails) {
 }
 
 test("classification: compilation, runtime, edge-case name, logic", () => {
-  assert.equal(classifyFailure({ name: "t", expected: "1", actual: "", status: "Compilation Error", stderr: "x" }), "syntax");
-  assert.equal(classifyFailure({ name: "t", expected: "1", actual: "", status: "Runtime Error (NZEC)", stderr: "x" }), "runtime");
-  assert.equal(classifyFailure({ name: "edge case: zero", expected: "0", actual: "1", status: "Wrong Answer", stderr: "" }), "edge_case");
-  assert.equal(classifyFailure({ name: "prints table", expected: "1\n2\n3", actual: "a\nb\nc", status: "Wrong Answer", stderr: "" }), "logic");
-  assert.equal(classifyFailure({ name: "sum", expected: "1\n2\n3", actual: "1\n2\n4", status: "Wrong Answer", stderr: "" }), "edge_case");
+  assert.equal(
+    classifyFailure({
+      name: "t",
+      expected: "1",
+      actual: "",
+      status: "Compilation Error",
+      stderr: "x",
+    }),
+    "syntax",
+  );
+  assert.equal(
+    classifyFailure({
+      name: "t",
+      expected: "1",
+      actual: "",
+      status: "Runtime Error (NZEC)",
+      stderr: "x",
+    }),
+    "runtime",
+  );
+  assert.equal(
+    classifyFailure({
+      name: "edge case: zero",
+      expected: "0",
+      actual: "1",
+      status: "Wrong Answer",
+      stderr: "",
+    }),
+    "edge_case",
+  );
+  assert.equal(
+    classifyFailure({
+      name: "prints table",
+      expected: "1\n2\n3",
+      actual: "a\nb\nc",
+      status: "Wrong Answer",
+      stderr: "",
+    }),
+    "logic",
+  );
+  assert.equal(
+    classifyFailure({
+      name: "sum",
+      expected: "1\n2\n3",
+      actual: "1\n2\n4",
+      status: "Wrong Answer",
+      stderr: "",
+    }),
+    "edge_case",
+  );
 });
 
 test("classification: case-only or spacing-only mismatch is formatting, not conceptual", () => {
   assert.equal(
-    classifyFailure({ name: "prints positive", expected: "positive", actual: "Positive", status: "Wrong Answer", stderr: "" }),
+    classifyFailure({
+      name: "prints positive",
+      expected: "positive",
+      actual: "Positive",
+      status: "Wrong Answer",
+      stderr: "",
+    }),
     "formatting",
   );
   assert.equal(
-    classifyFailure({ name: "prints table", expected: "1  2", actual: "1 2", status: "Wrong Answer", stderr: "" }),
+    classifyFailure({
+      name: "prints table",
+      expected: "1  2",
+      actual: "1 2",
+      status: "Wrong Answer",
+      stderr: "",
+    }),
     "formatting",
   );
   assert.equal(
-    classifyFailure({ name: "prints positive", expected: "positive", actual: "negative", status: "Wrong Answer", stderr: "" }),
+    classifyFailure({
+      name: "prints positive",
+      expected: "positive",
+      actual: "negative",
+      status: "Wrong Answer",
+      stderr: "",
+    }),
     "logic",
   );
 });
@@ -86,13 +174,19 @@ test("classification: case-only or spacing-only mismatch is formatting, not conc
 test("signature is stable across attempts with the same failing tests", () => {
   assert.equal(
     failureSignature("edge_case", ["B test", "a test"]),
-    failureSignature("edge_case", ["A TEST", "b test"])
+    failureSignature("edge_case", ["A TEST", "b test"]),
   );
-  assert.notEqual(failureSignature("logic", ["a"]), failureSignature("edge_case", ["a"]));
+  assert.notEqual(
+    failureSignature("logic", ["a"]),
+    failureSignature("edge_case", ["a"]),
+  );
 });
 
 test("a full pass on a fresh state creates no misconception and no celebration", () => {
-  const { state, outcome } = recordPracticeAttempt(emptyStruggleState, { ...baseInput, graded: graded([]) });
+  const { state, outcome } = recordPracticeAttempt(emptyStruggleState, {
+    ...baseInput,
+    graded: graded([]),
+  });
   assert.equal(outcome.attempt.fullPass, true);
   assert.equal(state.misconceptions.length, 0);
   assert.equal(outcome.conquered, null);
@@ -101,27 +195,53 @@ test("a full pass on a fresh state creates no misconception and no celebration",
 
 test("same failure twice locks a misconception with a targeted challenge", () => {
   let state = emptyStruggleState;
-  let r = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 1000 });
+  let r = recordPracticeAttempt(state, {
+    ...baseInput,
+    graded: graded(["edge case: n = 1"]),
+    at: 1000,
+  });
   assert.equal(r.outcome.locked, null, "first failure only watches");
   state = r.state;
-  r = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 2000 });
+  r = recordPracticeAttempt(state, {
+    ...baseInput,
+    graded: graded(["edge case: n = 1"]),
+    at: 2000,
+  });
   assert.ok(r.outcome.locked, "second identical failure locks");
   assert.equal(r.outcome.locked.depth, "deep");
-  assert.ok(r.outcome.locked.targetedChallenge.title.includes("edge case: n = 1"));
+  assert.ok(
+    r.outcome.locked.targetedChallenge.title.includes("edge case: n = 1"),
+  );
   assert.equal(r.state.misconceptions[0].occurrences, 2);
 });
 
 test("a regular full pass does NOT conquer a locked pattern; only its reassessment does", () => {
   let state = emptyStruggleState;
-  state = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 1000 }).state;
-  state = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 2000 }).state;
+  state = recordPracticeAttempt(state, {
+    ...baseInput,
+    graded: graded(["edge case: n = 1"]),
+    at: 1000,
+  }).state;
+  state = recordPracticeAttempt(state, {
+    ...baseInput,
+    graded: graded(["edge case: n = 1"]),
+    at: 2000,
+  }).state;
   state = prepare(state);
   const locked = state.misconceptions[0];
   assert.equal(locked.status, "locked");
 
   // Same-exercise full pass: recorded, pattern stays locked, no celebration.
-  const afterPass = recordPracticeAttempt(state, { ...baseInput, graded: graded([]), at: 60000 });
-  assert.equal(afterPass.outcome.conquered, null, "regular pass no longer conquers");
+  const afterPass = recordPracticeAttempt(state, {
+    ...baseInput,
+    graded: graded([]),
+    at: 60000,
+  });
+  assert.equal(
+    afterPass.outcome.conquered,
+    null,
+    "regular pass no longer conquers",
+  );
   assert.equal(afterPass.state.misconceptions[0].status, "locked");
   assert.equal(pendingCelebration(afterPass.state), null);
 
@@ -163,8 +283,16 @@ test("a regular full pass does NOT conquer a locked pattern; only its reassessme
 
 test("a single slip pass clears without a celebration", () => {
   let state = emptyStruggleState;
-  state = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 1000 }).state;
-  const { state: next, outcome } = recordPracticeAttempt(state, { ...baseInput, graded: graded([]), at: 2000 });
+  state = recordPracticeAttempt(state, {
+    ...baseInput,
+    graded: graded(["edge case: n = 1"]),
+    at: 1000,
+  }).state;
+  const { state: next, outcome } = recordPracticeAttempt(state, {
+    ...baseInput,
+    graded: graded([]),
+    at: 2000,
+  });
   assert.equal(outcome.conquered, null, "watching entries close quietly");
   assert.equal(next.misconceptions[0].status, "conquered");
   assert.equal(pendingCelebration(next), null);
@@ -172,16 +300,32 @@ test("a single slip pass clears without a celebration", () => {
 
 test("different failing tests are different struggles", () => {
   let state = emptyStruggleState;
-  state = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 1000 }).state;
-  const r = recordPracticeAttempt(state, { ...baseInput, graded: graded(["basic sum"]), at: 2000 });
+  state = recordPracticeAttempt(state, {
+    ...baseInput,
+    graded: graded(["edge case: n = 1"]),
+    at: 1000,
+  }).state;
+  const r = recordPracticeAttempt(state, {
+    ...baseInput,
+    graded: graded(["basic sum"]),
+    at: 2000,
+  });
   assert.equal(r.outcome.locked, null);
   assert.equal(r.state.misconceptions.length, 2);
 });
 
 test("struggle DNA and metrics come only from recorded attempts", () => {
   let state = emptyStruggleState;
-  state = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 1000 }).state;
-  state = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 2000 }).state;
+  state = recordPracticeAttempt(state, {
+    ...baseInput,
+    graded: graded(["edge case: n = 1"]),
+    at: 1000,
+  }).state;
+  state = recordPracticeAttempt(state, {
+    ...baseInput,
+    graded: graded(["edge case: n = 1"]),
+    at: 2000,
+  }).state;
   state = prepare(state);
   state = recordReassessmentAttempt(state, {
     misconceptionId: state.misconceptions[0].id,
@@ -201,13 +345,24 @@ test("struggle DNA and metrics come only from recorded attempts", () => {
   assert.equal(m.conquerRate, 1);
   assert.equal(m.avgTimeToConquerMs, 3599000);
   const pats = strugglePatterns(state);
-  assert.ok(pats.some((p) => p.includes("edge case")), "patterns name the observed kind");
+  assert.ok(
+    pats.some((p) => p.includes("edge case")),
+    "patterns name the observed kind",
+  );
 });
 
 test("failure replay quotes only recorded data and honest elapsed time", () => {
   let state = emptyStruggleState;
-  state = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 1000 }).state;
-  state = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 2000 }).state;
+  state = recordPracticeAttempt(state, {
+    ...baseInput,
+    graded: graded(["edge case: n = 1"]),
+    at: 1000,
+  }).state;
+  state = recordPracticeAttempt(state, {
+    ...baseInput,
+    graded: graded(["edge case: n = 1"]),
+    at: 2000,
+  }).state;
   state = prepare(state);
   const { outcome } = recordReassessmentAttempt(state, {
     misconceptionId: state.misconceptions[0].id,
@@ -231,12 +386,18 @@ test("variant inputs are deterministic and actually change the numbers", () => {
 
 test("construct check blocks hardcoded output and accepts the real construct", () => {
   const loop = { regex: "\\b(for|while)\\b" };
-  assert.equal(constructSatisfied(loop, "for i in range(1, 6):\n    print(i)"), true);
+  assert.equal(
+    constructSatisfied(loop, "for i in range(1, 6):\n    print(i)"),
+    true,
+  );
   assert.equal(constructSatisfied(loop, 'print("1\\n2\\n3\\n4\\n5")'), false);
   assert.equal(constructSatisfied(null, "anything"), true);
   const rec = { selfCall: true };
   assert.equal(
-    constructSatisfied(rec, "def factorial(n):\n    if n <= 1:\n        return 1\n    return n * factorial(n - 1)\nprint(factorial(5))"),
+    constructSatisfied(
+      rec,
+      "def factorial(n):\n    if n <= 1:\n        return 1\n    return n * factorial(n - 1)\nprint(factorial(5))",
+    ),
     true,
   );
   assert.equal(constructSatisfied(rec, "print(120)"), false);
@@ -244,20 +405,43 @@ test("construct check blocks hardcoded output and accepts the real construct", (
 
 test("reassessment plan keeps original checks, adds unseen and fresh variants", () => {
   let state = emptyStruggleState;
-  state = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 1000 }).state;
-  state = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 2000 }).state;
+  state = recordPracticeAttempt(state, {
+    ...baseInput,
+    graded: graded(["edge case: n = 1"]),
+    at: 1000,
+  }).state;
+  state = recordPracticeAttempt(state, {
+    ...baseInput,
+    graded: graded(["edge case: n = 1"]),
+    at: 2000,
+  }).state;
   const m = state.misconceptions[0];
-  const plan = buildReassessmentPlan(m, [
-    { name: "basic sum", stdin: "5\n", expected: "15" },
-    { name: "edge case: n = 1", stdin: "1\n", expected: "1" },
-    { name: "hidden twist", stdin: "9\n", expected: "45", hidden: true },
-  ], true);
-  assert.equal(plan.ready.length, 2, "original failing check + unseen hidden check");
+  const plan = buildReassessmentPlan(
+    m,
+    [
+      { name: "basic sum", stdin: "5\n", expected: "15" },
+      { name: "edge case: n = 1", stdin: "1\n", expected: "1" },
+      { name: "hidden twist", stdin: "9\n", expected: "45", hidden: true },
+    ],
+    true,
+  );
+  assert.equal(
+    plan.ready.length,
+    2,
+    "original failing check + unseen hidden check",
+  );
   assert.ok(plan.ready.some((t) => t.unseen));
-  assert.equal(plan.pending.length, 1, "one fresh variant for the failing stdin check");
+  assert.equal(
+    plan.pending.length,
+    1,
+    "one fresh variant for the failing stdin check",
+  );
   assert.equal(plan.pending[0].stdin, variantStdin("1\n"));
   const saved = attachReassessment(state, m.id, {
-    tests: [...plan.ready, ...plan.pending.map((v) => ({ ...v, expected: "x" }))],
+    tests: [
+      ...plan.ready,
+      ...plan.pending.map((v) => ({ ...v, expected: "x" })),
+    ],
     createdAt: 3000,
     attempts: 0,
   });
@@ -279,15 +463,24 @@ test("VS Code build sessions feed the engine once per session signature", () => 
   });
   let state = emptyStruggleState;
   // A failing session records a real attempt; the same signature is deduped.
-  let r = recordBuildSessionOutcome(state, session("s1:failed:1:0:0", "failed", 1, 5, 1000));
+  let r = recordBuildSessionOutcome(
+    state,
+    session("s1:failed:1:0:0", "failed", 1, 5, 1000),
+  );
   assert.ok(r.outcome, "first ingestion records");
   assert.equal(r.state.attempts.length, 1);
   state = r.state;
-  r = recordBuildSessionOutcome(state, session("s1:failed:1:0:0", "failed", 1, 5, 2000));
+  r = recordBuildSessionOutcome(
+    state,
+    session("s1:failed:1:0:0", "failed", 1, 5, 2000),
+  );
   assert.equal(r.outcome, null, "same signature deduped");
   assert.equal(r.state.attempts.length, 1, "no double counting");
   // A second distinct failing session locks the pattern.
-  r = recordBuildSessionOutcome(state, session("s1:failed:2:0:0", "failed", 1, 5, 3000));
+  r = recordBuildSessionOutcome(
+    state,
+    session("s1:failed:2:0:0", "failed", 1, 5, 3000),
+  );
   state = r.state;
   const locked = state.misconceptions.find((m) => m.status === "locked");
   assert.ok(locked, "repeated VS Code failure locks");
@@ -300,30 +493,70 @@ test("VS Code build sessions feed the engine once per session signature", () => 
   });
   state = r.state;
   const done = state.misconceptions.find((m) => m.id === locked.id);
-  assert.equal(done.status, "locked", "completion alone cannot prove a relevant new reassessment");
+  assert.equal(
+    done.status,
+    "locked",
+    "completion alone cannot prove a relevant new reassessment",
+  );
   assert.notEqual(done.reassessed, true);
   assert.equal(pendingCelebration(state), null);
 });
 
 test("reassessment cannot conquer without a stored NEW task, with altered checks, or missing checks", () => {
   let state = emptyStruggleState;
-  state = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 1000 }).state;
-  state = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 2000 }).state;
-  const args = { misconceptionId: state.misconceptions[0].id, graded: transferGraded(), constructOk: true, at: 9000 };
+  state = recordPracticeAttempt(state, {
+    ...baseInput,
+    graded: graded(["edge case: n = 1"]),
+    at: 1000,
+  }).state;
+  state = recordPracticeAttempt(state, {
+    ...baseInput,
+    graded: graded(["edge case: n = 1"]),
+    at: 2000,
+  }).state;
+  const args = {
+    misconceptionId: state.misconceptions[0].id,
+    graded: transferGraded(),
+    constructOk: true,
+    at: 9000,
+  };
   assert.equal(recordReassessmentAttempt(state, args).outcome, null);
   state = prepare(state);
-  assert.equal(recordReassessmentAttempt(state, { ...args, graded: transferGraded().slice(0, 1) }).outcome, null);
-  assert.equal(recordReassessmentAttempt(state, { ...args, graded: graded([]) }).outcome, null);
-  assert.equal(recordReassessmentAttempt(state, args).outcome.conquered.reassessed, true);
+  assert.equal(
+    recordReassessmentAttempt(state, {
+      ...args,
+      graded: transferGraded().slice(0, 1),
+    }).outcome,
+    null,
+  );
+  assert.equal(
+    recordReassessmentAttempt(state, { ...args, graded: graded([]) }).outcome,
+    null,
+  );
+  assert.equal(
+    recordReassessmentAttempt(state, args).outcome.conquered.reassessed,
+    true,
+  );
 });
 
 test("all ten study topics have genuinely changed curated transfer tasks", () => {
-  for (const topic of ["first-program", "variables", "input", "math", "conditions", "loops", "functions", "recursion", "arrays-lists", "strings"]) {
+  for (const topic of [
+    "first-program",
+    "variables",
+    "input",
+    "math",
+    "conditions",
+    "loops",
+    "functions",
+    "recursion",
+    "arrays-lists",
+    "strings",
+  ]) {
     for (const lang of ["python", "c"]) {
       const task = newReassessment(topic, lang, 3000);
       assert.equal(task.version, "transfer-v1");
       assert.ok(task.task.length > 40);
-      assert.ok(task.tests.every(t => t.unseen));
+      assert.ok(task.tests.every((t) => t.unseen));
     }
   }
   assert.equal(newReassessment("unknown", "python", 3000), null);
@@ -331,139 +564,360 @@ test("all ten study topics have genuinely changed curated transfer tasks", () =>
 
 test("stored task version and altered canonical test set are rejected", () => {
   let state = emptyStruggleState;
-  state = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 1000 }).state;
-  state = recordPracticeAttempt(state, { ...baseInput, graded: graded(["edge case: n = 1"]), at: 2000 }).state;
+  state = recordPracticeAttempt(state, {
+    ...baseInput,
+    graded: graded(["edge case: n = 1"]),
+    at: 1000,
+  }).state;
+  state = recordPracticeAttempt(state, {
+    ...baseInput,
+    graded: graded(["edge case: n = 1"]),
+    at: 2000,
+  }).state;
   const id = state.misconceptions[0].id;
   const spec = newReassessment("loops", "python", 3000);
-  const args = {misconceptionId:id,graded:transferGraded(),constructOk:true,at:9000};
-  let altered = attachReassessment(state,id,{...spec,version:"unknown-v2"});
-  assert.equal(recordReassessmentAttempt(altered,args).outcome,null);
-  altered = attachReassessment(state,id,{...spec,tests:spec.tests.slice(0,1)});
-  assert.equal(recordReassessmentAttempt(altered,args).outcome,null);
+  const args = {
+    misconceptionId: id,
+    graded: transferGraded(),
+    constructOk: true,
+    at: 9000,
+  };
+  let altered = attachReassessment(state, id, {
+    ...spec,
+    version: "unknown-v2",
+  });
+  assert.equal(recordReassessmentAttempt(altered, args).outcome, null);
+  altered = attachReassessment(state, id, {
+    ...spec,
+    tests: spec.tests.slice(0, 1),
+  });
+  assert.equal(recordReassessmentAttempt(altered, args).outcome, null);
 });
 
 test("prediction evidence is saved before explanation and cannot be retrofitted after review", async () => {
-  const {recordDiagnosticPrediction,diagnosticProbe}=await import('./struggle-engine.ts');
-  const state = lockState(); const id=state.misconceptions[0].id;
-  const prediction=recordDiagnosticPrediction(state,id,0,false,3000,false);
-  assert.equal(prediction.misconceptions[0].diagnosis.reviewed,false);
-  const confirmed=recordDiagnosticPrediction(prediction,id,1,true,4000,true);
-  assert.equal(confirmed.misconceptions[0].diagnosis.choice,0);
-  assert.equal(confirmed.misconceptions[0].diagnosis.at,3000);
-  assert.equal(confirmed.misconceptions[0].diagnosis.confirmed,true);
-  assert.equal(recordDiagnosticPrediction(confirmed,id,1,false,5000),confirmed);
-  const replay=failureReplay(confirmed.misconceptions[0]);
-  assert.ok(replay.cause.includes('Your confirmed explanation'));
-  assert.ok(replay.cause.includes('reported cause'));
-  assert.ok(replay.before.includes(diagnosticProbe('loops','python').options[0]));
+  const { recordDiagnosticPrediction, diagnosticProbe } =
+    await import("./struggle-engine.ts");
+  const state = lockState();
+  const id = state.misconceptions[0].id;
+  const prediction = recordDiagnosticPrediction(
+    state,
+    id,
+    0,
+    false,
+    3000,
+    false,
+  );
+  assert.equal(prediction.misconceptions[0].diagnosis.reviewed, false);
+  const confirmed = recordDiagnosticPrediction(
+    prediction,
+    id,
+    1,
+    true,
+    4000,
+    true,
+  );
+  assert.equal(confirmed.misconceptions[0].diagnosis.choice, 0);
+  assert.equal(confirmed.misconceptions[0].diagnosis.at, 3000);
+  assert.equal(confirmed.misconceptions[0].diagnosis.confirmed, true);
+  assert.equal(
+    recordDiagnosticPrediction(confirmed, id, 1, false, 5000),
+    confirmed,
+  );
+  const replay = failureReplay(confirmed.misconceptions[0]);
+  assert.ok(replay.cause.includes("Your confirmed explanation"));
+  assert.ok(replay.cause.includes("reported cause"));
+  assert.ok(
+    replay.before.includes(diagnosticProbe("loops", "python").options[0]),
+  );
 });
 
-test("correct and uncertain predictions do not establish a causal misconception", async()=>{
- const {recordDiagnosticPrediction}=await import('./struggle-engine.ts');
- for(const choice of [1,2]) {
-  const state=lockState(); const id=state.misconceptions[0].id;
-  const next=recordDiagnosticPrediction(state,id,choice,true,3000);
-  assert.equal(next.misconceptions[0].diagnosis.confirmed,false);
-  assert.ok(failureReplay(next.misconceptions[0]).cause.includes('unresolved'));
- }
+test("correct and uncertain predictions do not establish a causal misconception", async () => {
+  const { recordDiagnosticPrediction } = await import("./struggle-engine.ts");
+  for (const choice of [1, 2]) {
+    const state = lockState();
+    const id = state.misconceptions[0].id;
+    const next = recordDiagnosticPrediction(state, id, choice, true, 3000);
+    assert.equal(next.misconceptions[0].diagnosis.confirmed, false);
+    assert.ok(
+      failureReplay(next.misconceptions[0]).cause.includes("unresolved"),
+    );
+  }
 });
 
-test("diagnosis-specific task validates its exact confirmed prediction and changed checks", async()=>{
- const {recordDiagnosticPrediction}=await import('./struggle-engine.ts');
- let state=lockState();const id=state.misconceptions[0].id;
- state=recordDiagnosticPrediction(state,id,0,true,3000);
- const spec=newReassessment('loops','python',4000,true);
- state=attachReassessment(state,id,spec);
- const args={misconceptionId:id,constructOk:true,at:5000,graded:spec.tests.map(t=>({...t,hidden:true,actual:t.expected,passed:true,status:'Accepted',stderr:''}))};
- assert.equal(recordReassessmentAttempt(state,args).outcome.conquered.status,'conquered');
- const unconfirmed={...state,misconceptions:state.misconceptions.map(m=>({...m,diagnosis:{...m.diagnosis,confirmed:false}}))};
- assert.equal(recordReassessmentAttempt(unconfirmed,args).outcome,null);
-});
-
-test("VS Code transfer relevance needs an exact concept and actual concept checkpoint failure",()=>{
- const common={sessionKey:'one',sessionId:'s1',topicId:'mission-1',topicTitle:'Build an app',language:'python',exerciseTitle:'App',completed:false,failed:true,passed:0,total:1,at:1000,concept:'loops'};
- const supported=recordBuildSessionOutcome(emptyStruggleState,{...common,checkpoints:[{title:'Loops',status:'failed'}]}).state;
- assert.equal(supported.misconceptions[0].transferTopicId,'loops');
- assert.equal(supported.misconceptions[0].sourceSessionId,'s1');
- for(const checkpoints of [undefined,[{title:'Start FastAPI server',status:'failed'}]]){
-  const broad=recordBuildSessionOutcome(emptyStruggleState,{...common,checkpoints}).state;
-  assert.equal(broad.misconceptions[0].transferTopicId,undefined);
- }
-});
-
-function lockState() {
- let state = emptyStruggleState;
- for (const at of [1000,2000]) state = recordPracticeAttempt(state, {...baseInput,at,graded:graded(["edge case: n = 1"])}).state;
- return state;
-}
-
-test("mentor context distinguishes learner hypotheses from unresolved observed patterns", async()=>{
- const {diagnosticMentorContext,recordDiagnosticPrediction}=await import('./struggle-engine.ts');
- const state=lockState();const id=state.misconceptions[0].id;
- assert.ok(diagnosticMentorContext(state).includes('Cause unresolved'));
- const confirmed=recordDiagnosticPrediction(state,id,0,true,3000);
- assert.ok(diagnosticMentorContext(confirmed,'loops').includes('Learner-confirmed hypothesis'));
- assert.ok(diagnosticMentorContext(confirmed).includes('not a verified root cause'));
- assert.equal(diagnosticMentorContext(confirmed,'strings'),'');
-});
-
-test("an unmapped project pattern cannot be conquered with a manually attached topic task",()=>{
- let state=lockState();const id=state.misconceptions[0].id;
- state={...state,misconceptions:state.misconceptions.map(m=>({...m,sourceSessionId:'project-session'}))};
- state=attachReassessment(state,id,newReassessment('loops','python',3000));
- assert.equal(recordReassessmentAttempt(state,{misconceptionId:id,graded:transferGraded(),constructOk:true,at:4000}).outcome,null);
-});
-
-test("one concept checkpoint may not remap an unrelated project failure",()=>{
- const common={sessionId:'mixed',topicId:'mixed-mission',topicTitle:'Mixed project',language:'python',exerciseTitle:'Mixed',completed:false,failed:true,passed:0,total:1};
- let state=recordBuildSessionOutcome(emptyStruggleState,{...common,sessionKey:'mixed:1',concept:'FastAPI',checkpoints:[{title:'Start server',status:'failed'}],at:1000}).state;
- state=recordBuildSessionOutcome(state,{...common,sessionKey:'mixed:2',concept:'loops',checkpoints:[{title:'Loops',status:'failed'}],at:2000}).state;
- const server=state.misconceptions.find(m=>m.summary.includes('Start server'));
- const loops=state.misconceptions.find(m=>m.summary.includes('Loops'));
- assert.equal(server.transferTopicId,undefined);assert.equal(loops.transferTopicId,'loops');
-});
-
-test("old unsigned imports cannot conquer after a later account sign-in or inherit verified ownership",()=>{
- const owner='12345678-1234-4234-8234-123456789abc';
- const common={sessionId:'same-session',topicId:'project-loops',topicTitle:'Loops',language:'python',concept:'loops',exerciseTitle:'Loops',completed:false,failed:true,passed:0,total:1,checkpoints:[{title:'Loops',status:'failed'}]};
- let state=emptyStruggleState;
- for(const attempt of [1,2]) state=recordBuildSessionOutcome(state,{...common,sessionKey:'unsigned:'+attempt,at:1000*attempt}).state;
- const old=state.misconceptions[0];state=attachReassessment(state,old.id,newReassessment('loops','python',3000));
- const args={misconceptionId:old.id,ownerId:owner,graded:transferGraded(),constructOk:true,at:4000};
- assert.equal(recordReassessmentAttempt(state,args).outcome,null);
- for(const attempt of [1,2])state=recordBuildSessionOutcome(state,{...common,verifiedOwnerId:owner,sessionKey:'verified:'+attempt,at:1000*attempt}).state;
- const original=state.misconceptions.find(m=>m.id===old.id),verified=state.misconceptions.find(m=>m.recoveryOwnerId===owner);
- assert.equal(original.recoveryOwnerId,undefined);assert.equal(original.status,'locked');assert.equal(original.occurrences,2);
- assert.equal(verified.occurrences,2);assert.equal(verified.sourceMissionId,'project-loops');assert.notEqual(verified.id,original.id);
- state=attachReassessment(state,verified.id,newReassessment('loops','python',3000));
- for(const identity of [undefined,'different-owner'])assert.equal(recordReassessmentAttempt(state,{...args,misconceptionId:verified.id,ownerId:identity}).outcome,null);
- assert.equal(recordReassessmentAttempt(state,{...args,misconceptionId:verified.id}).outcome.conquered.status,'conquered');
-});
-
-test("a previously persisted unverified conquest cannot trigger a celebration or verified metric",()=>{
- const prior={...lockState().misconceptions[0],status:'conquered',reassessed:true,sourceSessionId:'unsigned-old',conqueredAt:4000};
- const state={...emptyStruggleState,misconceptions:[prior]};
- assert.equal(pendingCelebration(state),null);assert.equal(struggleMetrics(state).conqueredCount,0);
-});
-
-test("cloud key ordering does not invalidate exact reassessment checks", async () => {
-  const { recordDiagnosticPrediction } = await import('./struggle-engine.ts');
+test("diagnosis-specific task validates its exact confirmed prediction and changed checks", async () => {
+  const { recordDiagnosticPrediction } = await import("./struggle-engine.ts");
   let state = lockState();
   const id = state.misconceptions[0].id;
   state = recordDiagnosticPrediction(state, id, 0, true, 3000);
-  const spec = newReassessment('loops', 'python', 4000, true);
+  const spec = newReassessment("loops", "python", 4000, true);
+  state = attachReassessment(state, id, spec);
+  const args = {
+    misconceptionId: id,
+    constructOk: true,
+    at: 5000,
+    graded: spec.tests.map((t) => ({
+      ...t,
+      hidden: true,
+      actual: t.expected,
+      passed: true,
+      status: "Accepted",
+      stderr: "",
+    })),
+  };
+  assert.equal(
+    recordReassessmentAttempt(state, args).outcome.conquered.status,
+    "conquered",
+  );
+  const unconfirmed = {
+    ...state,
+    misconceptions: state.misconceptions.map((m) => ({
+      ...m,
+      diagnosis: { ...m.diagnosis, confirmed: false },
+    })),
+  };
+  assert.equal(recordReassessmentAttempt(unconfirmed, args).outcome, null);
+});
+
+test("VS Code transfer relevance needs an exact concept and actual concept checkpoint failure", () => {
+  const common = {
+    sessionKey: "one",
+    sessionId: "s1",
+    topicId: "mission-1",
+    topicTitle: "Build an app",
+    language: "python",
+    exerciseTitle: "App",
+    completed: false,
+    failed: true,
+    passed: 0,
+    total: 1,
+    at: 1000,
+    concept: "loops",
+  };
+  const supported = recordBuildSessionOutcome(emptyStruggleState, {
+    ...common,
+    checkpoints: [{ title: "Loops", status: "failed" }],
+  }).state;
+  assert.equal(supported.misconceptions[0].transferTopicId, "loops");
+  assert.equal(supported.misconceptions[0].sourceSessionId, "s1");
+  for (const checkpoints of [
+    undefined,
+    [{ title: "Start FastAPI server", status: "failed" }],
+  ]) {
+    const broad = recordBuildSessionOutcome(emptyStruggleState, {
+      ...common,
+      checkpoints,
+    }).state;
+    assert.equal(broad.misconceptions[0].transferTopicId, undefined);
+  }
+});
+
+function lockState() {
+  let state = emptyStruggleState;
+  for (const at of [1000, 2000])
+    state = recordPracticeAttempt(state, {
+      ...baseInput,
+      at,
+      graded: graded(["edge case: n = 1"]),
+    }).state;
+  return state;
+}
+
+test("mentor context distinguishes learner hypotheses from unresolved observed patterns", async () => {
+  const { diagnosticMentorContext, recordDiagnosticPrediction } =
+    await import("./struggle-engine.ts");
+  const state = lockState();
+  const id = state.misconceptions[0].id;
+  assert.ok(diagnosticMentorContext(state).includes("Cause unresolved"));
+  const confirmed = recordDiagnosticPrediction(state, id, 0, true, 3000);
+  assert.ok(
+    diagnosticMentorContext(confirmed, "loops").includes(
+      "Learner-confirmed hypothesis",
+    ),
+  );
+  assert.ok(
+    diagnosticMentorContext(confirmed).includes("not a verified root cause"),
+  );
+  assert.equal(diagnosticMentorContext(confirmed, "strings"), "");
+});
+
+test("an unmapped project pattern cannot be conquered with a manually attached topic task", () => {
+  let state = lockState();
+  const id = state.misconceptions[0].id;
+  state = {
+    ...state,
+    misconceptions: state.misconceptions.map((m) => ({
+      ...m,
+      sourceSessionId: "project-session",
+    })),
+  };
+  state = attachReassessment(
+    state,
+    id,
+    newReassessment("loops", "python", 3000),
+  );
+  assert.equal(
+    recordReassessmentAttempt(state, {
+      misconceptionId: id,
+      graded: transferGraded(),
+      constructOk: true,
+      at: 4000,
+    }).outcome,
+    null,
+  );
+});
+
+test("one concept checkpoint may not remap an unrelated project failure", () => {
+  const common = {
+    sessionId: "mixed",
+    topicId: "mixed-mission",
+    topicTitle: "Mixed project",
+    language: "python",
+    exerciseTitle: "Mixed",
+    completed: false,
+    failed: true,
+    passed: 0,
+    total: 1,
+  };
+  let state = recordBuildSessionOutcome(emptyStruggleState, {
+    ...common,
+    sessionKey: "mixed:1",
+    concept: "FastAPI",
+    checkpoints: [{ title: "Start server", status: "failed" }],
+    at: 1000,
+  }).state;
+  state = recordBuildSessionOutcome(state, {
+    ...common,
+    sessionKey: "mixed:2",
+    concept: "loops",
+    checkpoints: [{ title: "Loops", status: "failed" }],
+    at: 2000,
+  }).state;
+  const server = state.misconceptions.find((m) =>
+    m.summary.includes("Start server"),
+  );
+  const loops = state.misconceptions.find((m) => m.summary.includes("Loops"));
+  assert.equal(server.transferTopicId, undefined);
+  assert.equal(loops.transferTopicId, "loops");
+});
+
+test("old unsigned imports cannot conquer after a later account sign-in or inherit verified ownership", () => {
+  const owner = "12345678-1234-4234-8234-123456789abc";
+  const common = {
+    sessionId: "same-session",
+    topicId: "project-loops",
+    topicTitle: "Loops",
+    language: "python",
+    concept: "loops",
+    exerciseTitle: "Loops",
+    completed: false,
+    failed: true,
+    passed: 0,
+    total: 1,
+    checkpoints: [{ title: "Loops", status: "failed" }],
+  };
+  let state = emptyStruggleState;
+  for (const attempt of [1, 2])
+    state = recordBuildSessionOutcome(state, {
+      ...common,
+      sessionKey: "unsigned:" + attempt,
+      at: 1000 * attempt,
+    }).state;
+  const old = state.misconceptions[0];
+  state = attachReassessment(
+    state,
+    old.id,
+    newReassessment("loops", "python", 3000),
+  );
+  const args = {
+    misconceptionId: old.id,
+    ownerId: owner,
+    graded: transferGraded(),
+    constructOk: true,
+    at: 4000,
+  };
+  assert.equal(recordReassessmentAttempt(state, args).outcome, null);
+  for (const attempt of [1, 2])
+    state = recordBuildSessionOutcome(state, {
+      ...common,
+      verifiedOwnerId: owner,
+      sessionKey: "verified:" + attempt,
+      at: 1000 * attempt,
+    }).state;
+  const original = state.misconceptions.find((m) => m.id === old.id),
+    verified = state.misconceptions.find((m) => m.recoveryOwnerId === owner);
+  assert.equal(original.recoveryOwnerId, undefined);
+  assert.equal(original.status, "locked");
+  assert.equal(original.occurrences, 2);
+  assert.equal(verified.occurrences, 2);
+  assert.equal(verified.sourceMissionId, "project-loops");
+  assert.notEqual(verified.id, original.id);
+  state = attachReassessment(
+    state,
+    verified.id,
+    newReassessment("loops", "python", 3000),
+  );
+  for (const identity of [undefined, "different-owner"])
+    assert.equal(
+      recordReassessmentAttempt(state, {
+        ...args,
+        misconceptionId: verified.id,
+        ownerId: identity,
+      }).outcome,
+      null,
+    );
+  assert.equal(
+    recordReassessmentAttempt(state, { ...args, misconceptionId: verified.id })
+      .outcome.conquered.status,
+    "conquered",
+  );
+});
+
+test("a previously persisted unverified conquest cannot trigger a celebration or verified metric", () => {
+  const prior = {
+    ...lockState().misconceptions[0],
+    status: "conquered",
+    reassessed: true,
+    sourceSessionId: "unsigned-old",
+    conqueredAt: 4000,
+  };
+  const state = { ...emptyStruggleState, misconceptions: [prior] };
+  assert.equal(pendingCelebration(state), null);
+  assert.equal(struggleMetrics(state).conqueredCount, 0);
+});
+
+test("cloud key ordering does not invalidate exact reassessment checks", async () => {
+  const { recordDiagnosticPrediction } = await import("./struggle-engine.ts");
+  let state = lockState();
+  const id = state.misconceptions[0].id;
+  state = recordDiagnosticPrediction(state, id, 0, true, 3000);
+  const spec = newReassessment("loops", "python", 4000, true);
   const cloudSpec = JSON.parse(JSON.stringify(spec), (_key, value) =>
-    value && typeof value === 'object' && !Array.isArray(value)
-      ? Object.fromEntries(Object.entries(value).sort()) : value);
+    value && typeof value === "object" && !Array.isArray(value)
+      ? Object.fromEntries(Object.entries(value).sort())
+      : value,
+  );
   state = attachReassessment(state, id, cloudSpec);
-  const args = { misconceptionId: id, constructOk: true, at: 5000,
-    graded: spec.tests.map(t => ({ ...t, hidden: true, actual: t.expected,
-      passed: true, status: 'Accepted', stderr: '' })) };
-  assert.equal(recordReassessmentAttempt(state, args).outcome?.conquered?.status, 'conquered');
-  for (const key of ['name', 'stdin', 'expected', 'unseen', 'variantOf']) {
+  const args = {
+    misconceptionId: id,
+    constructOk: true,
+    at: 5000,
+    graded: spec.tests.map((t) => ({
+      ...t,
+      hidden: true,
+      actual: t.expected,
+      passed: true,
+      status: "Accepted",
+      stderr: "",
+    })),
+  };
+  assert.equal(
+    recordReassessmentAttempt(state, args).outcome?.conquered?.status,
+    "conquered",
+  );
+  for (const key of ["name", "stdin", "expected", "unseen", "variantOf"]) {
     const tampered = structuredClone(state);
     tampered.misconceptions[0].reassessment.tests[0][key] =
-      key === 'unseen' ? false : 'tampered';
+      key === "unseen" ? false : "tampered";
     assert.equal(recordReassessmentAttempt(tampered, args).outcome, null, key);
   }
   const extra = structuredClone(state);
@@ -471,5 +925,42 @@ test("cloud key ordering does not invalidate exact reassessment checks", async (
   assert.equal(recordReassessmentAttempt(extra, args).outcome, null);
 });
 
-test('bare session completion without test outcomes does not invent a graded observation',()=>{const r=recordBuildSessionOutcome(emptyStruggleState,{sessionKey:'no-tests',topicId:'m',topicTitle:'M',language:'python',exerciseTitle:'Build',completed:true,failed:false,passed:0,total:0});assert.equal(r.outcome,null);assert.equal(r.state.attempts.length,0);});
-test('extension observed timing and hints are retained without time-only competency judgment',()=>{const r=recordBuildSessionOutcome(emptyStruggleState,{sessionKey:'timed',topicId:'m',topicTitle:'M',language:'python',exerciseTitle:'Build',completed:true,failed:false,passed:1,total:1,performance:{expectedMs:300000,activeMs:480000,timingQuality:'extension-observed',hintsUsed:2,attemptNumber:3}});assert.equal(r.outcome.attempt.fullPass,true);assert.equal(r.outcome.attempt.performance.activeMs,480000);assert.equal(r.outcome.attempt.performance.hintsUsed,2);assert.equal(r.state.misconceptions.length,0);});
+test("bare session completion without test outcomes does not invent a graded observation", () => {
+  const r = recordBuildSessionOutcome(emptyStruggleState, {
+    sessionKey: "no-tests",
+    topicId: "m",
+    topicTitle: "M",
+    language: "python",
+    exerciseTitle: "Build",
+    completed: true,
+    failed: false,
+    passed: 0,
+    total: 0,
+  });
+  assert.equal(r.outcome, null);
+  assert.equal(r.state.attempts.length, 0);
+});
+test("extension observed timing and hints are retained without time-only competency judgment", () => {
+  const r = recordBuildSessionOutcome(emptyStruggleState, {
+    sessionKey: "timed",
+    topicId: "m",
+    topicTitle: "M",
+    language: "python",
+    exerciseTitle: "Build",
+    completed: true,
+    failed: false,
+    passed: 1,
+    total: 1,
+    performance: {
+      expectedMs: 300000,
+      activeMs: 480000,
+      timingQuality: "extension-observed",
+      hintsUsed: 2,
+      attemptNumber: 3,
+    },
+  });
+  assert.equal(r.outcome.attempt.fullPass, true);
+  assert.equal(r.outcome.attempt.performance.activeMs, 480000);
+  assert.equal(r.outcome.attempt.performance.hintsUsed, 2);
+  assert.equal(r.state.misconceptions.length, 0);
+});

@@ -2106,8 +2106,11 @@ export async function recordPracticeTestResult(
   session: LearningSession,
   payload: Record<string, unknown>,
 ) {
-  if (session.surpriseTest || !/^python-(loops|conditions)-/.test(session.challengeId))
-    return recordEvent(session,"test_result",payload);
+  if (
+    session.surpriseTest ||
+    !/^python-(loops|conditions)-/.test(session.challengeId)
+  )
+    return recordEvent(session, "test_result", payload);
   recordEvent(session, "test_result", payload, false);
   await persistSession(session, true, true);
   const snapshot = stateOf(session);

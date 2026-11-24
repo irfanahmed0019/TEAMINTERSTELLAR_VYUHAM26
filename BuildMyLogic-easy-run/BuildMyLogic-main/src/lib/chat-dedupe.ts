@@ -32,7 +32,10 @@ const GREETING_KEYS = new Set([
 export function normalizeSentence(text: string): string {
   return text
     .toLowerCase()
-    .replace(/[\u{1f000}-\u{1faff}\u{2600}-\u{27bf}\u{2b00}-\u{2bff}\u{fe0f}\u{200d}]/gu, "")
+    .replace(
+      /[\u{1f000}-\u{1faff}\u{2600}-\u{27bf}\u{2b00}-\u{2bff}]|\u{fe0f}|\u{200d}/gu,
+      "",
+    )
     .replace(/[*_`#>]+/g, "")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
@@ -111,7 +114,9 @@ export function dedupeMentorText(text: string): string {
 // reply between them) are treated as one run: content already shown in the run
 // is dropped. A mentor message that becomes empty (it was entirely a repeat)
 // is removed, except the very first mentor message of the chat.
-export function dedupeMentorReplies<T extends DedupeableMessage>(messages: T[]): T[] {
+export function dedupeMentorReplies<T extends DedupeableMessage>(
+  messages: T[],
+): T[] {
   const result: T[] = [];
   const runSeen = new Set<string>();
   let greeted = false;
@@ -126,7 +131,11 @@ export function dedupeMentorReplies<T extends DedupeableMessage>(messages: T[]):
     const cleaned = cleanMentorText(message.text, messageSeen, greeted);
     greeted = cleaned.greeted;
     for (const key of messageSeen) runSeen.add(key);
-    const originallyMeaningful = cleanMentorText(message.text, new Set(), false).meaningful;
+    const originallyMeaningful = cleanMentorText(
+      message.text,
+      new Set(),
+      false,
+    ).meaningful;
     // Drop the message when everything meaningful in it was a repeat (an empty
     // result, or a skeleton of list markers whose items were all duplicates).
     if (!cleaned.text || (originallyMeaningful && !cleaned.meaningful)) {
@@ -135,7 +144,11 @@ export function dedupeMentorReplies<T extends DedupeableMessage>(messages: T[]):
       }
       continue;
     }
-    result.push(cleaned.text === message.text ? message : { ...message, text: cleaned.text });
+    result.push(
+      cleaned.text === message.text
+        ? message
+        : { ...message, text: cleaned.text },
+    );
     isFirstMentor = false;
   }
   return result;

@@ -41,6 +41,7 @@ No paid AI tests authorized. No unsolicited sign-ins. Production authenticated a
 ### Actual checks, not acceptance of the entire master
 
 -177 application tests pass, application typecheck/build pass;12 extension tests and extension typecheck pass. Tests use isolated fixtures for account/session behavior; no paid AI calls.
+
 - Real production YouTube camera-free playback paused at120.0s for the first question on `/videos`, inspected under explicitly labeled sample account. Stopped without submitting an answer or inventing completed learning.
 - Live extension install page points to0.3.6. Final deployed VSIX48229 bytes, SHA25655044d6add09987ea35c860cd8e2eb21431b9fcc11089554fa5188f3b8e40703.
 - Actual user's laptop connection, real camera absence behavior, paid model generation, live cross-account/RLS, full new-user to real-project reassessment journey remain unverified.
@@ -345,6 +346,7 @@ Deployment caveat: reviewed additive supabase-session-pairing.sql still awaits a
 ## 2026-11-16 21:00: deadline-bounded desktop stress investigation
 
 New failures reproduced before fixes, not inferred from passing counts:
+
 - Actual browser Create pairing code -> delayed session/start -> normal completed logout -> old response wrote bml-vscode-session after logout. UID+auth-epoch checks now reject stale auth/start completions before any token/UI/storage write. Same UI repro green; actual-source tests cover60logout/other-account/same-user-ABA cycles and normal create. Corrected misleading copied display-ID connection instructions.
 - Actual extension Sidebar class, isolated VS Code API harness: website changes during SecretStorage read used old credential on new API base; disconnect during settings await restarted sync/consent; disconnect during delayed credential store overwrote previous credential. Base+epoch guards, serialized settings/secret writes and rollback of this instance's cancelled write fix regressions. OS keychain/other-process atomicity not claimed.
 - Actual file/edit/focus harness: losing window focus dropped final foreground interval because VS Code state already reported unfocused before flush. Flush now credits interval ending at blur, then clears activity; no hidden-time credit. File open alone is not typing activity. Consent/workspace/.env filters remain.
@@ -416,6 +418,7 @@ Follow-up to the user's explicit requests to fix/sync the four Python practice r
 - Cloud saves now retry an unchanged failed snapshot up to three writes with owner/epoch/cache/recovery/cleanup guards. A visible unsaved warning preserves local work and provides an explicit retry-save action, rather than restoring stale cloud data over unsaved work. Existing cross-tab/global last-writer-wins limitations are not represented as solved.
 
 Verification:
+
 - 381 web tests, 54 extension tests, both TypeScript checks and production build pass. Focused evidence tests cover all four aliases, current and archived generations, malformed records, provenance/owner mismatches, aggregate-only rejection, bounded-history eviction and no unrelated mission/skill promotion.
 - `scripts/verify-pairing.mjs`: actual packaged Python wrong/right code and real application router, controlled auth/REST. All four tasks import real returned explicit attempt histories; archived two-attempt state restores when the current question has zero attempts; replays are unchanged.
 - `scripts/verify-practice-sync-web.py`: actual application/browser UI with controlled auth/REST, not a real learner or live database. Connected failures become two shared observations, persist through cloud writes, refresh without duplication, and restore after normal UI logout/email sign-in. Another signed-in account rejects the first owner's state envelope. One injected save503 recovers automatically; three consecutive503s stop at three writes, show the unsaved warning, then manual retry saves exactly two attempts. No paid AI calls.
@@ -513,7 +516,6 @@ The user's request for similar questions leading to mastery is implemented as an
 
 - Adds the explicit "Python Developer" choice to the shared target-job catalog. Suggested future tools are Python, SQLite and pytest; the matching authored starter recommendation is Python Expense Tracker. Settings, onboarding and Dashboard use the same catalog. No user's selected goal, current plan, history or resume claims are changed automatically.
 - 418 tests, TypeScript, production build and focused lint pass. Controlled actual UI verified the named choice and Python recommendation, save/refresh/cloud persistence, existing C claims and plan/history/schedule unchanged, and the same choice in onboarding. Three screenshots were inspected. No AI test calls, real user profile edits or extension changes.
-
 
 ## 2026-11-17: neutral insertion notice and stale-warning correction (0.3.21)
 

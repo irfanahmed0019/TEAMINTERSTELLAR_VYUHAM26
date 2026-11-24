@@ -1,6 +1,11 @@
 /** A short-lived one-use capability, distinct from the public session display ID. */
 export function normalizePairingCode(value: string): string | null {
-  if (value.length > 20 || /[^A-Za-z2-9 -]/.test(value) || /^BML-/i.test(value.trim())) return null;
+  if (
+    value.length > 20 ||
+    /[^A-Za-z2-9 -]/.test(value) ||
+    /^BML-/i.test(value.trim())
+  )
+    return null;
   const normalized = value.trim().toUpperCase().replace(/[ -]/g, "");
   return /^[A-HJ-NP-Z2-9]{8}$/.test(normalized) ? normalized : null;
 }

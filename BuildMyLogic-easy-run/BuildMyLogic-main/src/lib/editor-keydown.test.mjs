@@ -121,10 +121,7 @@ test("Tab with a selection indents every touched line", () => {
     shiftKey: false,
     language: "python",
   });
-  assert.equal(
-    edit.value,
-    "one\n    two\n    three\nfour",
-  );
+  assert.equal(edit.value, "one\n    two\n    three\nfour");
   assert.equal(edit.selectionStart, a + 4);
   assert.equal(edit.selectionEnd, b + 8);
 });

@@ -56,7 +56,25 @@ test("eight distinct authored task evaluators run real correct/wrong/no-construc
   }
 });
 
-test("beginner arithmetic uses real inputs and addition, rejects hardcoded or wrong answers",()=>{
- const dir=mkdtempSync(join(tmpdir(),"bml-add-")),file=join(dir,"main.py"),script=resolve("media/python_loops_practice.py");
- try { for(const [source,code] of [["a=int(input())\nb=int(input())\nprint(a+b)",0],["print(12)",1],["a=int(input())\nb=int(input())\nprint(a-b)",1]]) {writeFileSync(file,source);const r=spawnSync("python3",["-I",script,"python-arithmetic-add-v1",file],{encoding:"utf8"});assert.equal(r.status,code,r.stdout+r.stderr);}}finally{rmSync(dir,{recursive:true,force:true});}
+test("beginner arithmetic uses real inputs and addition, rejects hardcoded or wrong answers", () => {
+  const dir = mkdtempSync(join(tmpdir(), "bml-add-")),
+    file = join(dir, "main.py"),
+    script = resolve("media/python_loops_practice.py");
+  try {
+    for (const [source, code] of [
+      ["a=int(input())\nb=int(input())\nprint(a+b)", 0],
+      ["print(12)", 1],
+      ["a=int(input())\nb=int(input())\nprint(a-b)", 1],
+    ]) {
+      writeFileSync(file, source);
+      const r = spawnSync(
+        "python3",
+        ["-I", script, "python-arithmetic-add-v1", file],
+        { encoding: "utf8" },
+      );
+      assert.equal(r.status, code, r.stdout + r.stderr);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

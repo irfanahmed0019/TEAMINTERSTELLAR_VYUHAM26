@@ -1,4 +1,8 @@
-import { competencyContext, competencyPlan, competencyView } from "@/lib/competency";
+import {
+  competencyContext,
+  competencyPlan,
+  competencyView,
+} from "@/lib/competency";
 import { getLoopState as competencyState } from "@/lib/loop-store";
 import { learnerStorage, isPublicDemo } from "@/lib/demo-mode";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -18,13 +22,17 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { aiMentorChat, aiMentorConfig } from "@/lib/sarvam.functions";
-import { setMentorAvailability, useMentorAvailability } from "@/lib/mentor-availability";
+import {
+  setMentorAvailability,
+  useMentorAvailability,
+} from "@/lib/mentor-availability";
 import { getLoopState, useLoop } from "@/lib/loop-store";
 
 type ChatMessage = { role: "mentor" | "student"; text: string; at: number };
 
 const CHAT_STORAGE = "bml-mentor-home-v1";
-const textLike = /\.(c|h|cpp|cc|cxx|py|js|jsx|ts|tsx|java|go|rs|rb|php|html?|css|scss|json|md|txt|sql|sh|bash|yml|yaml|xml|toml|env)$/i;
+const textLike =
+  /\.(c|h|cpp|cc|cxx|py|js|jsx|ts|tsx|java|go|rs|rb|php|html?|css|scss|json|md|txt|sql|sh|bash|yml|yaml|xml|toml|env)$/i;
 
 const CAPABILITIES = [
   "Understand concepts in simple terms",
@@ -34,7 +42,12 @@ const CAPABILITIES = [
   "Prepare for exams, internships and interviews",
 ];
 
-const TRY_ASKING = ["Explain a concept", "Debug my code", "Plan my next project", "Find my weak areas"];
+const TRY_ASKING = [
+  "Explain a concept",
+  "Debug my code",
+  "Plan my next project",
+  "Find my weak areas",
+];
 
 function welcomeMessage(name: string): string {
   return `Hi ${name}! 👋\nI'm your BuildMyLogic AI Mentor.\nI can help you with:\n${CAPABILITIES.map((c) => `• ${c}`).join("\n")}`;
@@ -65,26 +78,38 @@ export function MentorHome() {
   const plan = competencyPlan(state);
   const name = state.profile?.name?.trim() || "Builder";
   const missions = plan?.missions ?? [];
-  const activeMission = missions.find((m) => state.missionProgress[m.id]?.status === "active") ?? missions[0];
+  const activeMission =
+    missions.find((m) => state.missionProgress[m.id]?.status === "active") ??
+    missions[0];
 
   const currentTopic = useMemo(() => {
-    const selected = missions.find((m) => m.id === state.selectedLearningMissionId);
-    return selected?.skills?.[0] ?? activeMission?.skills?.[0] ?? plan?.skills?.[0]?.name ?? "Not set yet";
+    const selected = missions.find(
+      (m) => m.id === state.selectedLearningMissionId,
+    );
+    return (
+      selected?.skills?.[0] ??
+      activeMission?.skills?.[0] ??
+      plan?.skills?.[0]?.name ??
+      "Not set yet"
+    );
   }, [missions, state.selectedLearningMissionId, activeMission, plan]);
 
   const suggestion = useMemo(() => {
     // Generated plan prose is not assessment evidence, including saved plans.
     const observed = competencyView(state).filter((c) => c.observations > 0);
-    if (observed.length) return `Collect fresh checked practice on ${observed[0]!.skill}. Sources: ${observed[0]!.evidenceSources.join(", ")}. These finite checks do not prove independent understanding.`;
+    if (observed.length)
+      return `Collect fresh checked practice on ${observed[0]!.skill}. Sources: ${observed[0]!.evidenceSources.join(", ")}. These finite checks do not prove independent understanding.`;
     const skills = [...(plan?.skills ?? [])].sort((a, b) => a.level - b.level);
     if (skills.length >= 2) {
       return `Collect more evidence on ${skills[0]!.name} and then move to ${skills[1]!.name} with fresh checked exercises.`;
     }
-    if (skills.length === 1) return `Keep practicing ${skills[0]!.name} with fresh checked exercises.`;
+    if (skills.length === 1)
+      return `Keep practicing ${skills[0]!.name} with fresh checked exercises.`;
     return "Finish onboarding and your mentor will personalize suggestions from your real progress.";
   }, [plan, state]);
 
-  const { state: availability, reason: availabilityReason } = useMentorAvailability();
+  const { state: availability, reason: availabilityReason } =
+    useMentorAvailability();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -99,20 +124,42 @@ export function MentorHome() {
     // still holds the empty server snapshot, which would greet "Builder".
     const liveName = getLoopState().profile?.name?.trim() || "Builder";
     try {
-      const saved = JSON.parse(learnerStorage.getItem(CHAT_STORAGE) || "[]") as ChatMessage[];
-      setMessages(saved.length ? saved : [{ role: "mentor", text: welcomeMessage(liveName), at: Date.now() }]);
+      const saved = JSON.parse(
+        learnerStorage.getItem(CHAT_STORAGE) || "[]",
+      ) as ChatMessage[];
+      setMessages(
+        saved.length
+          ? saved
+          : [
+              {
+                role: "mentor",
+                text: welcomeMessage(liveName),
+                at: Date.now(),
+              },
+            ],
+      );
     } catch {
-      setMessages([{ role: "mentor", text: welcomeMessage(liveName), at: Date.now() }]);
+      setMessages([
+        { role: "mentor", text: welcomeMessage(liveName), at: Date.now() },
+      ]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (isPublicDemo()) {setMentorAvailability("offline", "AI is unavailable in public demo mode.");return;}
+    if (isPublicDemo()) {
+      setMentorAvailability(
+        "offline",
+        "AI is unavailable in public demo mode.",
+      );
+      return;
+    }
     // Non-billable: only asks the server whether an AI key is configured.
     aiMentorConfig({ data: {} })
       .then((result) => {
-        setMentorAvailability(result.configured ? "ready" : "offline", result.reason);
+        setMentorAvailability(
+          result.configured ? "ready" : "offline",
+          result.reason,
+        );
       })
       .catch(() => {
         setMentorAvailability("offline", "Could not check AI configuration");
@@ -120,7 +167,10 @@ export function MentorHome() {
   }, []);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
+    });
   }, [messages, busy]);
 
   function save(next: ChatMessage[]) {
@@ -138,14 +188,24 @@ export function MentorHome() {
     const parts: string[] = [];
     let skipped = 0;
     for (const file of picked) {
-      if (!textLike.test(file.name) || file.size > 40_000) { skipped += 1; continue; }
-      try { parts.push(`FILE: ${file.name}\n${await file.text()}`); } catch { skipped += 1; }
+      if (!textLike.test(file.name) || file.size > 40_000) {
+        skipped += 1;
+        continue;
+      }
+      try {
+        parts.push(`FILE: ${file.name}\n${await file.text()}`);
+      } catch {
+        skipped += 1;
+      }
     }
-    attachmentTextRef.current = [attachmentTextRef.current, ...parts].filter(Boolean).join("\n\n").slice(0, 40000);
+    attachmentTextRef.current = [attachmentTextRef.current, ...parts]
+      .filter(Boolean)
+      .join("\n\n")
+      .slice(0, 40000);
     setAttachmentNote(
       parts.length
         ? `${parts.length} file${parts.length === 1 ? "" : "s"} attached to your next message${skipped ? ` (${skipped} skipped: only text/code files under 40 KB)` : ""}.`
-        : "Only text/code files under 40 KB can be attached."
+        : "Only text/code files under 40 KB can be attached.",
     );
   }
 
@@ -155,7 +215,10 @@ export function MentorHome() {
     const withContext = attachmentTextRef.current
       ? `${outgoing}\n\n${attachmentTextRef.current}`
       : outgoing;
-    const next = [...messages, { role: "student" as const, text: outgoing, at: Date.now() }];
+    const next = [
+      ...messages,
+      { role: "student" as const, text: outgoing, at: Date.now() },
+    ];
     save(next);
     setDraft("");
     setAttachmentNote("");
@@ -167,17 +230,29 @@ export function MentorHome() {
         data: {
           competencyContext: competencyContext(competencyState()),
           mentorName: "BuildMyLogic Mentor",
-          mentorSpecialty: "Coding help, debugging, learning planning, and simple explanations",
+          mentorSpecialty:
+            "Coding help, debugging, learning planning, and simple explanations",
           learnerMessage: withContext,
-          history: next.slice(-10).map((item) => ({ role: item.role, text: item.text })),
+          history: next
+            .slice(-10)
+            .map((item) => ({ role: item.role, text: item.text })),
         },
       });
       save([...next, { role: "mentor", text: result.message, at: Date.now() }]);
       setMentorAvailability("online");
     } catch {
       setMentorAvailability("offline", "The last mentor request failed");
-      save([...next, { role: "mentor", text: "I'm offline right now, so I can't give a full answer. Tell me your goal, what you tried, and what happened - and try again in a moment.", at: Date.now() }]);
-      setChatError("BuildMyLogic Mentor is offline right now, so I gave you a simple starting reply.");
+      save([
+        ...next,
+        {
+          role: "mentor",
+          text: "I'm offline right now, so I can't give a full answer. Tell me your goal, what you tried, and what happened - and try again in a moment.",
+          at: Date.now(),
+        },
+      ]);
+      setChatError(
+        "BuildMyLogic Mentor is offline right now, so I gave you a simple starting reply.",
+      );
     } finally {
       setBusy(false);
     }
@@ -200,7 +275,9 @@ export function MentorHome() {
             </span>
             <div className="flex flex-wrap items-center gap-2.5">
               <p className="text-[16px] font-extrabold">BuildMyLogic Mentor</p>
-              <span className="pill bg-primary-soft text-accent-foreground">AI Mentor</span>
+              <span className="pill bg-primary-soft text-accent-foreground">
+                AI Mentor
+              </span>
             </div>
             <span
               title={availabilityReason ?? undefined}
@@ -225,7 +302,13 @@ export function MentorHome() {
                         : "bg-muted-foreground/50"
                 }`}
               />
-              {availability === "checking" ? "Checking…" : availability === "ready" ? "Ready" : availability === "online" ? "Online" : "Offline"}
+              {availability === "checking"
+                ? "Checking…"
+                : availability === "ready"
+                  ? "Ready"
+                  : availability === "online"
+                    ? "Online"
+                    : "Offline"}
             </span>
           </section>
 
@@ -241,7 +324,10 @@ export function MentorHome() {
                       <Sparkles className="h-3 w-3" />
                     </span>
                     <span className="text-[11px] text-muted-foreground">
-                      {new Date(message.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      {new Date(message.at).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </span>
                   </div>
                 </div>
@@ -251,7 +337,7 @@ export function MentorHome() {
                     <p className="whitespace-pre-wrap">{message.text}</p>
                   </div>
                 </div>
-              )
+              ),
             )}
             {busy && (
               <div className="max-w-[60%] rounded-2xl bg-primary-soft/70 px-5 py-3.5 text-[13px] font-medium text-muted-foreground">
@@ -261,8 +347,16 @@ export function MentorHome() {
             <div ref={messagesEndRef} />
           </div>
 
-          {chatError && <p className="mt-3 rounded-xl bg-amber-50 px-4 py-2.5 text-[12px] font-semibold text-amber-800">{chatError}</p>}
-          {attachmentNote && <p className="mt-3 rounded-xl bg-muted px-4 py-2.5 text-[12px] font-semibold">{attachmentNote}</p>}
+          {chatError && (
+            <p className="mt-3 rounded-xl bg-amber-50 px-4 py-2.5 text-[12px] font-semibold text-amber-800">
+              {chatError}
+            </p>
+          )}
+          {attachmentNote && (
+            <p className="mt-3 rounded-xl bg-muted px-4 py-2.5 text-[12px] font-semibold">
+              {attachmentNote}
+            </p>
+          )}
 
           <p className="mt-5 text-[14px] font-semibold">Try asking:</p>
           <div className="mt-2.5 flex flex-wrap gap-2.5 pr-14 sm:pr-0">
@@ -299,7 +393,10 @@ export function MentorHome() {
               type="file"
               multiple
               className="hidden"
-              onChange={(e) => { void attachFiles(e.target.files); e.currentTarget.value = ""; }}
+              onChange={(e) => {
+                void attachFiles(e.target.files);
+                e.currentTarget.value = "";
+              }}
             />
             <input
               value={draft}
@@ -325,21 +422,38 @@ export function MentorHome() {
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2.5">
                 <Layers className="h-[18px] w-[18px] text-primary" />
-                <h3 className="text-[15px] font-extrabold">Your Learning Context</h3>
+                <h3 className="text-[15px] font-extrabold">
+                  Your Learning Context
+                </h3>
               </div>
-              <span className="pill bg-primary-soft text-accent-foreground">Live from your progress</span>
+              <span className="pill bg-primary-soft text-accent-foreground">
+                Live from your progress
+              </span>
             </div>
             <div className="mt-4 space-y-3.5">
               {[
                 { icon: Target, label: "Current Topic", value: currentTopic },
-                { icon: Code2, label: "Current Project", value: plan?.projectTitle ?? "No project yet" },
-                { icon: BarChart3, label: "Focus Area", value: state.profile?.goal || "Set your goal in onboarding" },
+                {
+                  icon: Code2,
+                  label: "Current Project",
+                  value: plan?.projectTitle ?? "No project yet",
+                },
+                {
+                  icon: BarChart3,
+                  label: "Focus Area",
+                  value: state.profile?.goal || "Set your goal in onboarding",
+                },
               ].map(({ icon: Icon, label, value }) => (
-                <div key={label} className="flex items-center justify-between gap-3">
+                <div
+                  key={label}
+                  className="flex items-center justify-between gap-3"
+                >
                   <span className="flex items-center gap-2 text-[13px] font-medium text-muted-foreground">
                     <Icon className="h-4 w-4 text-primary" /> {label}
                   </span>
-                  <span className="max-w-[55%] truncate text-right text-[13px] font-bold">{value}</span>
+                  <span className="max-w-[55%] truncate text-right text-[13px] font-bold">
+                    {value}
+                  </span>
                 </div>
               ))}
             </div>
@@ -354,32 +468,56 @@ export function MentorHome() {
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => void send("Explain a concept I'm learning in simple terms.")}
+                onClick={() =>
+                  void send("Explain a concept I'm learning in simple terms.")
+                }
                 className="rounded-2xl border border-border bg-card p-4 text-left transition hover:border-primary disabled:opacity-50"
               >
                 <Code2 className="h-5 w-5 text-primary" />
-                <p className="mt-2.5 text-[13.5px] font-bold">Explain Concept</p>
-                <p className="mt-0.5 text-[11.5px] text-muted-foreground">Learn in simple terms</p>
+                <p className="mt-2.5 text-[13.5px] font-bold">
+                  Explain Concept
+                </p>
+                <p className="mt-0.5 text-[11.5px] text-muted-foreground">
+                  Learn in simple terms
+                </p>
               </button>
-              <Link to="/learn" className="rounded-2xl border border-border bg-card p-4 text-left transition hover:border-primary">
+              <Link
+                to="/learn"
+                className="rounded-2xl border border-border bg-card p-4 text-left transition hover:border-primary"
+              >
                 <Target className="h-5 w-5 text-primary" />
                 <p className="mt-2.5 text-[13.5px] font-bold">Get Practice</p>
-                <p className="mt-0.5 text-[11.5px] text-muted-foreground">Relevant exercises</p>
+                <p className="mt-0.5 text-[11.5px] text-muted-foreground">
+                  Relevant exercises
+                </p>
               </Link>
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => void send("Help me plan my next project based on my current skills.")}
+                onClick={() =>
+                  void send(
+                    "Help me plan my next project based on my current skills.",
+                  )
+                }
                 className="rounded-2xl border border-border bg-card p-4 text-left transition hover:border-primary disabled:opacity-50"
               >
                 <Layers className="h-5 w-5 text-primary" />
-                <p className="mt-2.5 text-[13.5px] font-bold">Plan Next Project</p>
-                <p className="mt-0.5 text-[11.5px] text-muted-foreground">Based on your skills</p>
+                <p className="mt-2.5 text-[13.5px] font-bold">
+                  Plan Next Project
+                </p>
+                <p className="mt-0.5 text-[11.5px] text-muted-foreground">
+                  Based on your skills
+                </p>
               </button>
-              <Link to="/progress" className="rounded-2xl border border-border bg-card p-4 text-left transition hover:border-primary">
+              <Link
+                to="/progress"
+                className="rounded-2xl border border-border bg-card p-4 text-left transition hover:border-primary"
+              >
                 <TrendingUp className="h-5 w-5 text-primary" />
                 <p className="mt-2.5 text-[13.5px] font-bold">Skill Guidance</p>
-                <p className="mt-0.5 text-[11.5px] text-muted-foreground">Improve & level up</p>
+                <p className="mt-0.5 text-[11.5px] text-muted-foreground">
+                  Improve & level up
+                </p>
               </Link>
             </div>
           </section>
@@ -387,7 +525,9 @@ export function MentorHome() {
           <section className="card-surface p-5">
             <div className="flex items-center gap-2.5">
               <BarChart3 className="h-[18px] w-[18px] text-primary" />
-              <h3 className="text-[15px] font-extrabold">Personalized Insights</h3>
+              <h3 className="text-[15px] font-extrabold">
+                Personalized Insights
+              </h3>
             </div>
             <Link
               to="/learn"
@@ -396,7 +536,9 @@ export function MentorHome() {
               <Lightbulb className="h-5 w-5 shrink-0 text-primary" />
               <div className="min-w-0 flex-1">
                 <p className="text-[13.5px] font-bold">Suggestion for you</p>
-                <p className="mt-1 text-[12.5px] leading-5 text-muted-foreground">{suggestion}</p>
+                <p className="mt-1 text-[12.5px] leading-5 text-muted-foreground">
+                  {suggestion}
+                </p>
               </div>
               <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
             </Link>

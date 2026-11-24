@@ -73,6 +73,7 @@ provider's normal confirmation. This UI does not claim the requested demo
 account has already been created.
 
 ### Logout cloud-save race fix
+
 Logout now synchronously revokes local auth/write authority before clearing local
 learner state, then performs provider-local signout. Late auth events and API
 session refreshes cannot restore that authority during signout. Debounced cloud
@@ -83,6 +84,7 @@ Regression exercise delays provider logout 1.4 seconds and verifies no empty
 cloud write, followed by password sign-in and fresh reload restoring saved data.
 
 ### Public demo preview
+
 The exact synthetic identifier demo@buildmylogic.invalid selects /demo before
 password authentication. Any supplied password is cleared and never sent or
 saved. /demo is a public sample preview, not an authenticated user: it does not

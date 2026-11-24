@@ -4,7 +4,8 @@ import { createRateLimiter } from "./rate-limit.ts";
 
 test("allows up to max then blocks within the window", () => {
   const limited = createRateLimiter();
-  for (let i = 0; i < 3; i++) assert.equal(limited("a", 3, 60_000, 1000 + i), false);
+  for (let i = 0; i < 3; i++)
+    assert.equal(limited("a", 3, 60_000, 1000 + i), false);
   assert.equal(limited("a", 3, 60_000, 1010), true);
 });
 test("keys are independent", () => {

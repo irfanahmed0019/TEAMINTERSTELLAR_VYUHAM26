@@ -1,7 +1,22 @@
 import { learningSchedule } from "@/lib/learning-schedule";
 import { useState, useEffect } from "react";
-import { Calendar, Clock, Check, Bell, ExternalLink, Download, Sparkles, X, ChevronRight } from "lucide-react";
-import { buildGoogleCalendarUrl, downloadIcsFile, syncSchedule, type ScheduleConfig } from "@/lib/google-calendar";
+import {
+  Calendar,
+  Clock,
+  Check,
+  Bell,
+  ExternalLink,
+  Download,
+  Sparkles,
+  X,
+  ChevronRight,
+} from "lucide-react";
+import {
+  buildGoogleCalendarUrl,
+  downloadIcsFile,
+  syncSchedule,
+  type ScheduleConfig,
+} from "@/lib/google-calendar";
 import { useLoop } from "@/lib/loop-store";
 
 interface ScheduleModalProps {
@@ -11,13 +26,20 @@ interface ScheduleModalProps {
   missionDescription?: string | undefined;
 }
 
-export function ScheduleModal({ isOpen, onClose, missionTitle, missionDescription }: ScheduleModalProps) {
+export function ScheduleModal({
+  isOpen,
+  onClose,
+  missionTitle,
+  missionDescription,
+}: ScheduleModalProps) {
   const state = useLoop();
   const profile = state.profile;
   const plan = state.plan;
 
-  const currentMissionTitle = missionTitle || plan?.missions?.[0]?.title || "Daily Build";
-  const currentMissionDesc = missionDescription || plan?.missions?.[0]?.description || "";
+  const currentMissionTitle =
+    missionTitle || plan?.missions?.[0]?.title || "Daily Build";
+  const currentMissionDesc =
+    missionDescription || plan?.missions?.[0]?.description || "";
 
   const [startTime, setStartTime] = useState(profile?.startTime || "19:00");
   const [endTime, setEndTime] = useState(profile?.endTime || "20:00");
@@ -40,7 +62,8 @@ export function ScheduleModal({ isOpen, onClose, missionTitle, missionDescriptio
     reminderMinutes,
     missionTitle: currentMissionTitle,
     missionDescription: currentMissionDesc,
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata",
+    timezone:
+      Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata",
   };
 
   const handleSaveAndSync = async () => {
@@ -79,19 +102,36 @@ export function ScheduleModal({ isOpen, onClose, missionTitle, missionDescriptio
             <Calendar className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h3 className="display text-xl font-extrabold tracking-tight">Set Your Build Time</h3>
-            <p className="text-xs text-muted-foreground">Review your chosen time and recurrence before saving a reminder</p>
+            <h3 className="display text-xl font-extrabold tracking-tight">
+              Set Your Build Time
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Review your chosen time and recurrence before saving a reminder
+            </p>
           </div>
         </div>
 
         <div className="mt-5 space-y-4">
-          {!learningSchedule(profile).exact && <p className="text-xs text-muted-foreground">These are editable suggested times, not a schedule you previously chose. Review both times and recurrence before saving.</p>}
+          {!learningSchedule(profile).exact && (
+            <p className="text-xs text-muted-foreground">
+              These are editable suggested times, not a schedule you previously
+              chose. Review both times and recurrence before saving.
+            </p>
+          )}
           {/* Mission preview badge */}
           {currentMissionTitle && (
             <div className="rounded-xl border border-border bg-muted/40 p-3 text-xs">
-              <span className="font-semibold text-foreground">Current Focus:</span>{" "}
-              <span className="text-primary font-bold">{currentMissionTitle}</span>
-              {currentMissionDesc && <p className="mt-1 line-clamp-1 text-[11px] text-muted-foreground">{currentMissionDesc}</p>}
+              <span className="font-semibold text-foreground">
+                Current Focus:
+              </span>{" "}
+              <span className="text-primary font-bold">
+                {currentMissionTitle}
+              </span>
+              {currentMissionDesc && (
+                <p className="mt-1 line-clamp-1 text-[11px] text-muted-foreground">
+                  {currentMissionDesc}
+                </p>
+              )}
             </div>
           )}
 
@@ -124,12 +164,16 @@ export function ScheduleModal({ isOpen, onClose, missionTitle, missionDescriptio
           {/* Recurrence and Reminder Settings */}
           <div className="grid grid-cols-2 gap-3 pt-1">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Recurrence</label>
+              <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">
+                Recurrence
+              </label>
               <button
                 type="button"
                 onClick={() => setRepeatDaily((r) => !r)}
                 className={`w-full rounded-xl border px-3 py-2.5 text-left text-xs font-semibold transition-colors ${
-                  repeatDaily ? "border-primary bg-primary-soft text-accent-foreground" : "border-border bg-background text-muted-foreground"
+                  repeatDaily
+                    ? "border-primary bg-primary-soft text-accent-foreground"
+                    : "border-border bg-background text-muted-foreground"
                 }`}
               >
                 {repeatDaily ? "🔁 Repeats Daily" : "📌 One-off Session"}
@@ -171,7 +215,11 @@ export function ScheduleModal({ isOpen, onClose, missionTitle, missionDescriptio
                 onClick={handleSaveAndSync}
                 className="btn-base btn-outline flex items-center justify-center gap-2 text-xs font-bold"
               >
-                {saved ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Sparkles className="h-3.5 w-3.5 text-primary" />}
+                {saved ? (
+                  <Check className="h-3.5 w-3.5 text-emerald-500" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                )}
                 {saved ? "Rhythm Saved!" : "Save Schedule"}
               </button>
 
@@ -217,7 +265,9 @@ export function ScheduleSyncCard({ onOpenModal }: { onOpenModal: () => void }) {
           <div>
             <h3 className="text-sm font-bold">Daily Build Rhythm</h3>
             <p className="text-xs text-muted-foreground">
-              {learningSchedule(profile).exact ? `${startTime} - ${endTime} ${profile?.repeatDaily !== false ? "(Daily preference)" : "(Custom)"}` : learningSchedule(profile).banner}
+              {learningSchedule(profile).exact
+                ? `${startTime} - ${endTime} ${profile?.repeatDaily !== false ? "(Daily preference)" : "(Custom)"}`
+                : learningSchedule(profile).banner}
             </p>
           </div>
         </div>

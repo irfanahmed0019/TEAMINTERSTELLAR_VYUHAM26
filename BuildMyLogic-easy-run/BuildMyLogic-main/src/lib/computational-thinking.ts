@@ -1,8 +1,28 @@
 export const THINKING_STEPS = [
-  { title: "Break the problem down", question: "What smaller steps solve the problem? Describe them before choosing syntax.", placeholder: "First read the input, then..., finally..." },
-  { title: "Map inputs, outputs and placement", question: "What goes in and out of each part? Which function or file should own it?", placeholder: "This function receives... and returns... It belongs in..." },
-  { title: "Use AI code deliberately", question: "AI-generated code is welcome. If you use a block, explain where it belongs, what it depends on, and how you will connect it. If you write it yourself, explain the same boundaries.", placeholder: "This block handles... I will connect it to... and check..." },
-  { title: "Predict, then test", question: "Predict a normal result and an edge case before Run. Compare actual output and explain any mismatch.", placeholder: "Normal input... should give... Edge case... should give..." },
+  {
+    title: "Break the problem down",
+    question:
+      "What smaller steps solve the problem? Describe them before choosing syntax.",
+    placeholder: "First read the input, then..., finally...",
+  },
+  {
+    title: "Map inputs, outputs and placement",
+    question:
+      "What goes in and out of each part? Which function or file should own it?",
+    placeholder: "This function receives... and returns... It belongs in...",
+  },
+  {
+    title: "Use AI code deliberately",
+    question:
+      "AI-generated code is welcome. If you use a block, explain where it belongs, what it depends on, and how you will connect it. If you write it yourself, explain the same boundaries.",
+    placeholder: "This block handles... I will connect it to... and check...",
+  },
+  {
+    title: "Predict, then test",
+    question:
+      "Predict a normal result and an edge case before Run. Compare actual output and explain any mismatch.",
+    placeholder: "Normal input... should give... Edge case... should give...",
+  },
 ] as const;
 
 export const COMPUTATIONAL_THINKING_GUIDANCE = `Teach computational thinking, not syntax memorization alone. Stay on the current problem and ask one useful reasoning question at a time: break it into smaller steps; identify inputs, outputs and the function or file where each part belongs; explain dependencies and how an AI-generated code block connects to the surrounding program; predict a normal case and an edge case, then compare real test output. AI code is allowed: help the learner understand, place, adapt and verify it instead of shaming copying or banning AI. Keep syntax support when needed. Do not invent execution results or treat a written plan as proof that tests passed.`;

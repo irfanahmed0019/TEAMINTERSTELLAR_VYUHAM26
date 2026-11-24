@@ -30,7 +30,11 @@ export const REVEAL_TOTAL_MS = 11600;
 /** Time-of-day greeting, same rule as the real dashboard header. */
 export function revealGreeting(date: Date = new Date()): string {
   const hour = date.getHours();
-  return hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  return hour < 12
+    ? "Good morning"
+    : hour < 17
+      ? "Good afternoon"
+      : "Good evening";
 }
 
 /** Stage indexes visible once `elapsed` milliseconds have passed. */

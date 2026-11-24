@@ -34,7 +34,8 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --shadow-card: 0 1px 2px oklch(0.2 0.02 275 / 0.05), 0 8px 24px oklch(0.2 0.02 275 / 0.04);
+  --shadow-card:
+    0 1px 2px oklch(0.2 0.02 275 / 0.05), 0 8px 24px oklch(0.2 0.02 275 / 0.04);
 }
 
 :root {
@@ -170,44 +171,197 @@
 .learn-chat-header {
   display: flex;
   align-items: center;
-  gap: .75rem;
-  padding: .9rem 1rem;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
   border-bottom: 1px solid var(--color-border);
-  background: rgba(255,255,255,.92);
+  background: rgba(255, 255, 255, 0.92);
 }
 .learn-chat-messages {
   flex: 1;
   overflow-y: auto;
   padding: 1.5rem clamp(1rem, 4vw, 3rem) 2rem;
 }
-.learn-message-row { display: flex; gap: .65rem; align-items: flex-start; margin: 1.15rem 0; }
-.learn-message-row.is-student { justify-content: flex-end; }
-.learn-avatar { width: 30px; height: 30px; flex: 0 0 30px; display:flex; align-items:center; justify-content:center; border-radius:50%; }
-.learn-avatar.mentor { background:#111; color:#fff; }
-.learn-avatar.student { border:1px solid var(--color-border); background:#fff; }
-.learn-message { max-width:min(760px, 88%); }
-.learn-message.mentor { color:#171717; }
-.learn-message.student { background:#f2f2f3; border-radius:1.1rem; padding:.7rem 1rem; }
-.learn-attachment { display:inline-flex; align-items:center; gap:.35rem; border:1px solid rgba(0,0,0,.12); background:#fff; border-radius:.65rem; padding:.35rem .55rem; font-size:.7rem; font-weight:700; }
-.learn-attachment.removable button { display:inline-flex; margin-left:.1rem; }
-.learn-composer-wrap { padding:.65rem 1rem 1rem; background:linear-gradient(to top, #fff 78%, rgba(255,255,255,.9)); }
-.learn-composer { display:flex; align-items:flex-end; gap:.45rem; max-width:900px; margin:0 auto; padding:.45rem .55rem .45rem .7rem; border:1px solid rgba(0,0,0,.2); border-radius:1.55rem; background:#fff; box-shadow:0 2px 12px rgba(0,0,0,.05); }
-.learn-composer-icon { width:36px; height:36px; flex:0 0 36px; display:flex; align-items:center; justify-content:center; border-radius:50%; color:#555; }
-.learn-composer-icon:hover { background:#f1f1f2; color:#111; }
-.learn-composer-input { flex:1; min-height:36px; max-height:180px; resize:none; border:0; outline:0; background:transparent; padding:.55rem .35rem; font-size:.95rem; line-height:1.4; font-weight:500; }
-.learn-send { width:36px; height:36px; flex:0 0 36px; display:flex; align-items:center; justify-content:center; border:0; border-radius:50%; background:#111; color:#fff; cursor:pointer; transition:opacity .15s ease, transform .15s ease; }
-.learn-send:hover { transform:translateY(-1px); }
-.learn-send:disabled { opacity:.3; transform:none; cursor:not-allowed; }
-.learn-dots { display:inline-flex; gap:4px; padding:.5rem .2rem; }
-.learn-dots i { width:5px; height:5px; border-radius:50%; background:#777; animation:loop-dot 1s infinite ease-in-out; }
-.learn-dots i:nth-child(2){animation-delay:.12s}.learn-dots i:nth-child(3){animation-delay:.24s}
-@keyframes loop-dot { 0%,80%,100%{opacity:.25;transform:translateY(0)} 40%{opacity:1;transform:translateY(-2px)} }
+.learn-message-row {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+  margin: 1.15rem 0;
+}
+.learn-message-row.is-student {
+  justify-content: flex-end;
+}
+.learn-avatar {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+.learn-avatar.mentor {
+  background: #111;
+  color: #fff;
+}
+.learn-avatar.student {
+  border: 1px solid var(--color-border);
+  background: #fff;
+}
+.learn-message {
+  max-width: min(760px, 88%);
+}
+.learn-message.mentor {
+  color: #171717;
+}
+.learn-message.student {
+  background: #f2f2f3;
+  border-radius: 1.1rem;
+  padding: 0.7rem 1rem;
+}
+.learn-attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  border-radius: 0.65rem;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.learn-attachment.removable button {
+  display: inline-flex;
+  margin-left: 0.1rem;
+}
+.learn-composer-wrap {
+  padding: 0.65rem 1rem 1rem;
+  background: linear-gradient(to top, #fff 78%, rgba(255, 255, 255, 0.9));
+}
+.learn-composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.45rem;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0.45rem 0.55rem 0.45rem 0.7rem;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 1.55rem;
+  background: #fff;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+.learn-composer-icon {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #555;
+}
+.learn-composer-icon:hover {
+  background: #f1f1f2;
+  color: #111;
+}
+.learn-composer-input {
+  flex: 1;
+  min-height: 36px;
+  max-height: 180px;
+  resize: none;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  padding: 0.55rem 0.35rem;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  font-weight: 500;
+}
+.learn-send {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: #111;
+  color: #fff;
+  cursor: pointer;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+.learn-send:hover {
+  transform: translateY(-1px);
+}
+.learn-send:disabled {
+  opacity: 0.3;
+  transform: none;
+  cursor: not-allowed;
+}
+.learn-dots {
+  display: inline-flex;
+  gap: 4px;
+  padding: 0.5rem 0.2rem;
+}
+.learn-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #777;
+  animation: loop-dot 1s infinite ease-in-out;
+}
+.learn-dots i:nth-child(2) {
+  animation-delay: 0.12s;
+}
+.learn-dots i:nth-child(3) {
+  animation-delay: 0.24s;
+}
+@keyframes loop-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
 
 /* Staged dashboard reveal after onboarding "I'm Ready": one simple rise, no extra effects. */
-@keyframes reveal-rise { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
-.reveal-rise { animation: reveal-rise .65s cubic-bezier(.22,.61,.36,1) both; }
-@media (prefers-reduced-motion: reduce) { .reveal-rise { animation:none; } }
-@media (max-width: 640px) { .learn-chat-shell { min-height: calc(100vh - 220px); border-radius:1rem; } .learn-chat-messages { padding-inline:.8rem; } .learn-message { max-width:92%; } }
+@keyframes reveal-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.reveal-rise {
+  animation: reveal-rise 0.65s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal-rise {
+    animation: none;
+  }
+}
+@media (max-width: 640px) {
+  .learn-chat-shell {
+    min-height: calc(100vh - 220px);
+    border-radius: 1rem;
+  }
+  .learn-chat-messages {
+    padding-inline: 0.8rem;
+  }
+  .learn-message {
+    max-width: 92%;
+  }
+}
 
 /* Vibe conversation: compact like ChatGPT, but intentionally visual and easy to scan. */
 .learn-chat-messages {
@@ -227,21 +381,21 @@
   max-width: min(780px, 86%);
 }
 .learn-message.mentor {
-  padding: .1rem 0;
+  padding: 0.1rem 0;
 }
 .learn-message.student {
   max-width: min(620px, 78%);
   background: #111;
   color: #fff;
   border: 0;
-  border-radius: 1.2rem 1.2rem .35rem 1.2rem;
-  padding: .85rem 1.1rem;
-  box-shadow: 0 4px 16px rgba(0,0,0,.08);
+  border-radius: 1.2rem 1.2rem 0.35rem 1.2rem;
+  padding: 0.85rem 1.1rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 .learn-rich-text {
   font-size: 1rem;
   line-height: 1.85;
-  letter-spacing: -.005em;
+  letter-spacing: -0.005em;
 }
 .learn-rich-text.is-mentor {
   font-weight: 520;
@@ -255,26 +409,26 @@
 }
 .learn-inline-code {
   display: inline-block;
-  margin: 0 .08rem;
-  padding: .08rem .35rem;
-  border-radius: .4rem;
+  margin: 0 0.08rem;
+  padding: 0.08rem 0.35rem;
+  border-radius: 0.4rem;
   background: #f1f1f2;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: .88em;
+  font-size: 0.88em;
   font-weight: 700;
 }
 .learn-inline-code.is-student {
-  background: rgba(255,255,255,.14);
+  background: rgba(255, 255, 255, 0.14);
   color: #fff;
 }
 .learn-avatar.student {
   display: none;
 }
 .learn-chat-header {
-  padding: .8rem 1rem;
+  padding: 0.8rem 1rem;
 }
 .learn-chat-header > .text-muted-foreground {
-  letter-spacing: .08em;
+  letter-spacing: 0.08em;
 }
 @media (max-width: 640px) {
   .learn-message {
@@ -284,7 +438,7 @@
     max-width: 88%;
   }
   .learn-rich-text {
-    font-size: .95rem;
+    font-size: 0.95rem;
     line-height: 1.75;
   }
 }
@@ -293,51 +447,82 @@
   border: 0;
   background: transparent;
   color: #777;
-  font-size: .68rem;
+  font-size: 0.68rem;
   font-weight: 800;
   cursor: pointer;
-  padding: .35rem .45rem;
-  border-radius: .5rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 0.5rem;
 }
-.learn-clear-chat:hover { background: #f1f1f2; color: #111; }
-.learn-chat-shell { box-shadow: 0 10px 35px rgba(0,0,0,.045); }
-.learn-message-row { margin: 1.75rem 0; }
-.learn-message.mentor { max-width: min(760px, 90%); }
+.learn-clear-chat:hover {
+  background: #f1f1f2;
+  color: #111;
+}
+.learn-chat-shell {
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.045);
+}
+.learn-message-row {
+  margin: 1.75rem 0;
+}
+.learn-message.mentor {
+  max-width: min(760px, 90%);
+}
 .learn-message.student {
   max-width: min(640px, 78%);
   background: #111;
   color: #fff;
   border-radius: 1.15rem;
-  padding: .72rem 1rem;
-  box-shadow: 0 6px 18px rgba(0,0,0,.08);
+  padding: 0.72rem 1rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
 }
 .learn-rich-text.is-mentor {
   font-size: 1rem;
   line-height: 1.8;
   font-weight: 600;
-  letter-spacing: -.01em;
+  letter-spacing: -0.01em;
 }
-.learn-rich-text.is-mentor strong { font-weight: 900; }
-.learn-rich-text.is-student { font-size: .96rem; line-height: 1.55; font-weight: 650; }
+.learn-rich-text.is-mentor strong {
+  font-weight: 900;
+}
+.learn-rich-text.is-student {
+  font-size: 0.96rem;
+  line-height: 1.55;
+  font-weight: 650;
+}
 .learn-inline-code {
   display: inline-block;
-  padding: .08rem .35rem;
-  border-radius: .38rem;
+  padding: 0.08rem 0.35rem;
+  border-radius: 0.38rem;
   background: #f1f1f2;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: .9em;
+  font-size: 0.9em;
   font-weight: 800;
 }
-.learn-inline-code.is-student { background: rgba(255,255,255,.14); color: #fff; }
-.learn-composer-wrap { position: sticky; bottom: 0; z-index: 3; }
+.learn-inline-code.is-student {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+.learn-composer-wrap {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+}
 .learn-composer-input {
   max-height: 180px;
   overflow-y: hidden;
   scrollbar-width: thin;
 }
-.learn-composer-input::placeholder { color: #8a8a8f; }
-.learn-send { transition: transform .15s ease, opacity .15s ease, background .15s ease; }
-.learn-send:not(:disabled):hover { transform: translateY(-1px) scale(1.03); }
+.learn-composer-input::placeholder {
+  color: #8a8a8f;
+}
+.learn-send {
+  transition:
+    transform 0.15s ease,
+    opacity 0.15s ease,
+    background 0.15s ease;
+}
+.learn-send:not(:disabled):hover {
+  transform: translateY(-1px) scale(1.03);
+}
 
 /* ------------------------------------------------------------------------ */
 /* Lesson chat: purple design refresh (matches the Learn/Mentor redesign).  */
@@ -350,9 +535,9 @@
 }
 .learn-chat-header {
   flex-wrap: wrap;
-  row-gap: .45rem;
-  column-gap: .65rem;
-  padding: .8rem 1rem;
+  row-gap: 0.45rem;
+  column-gap: 0.65rem;
+  padding: 0.8rem 1rem;
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
 }
@@ -363,26 +548,28 @@
   border-radius: 999px;
   background: var(--color-primary-soft);
   color: var(--color-accent-foreground);
-  padding: .3rem .65rem;
-  font-size: .62rem;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.62rem;
   font-weight: 900;
-  letter-spacing: .06em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 .learn-clear-chat {
   display: inline-flex;
   align-items: center;
-  gap: .3rem;
+  gap: 0.3rem;
   white-space: nowrap;
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   color: var(--color-muted-foreground);
-  font-size: .68rem;
+  font-size: 0.68rem;
   font-weight: 800;
   cursor: pointer;
-  padding: .35rem .7rem;
+  padding: 0.35rem 0.7rem;
   border-radius: 999px;
-  transition: border-color .15s ease, color .15s ease;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 .learn-clear-chat:hover {
   border-color: var(--color-destructive);
@@ -395,15 +582,16 @@
 }
 .learn-message.mentor {
   background: color-mix(in oklab, var(--color-primary-soft) 70%, transparent);
-  border-radius: 1.2rem 1.2rem 1.2rem .35rem;
-  padding: .85rem 1.1rem;
+  border-radius: 1.2rem 1.2rem 1.2rem 0.35rem;
+  padding: 0.85rem 1.1rem;
 }
 .learn-message.student {
   background: var(--color-primary);
   color: var(--color-primary-foreground);
   border: 0;
-  border-radius: 1.2rem 1.2rem .35rem 1.2rem;
-  box-shadow: 0 4px 16px color-mix(in oklab, var(--color-primary) 22%, transparent);
+  border-radius: 1.2rem 1.2rem 0.35rem 1.2rem;
+  box-shadow: 0 4px 16px
+    color-mix(in oklab, var(--color-primary) 22%, transparent);
 }
 .learn-rich-text.is-mentor {
   color: var(--color-foreground);
@@ -413,13 +601,13 @@
   color: var(--color-accent-foreground);
 }
 .learn-inline-code.is-student {
-  background: rgba(255, 255, 255, .16);
+  background: rgba(255, 255, 255, 0.16);
   color: var(--color-primary-foreground);
 }
 .learn-composer {
   border: 1px solid var(--color-border);
   background: var(--color-surface);
-  transition: border-color .15s ease;
+  transition: border-color 0.15s ease;
 }
 .learn-composer:focus-within {
   border-color: var(--color-primary);
@@ -441,7 +629,7 @@
 }
 @media (max-width: 640px) {
   .learn-chat-header {
-    padding: .7rem .8rem;
+    padding: 0.7rem 0.8rem;
   }
   .learn-chat-header > .ml-auto {
     width: 100%;
@@ -453,13 +641,13 @@
 /* Mentor code blocks: fenced code renders as a real block, not raw backticks. */
 .learn-code-block {
   display: block;
-  margin: .55rem 0 .2rem;
-  padding: .7rem .9rem;
-  border-radius: .75rem;
+  margin: 0.55rem 0 0.2rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.75rem;
   background: #17130f;
   color: #f5f2ec;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: .86rem;
+  font-size: 0.86rem;
   line-height: 1.6;
   font-weight: 600;
   overflow-x: auto;
@@ -474,12 +662,12 @@
 .learn-code-block[data-lang]::before {
   content: attr(data-lang);
   display: block;
-  margin-bottom: .35rem;
-  font-size: .62rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.62rem;
   font-weight: 800;
-  letter-spacing: .08em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255,255,255,.45);
+  color: rgba(255, 255, 255, 0.45);
 }
 
 /* Composer: an empty input never wraps its placeholder into a clipped second

@@ -18,7 +18,10 @@ export type MentorAvailabilitySnapshot = {
 let snapshot: MentorAvailabilitySnapshot = { state: "checking", reason: null };
 const listeners = new Set<() => void>();
 
-export function setMentorAvailability(state: MentorAvailability, reason: string | null = null) {
+export function setMentorAvailability(
+  state: MentorAvailability,
+  reason: string | null = null,
+) {
   snapshot = { state, reason };
   listeners.forEach((listener) => listener());
 }
@@ -28,7 +31,10 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
-const serverSnapshot: MentorAvailabilitySnapshot = { state: "checking", reason: null };
+const serverSnapshot: MentorAvailabilitySnapshot = {
+  state: "checking",
+  reason: null,
+};
 
 export function useMentorAvailability(): MentorAvailabilitySnapshot {
   return useSyncExternalStore(

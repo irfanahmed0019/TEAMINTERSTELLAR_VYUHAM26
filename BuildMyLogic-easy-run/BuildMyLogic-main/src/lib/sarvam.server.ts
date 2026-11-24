@@ -15,7 +15,11 @@ function isRetryableStatus(status: number) {
   return status === 408 || status === 409 || status === 429 || status >= 500;
 }
 
-export async function sarvamChat(apiKey: string, messages: Msg[], maxTokens = 800): Promise<string> {
+export async function sarvamChat(
+  apiKey: string,
+  messages: Msg[],
+  maxTokens = 800,
+): Promise<string> {
   const attempts = 3;
   let lastError: unknown;
 
@@ -60,14 +64,20 @@ export async function sarvamChat(apiKey: string, messages: Msg[], maxTokens = 80
           "[sarvamChat] provider rejected request:",
           `${safeMessage}${providerErrorDetail(rawBody) ? ` | provider said: ${providerErrorDetail(rawBody)}` : ""}`,
         );
-        throw new Error(res.status === 403 ? safeMessage : `${safeMessage}. Please try again.`);
+        throw new Error(
+          res.status === 403
+            ? safeMessage
+            : `${safeMessage}. Please try again.`,
+        );
       }
 
       let json: SarvamResponse;
       try {
         json = JSON.parse(rawBody) as SarvamResponse;
       } catch {
-        throw new Error("BuildMyLogic AI returned an invalid response. Please try again.");
+        throw new Error(
+          "BuildMyLogic AI returned an invalid response. Please try again.",
+        );
       }
 
       const choice = json.choices?.[0];
@@ -90,9 +100,14 @@ export async function sarvamChat(apiKey: string, messages: Msg[], maxTokens = 80
           await sleep(400 * 2 ** attempt);
           continue;
         }
-        throw new Error("BuildMyLogic Mentor took too long to respond. Please try again.");
+        throw new Error(
+          "BuildMyLogic Mentor took too long to respond. Please try again.",
+        );
       }
-      if (error instanceof Error && error.message.startsWith("BuildMyLogic AI error")) {
+      if (
+        error instanceof Error &&
+        error.message.startsWith("BuildMyLogic AI error")
+      ) {
         // Already logged at the rejection site with the provider's reason.
         throw error;
       }
@@ -106,10 +121,17 @@ export async function sarvamChat(apiKey: string, messages: Msg[], maxTokens = 80
   }
 
   if (lastError instanceof Error && lastError.message) {
-    console.error("[sarvamChat] request failed after retries:", lastError.message);
-    throw new Error(`BuildMyLogic Mentor could not reach AI provider right now. ${lastError.message}`);
+    console.error(
+      "[sarvamChat] request failed after retries:",
+      lastError.message,
+    );
+    throw new Error(
+      `BuildMyLogic Mentor could not reach AI provider right now. ${lastError.message}`,
+    );
   }
-  throw new Error("BuildMyLogic Mentor could not respond right now. Please try again.");
+  throw new Error(
+    "BuildMyLogic Mentor could not respond right now. Please try again.",
+  );
 }
 
 function stripFence(text: string): string {
@@ -123,8 +145,14 @@ function providerErrorDetail(rawBody: string): string {
   if (!rawBody) return "";
   let text = rawBody;
   try {
-    const parsed = JSON.parse(rawBody) as { error?: { message?: unknown } | string; message?: unknown };
-    const nested = typeof parsed?.error === "object" && parsed.error !== null ? (parsed.error as { message?: unknown }).message : undefined;
+    const parsed = JSON.parse(rawBody) as {
+      error?: { message?: unknown } | string;
+      message?: unknown;
+    };
+    const nested =
+      typeof parsed?.error === "object" && parsed.error !== null
+        ? (parsed.error as { message?: unknown }).message
+        : undefined;
     const candidate =
       (typeof nested === "string" && nested) ||
       (typeof parsed?.message === "string" && parsed.message) ||
@@ -135,7 +163,7 @@ function providerErrorDetail(rawBody: string): string {
     // Not JSON - use the raw body, sanitized below.
   }
   return text
-    .replace(/[A-Za-z0-9_\-]{24,}/g, "[redacted]")
+    .replace(/[A-Za-z0-9_-]{24,}/g, "[redacted]")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 160);
@@ -155,14 +183,24 @@ export function parseJsonBlock<T>(text: string): T {
       }
     }
   }
-  throw new Error("BuildMyLogic Mentor returned an unreadable answer. Please try again.");
+  throw new Error(
+    "BuildMyLogic Mentor returned an unreadable answer. Please try again.",
+  );
 }
 
-export async function sarvamJson<T>(apiKey: string, system: string, user: string, maxTokens = 1200): Promise<T> {
+export async function sarvamJson<T>(
+  apiKey: string,
+  system: string,
+  user: string,
+  maxTokens = 1200,
+): Promise<T> {
   const raw = await sarvamChat(
     apiKey,
     [
-      { role: "system", content: `${system}\n\nReturn a JSON object only. No markdown fences. No prose outside JSON.` },
+      {
+        role: "system",
+        content: `${system}\n\nReturn a JSON object only. No markdown fences. No prose outside JSON.`,
+      },
       { role: "user", content: user },
     ],
     maxTokens,

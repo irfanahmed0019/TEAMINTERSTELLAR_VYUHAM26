@@ -60,10 +60,13 @@ export function editorKeyEdit({
     const block = value.slice(lineStart, lineEnd);
     if (shiftKey) {
       let removedFirst = 0;
-      const next = block.replace(/^((?: {1,4})|\t)/gm, (_m, ws: string, offset: number) => {
-        if (offset === 0) removedFirst = ws.length;
-        return "";
-      });
+      const next = block.replace(
+        /^((?: {1,4})|\t)/gm,
+        (_m, ws: string, offset: number) => {
+          if (offset === 0) removedFirst = ws.length;
+          return "";
+        },
+      );
       const removedTotal = block.length - next.length;
       return done(
         value.slice(0, lineStart) + next + value.slice(lineEnd),
@@ -112,11 +115,7 @@ export function editorKeyEdit({
 
   // Type-over: typing a closing character that is already there just moves
   // past it instead of inserting a duplicate.
-  if (
-    collapsed &&
-    (CLOSERS.has(key) || QUOTES.has(key)) &&
-    value[a] === key
-  ) {
+  if (collapsed && (CLOSERS.has(key) || QUOTES.has(key)) && value[a] === key) {
     return done(value, a + 1, a + 1);
   }
 

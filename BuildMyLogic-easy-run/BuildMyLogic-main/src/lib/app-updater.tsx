@@ -27,16 +27,31 @@ async function clearAppCaches(): Promise<void> {
 }
 
 function hasUnsentText(): boolean {
-  for (const field of Array.from(document.querySelectorAll("textarea, input"))) {
+  for (const field of Array.from(
+    document.querySelectorAll("textarea, input"),
+  )) {
     if (field instanceof HTMLTextAreaElement && field.value.trim()) return true;
     if (field instanceof HTMLInputElement) {
       const type = (field.getAttribute("type") || "text").toLowerCase();
-      if (["text", "search", "email", "url", "tel", "number", "password"].includes(type) && field.value.trim()) {
+      if (
+        [
+          "text",
+          "search",
+          "email",
+          "url",
+          "tel",
+          "number",
+          "password",
+        ].includes(type) &&
+        field.value.trim()
+      ) {
         return true;
       }
     }
   }
-  const editable = document.querySelector("[contenteditable='true'], [contenteditable='']");
+  const editable = document.querySelector(
+    "[contenteditable='true'], [contenteditable='']",
+  );
   return Boolean(editable && editable.textContent?.trim());
 }
 
@@ -90,7 +105,8 @@ export function AppUpdater() {
         const res = await fetch("/api/app-version", { cache: "no-store" });
         if (!res.ok) return;
         const data = (await res.json()) as { version?: unknown };
-        const version = typeof data.version === "string" ? data.version.trim() : "";
+        const version =
+          typeof data.version === "string" ? data.version.trim() : "";
         if (!version || version === "dev") {
           baseline ??= version || undefined;
           return;

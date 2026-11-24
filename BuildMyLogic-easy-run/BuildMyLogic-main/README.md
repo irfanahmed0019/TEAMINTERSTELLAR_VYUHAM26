@@ -36,6 +36,7 @@ A learner does not receive a large project immediately. BuildMyLogic starts at t
 AI is used where reasoning and explanation are useful; deterministic code handles facts.
 
 **AI handles**
+
 - onboarding understanding
 - hints and explanations
 - just-in-time theory
@@ -43,6 +44,7 @@ AI is used where reasoning and explanation are useful; deterministic code handle
 - recommendation reasoning
 
 **Code handles**
+
 - test results
 - scores
 - attempts

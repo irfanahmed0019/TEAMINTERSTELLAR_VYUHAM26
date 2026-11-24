@@ -13,13 +13,21 @@ const KEY = "bml.mentor.v1";
 
 export function loadLocal(): MentorState | null {
   try {
-    const raw = typeof localStorage !== "undefined" ? learnerStorage.getItem(KEY) : null;
+    const raw =
+      typeof localStorage !== "undefined" ? learnerStorage.getItem(KEY) : null;
     const s = raw ? (JSON.parse(raw) as MentorState) : null;
     return s && s.version === 1 && !s.verified ? s : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 export function saveLocal(s: MentorState | null) {
-  try { if (!s) learnerStorage.removeItem(KEY); else if (!s.verified) learnerStorage.setItem(KEY, JSON.stringify(s)); } catch { /* storage full or blocked */ }
+  try {
+    if (!s) learnerStorage.removeItem(KEY);
+    else if (!s.verified) learnerStorage.setItem(KEY, JSON.stringify(s));
+  } catch {
+    /* storage full or blocked */
+  }
 }
 
 export async function accountToken(): Promise<string | null> {
@@ -28,15 +36,29 @@ export async function accountToken(): Promise<string | null> {
 }
 
 /** Calls a mentor API route. Sends the learner's token when signed in. */
-export async function mentorApi<T>(path: string, init?: { method?: "GET" | "POST"; body?: unknown; auth?: boolean }): Promise<T> {
-  if (isPublicDemo()) throw new Error("Code execution and account APIs are unavailable in public demo mode.");
-  const headers: Record<string, string> = { "content-type": "application/json" };
+export async function mentorApi<T>(
+  path: string,
+  init?: { method?: "GET" | "POST"; body?: unknown; auth?: boolean },
+): Promise<T> {
+  if (isPublicDemo())
+    throw new Error(
+      "Code execution and account APIs are unavailable in public demo mode.",
+    );
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+  };
   if (init?.auth !== false) {
     const t = await accountToken();
     if (t) headers["authorization"] = `Bearer ${t}`;
   }
-  const res = await fetch(path, { method: init?.method ?? "POST", headers, ...(init?.body !== undefined ? { body: JSON.stringify(init.body) } : {}) });
-  const data = (await res.json().catch(() => null)) as ({ ok: boolean; error?: string } & T) | null;
-  if (!res.ok || !data || data.ok === false) throw new Error(data?.error || `Request failed (${res.status}).`);
+  const res = await fetch(path, {
+    method: init?.method ?? "POST",
+    headers,
+    ...(init?.body !== undefined ? { body: JSON.stringify(init.body) } : {}),
+  });
+  const data = (await res.json().catch(() => null)) as
+    ({ ok: boolean; error?: string } & T) | null;
+  if (!res.ok || !data || data.ok === false)
+    throw new Error(data?.error || `Request failed (${res.status}).`);
   return data;
 }

@@ -1,12 +1,14 @@
 # BuildMyLogic — Quick start (Linux)
 
 ## Requirements
+
 - Node.js 22 LTS or newer
 - npm (included with Node.js)
 - Internet access for the first dependency install
 - Optional desktop folder picker: `zenity` (`sudo apt install zenity`) or `kdialog`
 
 ## Run
+
 From the extracted project directory:
 
 ```bash
@@ -24,7 +26,9 @@ npm run dev
 ```
 
 ## Environment
+
 The app can start without cloud credentials, but authentication, cloud sync, and AI features need the corresponding values in `.env`:
+
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY` (server-side only; never expose it with a `VITE_` prefix)
@@ -33,6 +37,7 @@ The app can start without cloud credentials, but authentication, cloud sync, and
 Never commit `.env` or share service-role/API keys.
 
 ## VS Code extension
+
 The project contains a newer packaged extension at `public/downloads/buildmylogic-vscode-0.0.5.vsix`. Install it with:
 
 ```bash
@@ -42,9 +47,11 @@ code --install-extension public/downloads/buildmylogic-vscode-0.0.5.vsix
 Restart VS Code, open the BuildMyLogic activity-bar view, and connect using an active session ID from the web app. The extension talks to the web app API; it does not need the AI provider API key.
 
 ## Diagnostics
+
 ```bash
 npm run typecheck
 npm run lint
 npm run build
 ```
+
 If installation or any diagnostic fails, copy the complete terminal output. A specific error log is needed to make a reliable source-level fix; do not paste API keys.
