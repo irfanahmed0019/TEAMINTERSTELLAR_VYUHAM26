@@ -1161,7 +1161,9 @@ function Sessions() {
               {remotePractice ? (
                 <p className="mt-5 text-sm font-semibold">
                   Work on this question in VS Code, then click Submit to check
-                  your code.
+                  your code. The Python file that is open in the VS Code editor
+                  is the one that gets checked, and VS Code shows its full path
+                  before it runs.
                 </p>
               ) : (
                 <>
