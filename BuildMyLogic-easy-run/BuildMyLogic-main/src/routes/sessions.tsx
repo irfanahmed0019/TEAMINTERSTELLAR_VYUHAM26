@@ -132,6 +132,7 @@ function Sessions() {
     null,
   );
   const [stateLoadFailed, setStateLoadFailed] = useState(false);
+  const retryStateNow = useRef<(() => void) | undefined>(undefined);
   const [pickerError, setPickerError] = useState("");
   const [practiceNotice, setPracticeNotice] = useState("");
   const [practiceSelection, setPracticeSelection] = useState("");
@@ -282,7 +283,12 @@ function Sessions() {
     if (!vscodeSession) return;
     let cancelled = false;
     setStateLoadFailed(false);
+    // Failures back off (10s, 20s, 40s, 60s cap) instead of hammering the API;
+    // the Retry button forces one immediate attempt.
+    let failures = 0;
+    let nextAllowed = 0;
     const sync = async () => {
+      if (Date.now() < nextAllowed) return;
       try {
         const epoch = getAuthEpoch();
         const auth = await getAuthSessionForApi();
@@ -313,6 +319,8 @@ function Sessions() {
           hasState: Boolean(result.state),
         });
         if (!cancelled && outcome === "apply" && result.state) {
+          failures = 0;
+          nextAllowed = 0;
           setStateLoadFailed(false);
           setRemoteState(result.state);
           setVscodeSession((current) => {
@@ -329,18 +337,29 @@ function Sessions() {
             "This session could not be opened for the signed-in account. Existing learner history is unchanged. Start a new secure session with extension v0.3.10.",
           );
         } else if (!cancelled) {
+          failures += 1;
+          nextAllowed = Date.now() + Math.min(5000 * 2 ** failures, 60000);
           setStateLoadFailed(true);
         }
       } catch {
         // Keep the last confirmed state; with none yet, say so instead of
         // showing local plan data as if it were the session.
-        if (!cancelled) setStateLoadFailed(true);
+        if (!cancelled) {
+          failures += 1;
+          nextAllowed = Date.now() + Math.min(5000 * 2 ** failures, 60000);
+          setStateLoadFailed(true);
+        }
       }
+    };
+    retryStateNow.current = () => {
+      nextAllowed = 0;
+      void sync();
     };
     void sync();
     const id = window.setInterval(() => void sync(), 5000);
     return () => {
       cancelled = true;
+      retryStateNow.current = undefined;
       window.clearInterval(id);
     };
   }, [vscodeSession?.sessionId]);
@@ -380,7 +399,11 @@ function Sessions() {
     : extensionStatus === "active" || extensionStatus === "connected";
   const viewState = sessionViewState({
     hasSessionId: Boolean(vscodeSession),
-    hasRemoteState: Boolean(remoteState),
+    // Verified state counts only for the session id currently shown.
+    hasRemoteState:
+      Boolean(remoteState) &&
+      remoteState?.session_id?.toUpperCase() ===
+        vscodeSession?.sessionId?.toUpperCase(),
     loadFailed: stateLoadFailed,
   });
   const remotePending = viewState === "loading" || viewState === "error";
@@ -1067,14 +1090,25 @@ function Sessions() {
           <p className="mt-0.5 text-[13px] text-muted-foreground">
             {remotePending
               ? viewState === "error"
-                ? "Could not load this session's state. Retrying. Your saved result is not affected."
+                ? "Could not load current status. Retrying with a delay."
                 : "Loading this session's state from your account."
-              : extensionConnected
-                ? "BuildMyLogic extension is running and tracking your progress."
-                : vscodeSession
-                  ? `${sessionLabel}. Keep your saved result. If VS Code shows another ID, use "Already connected in VS Code?" below.`
-                  : "Connect the BuildMyLogic extension to track your real work."}
+              : viewState === "ready" && stateLoadFailed
+                ? "Could not refresh status. Showing the last status loaded for this session, which may be out of date."
+                : extensionConnected
+                  ? "BuildMyLogic extension is running and tracking your progress."
+                  : vscodeSession
+                    ? `${sessionLabel}. Keep your saved result. If VS Code shows another ID, use "Already connected in VS Code?" below.`
+                    : "Connect the BuildMyLogic extension to track your real work."}
           </p>
+          {stateLoadFailed && viewState !== "none" && (
+            <button
+              type="button"
+              className="mt-1 text-[12.5px] font-bold text-primary underline"
+              onClick={() => retryStateNow.current?.()}
+            >
+              Retry now
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-2.5">
           <button
@@ -1166,7 +1200,7 @@ function Sessions() {
               <p className="mt-2 max-w-md text-[13.5px] leading-6 text-muted-foreground">
                 {remotePending
                   ? viewState === "error"
-                    ? "Retrying every few seconds."
+                    ? "Retrying with a delay."
                     : "Fetching the latest state."
                   : remoteState &&
                       PRACTICE_TASKS.some(

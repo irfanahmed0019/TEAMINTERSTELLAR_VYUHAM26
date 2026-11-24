@@ -77,3 +77,14 @@ test("Sessions page hides local plan data while the session state is pending", (
   assert.match(src, /remotePending\s*\?\s*\[\]/);
   assert.match(src, /setStateLoadFailed\(true\)/);
 });
+
+test("page keys verified state to the shown session id, backs off failures and offers retry", () => {
+  const src = readFileSync(
+    new URL("../routes/sessions.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(src, /remoteState\?\.session_id\?\.toUpperCase\(\)/);
+  assert.match(src, /Math\.min\(5000 \* 2 \*\* failures, 60000\)/);
+  assert.match(src, /Retry now/);
+  assert.doesNotMatch(src, /saved result is not affected/);
+});
