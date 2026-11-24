@@ -1,3 +1,7 @@
+## 0.4.1
+
+- Results panel and install page no longer mention the removed Recovery, Setup and Mentor tabs.
+
 ## 0.4.0
 
 - Basic version. The sidebar has two tabs: Mission (task, requirements, Run Tests, Submit) and Progress (results, struggle signals, "I could not complete this", disconnect).

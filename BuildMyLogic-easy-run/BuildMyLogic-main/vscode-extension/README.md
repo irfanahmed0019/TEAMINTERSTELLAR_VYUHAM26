@@ -202,19 +202,18 @@ Useful checks:
 - Postponed GitHub, website, authentication, remote submission, cloud progress, and remote tests.
 - Expanded the README with architecture, messages, build/run, troubleshooting, future-work, and status documentation.
 
-### Four-tab workspace UI (0.3.1)
+### Basic two-tab UI (0.4.0)
 
-Open the BuildMyLogic activity-bar icon to see Mission, Progress, Mentor and
-Recovery. Run Tests asks before running a local command and opens the native
-bottom BuildMyLogic panel. Rows show published checkpoint evidence, including
-unrun checks, and actual command output. Reports remain client-trusted, not
-server-attested. A passing command is not a general proficiency certificate.
+Open the BuildMyLogic activity-bar icon to see Mission and Progress. Pair with
+the code from the website Sessions page, run tests, and submit. Run Tests asks
+before running a local command and opens the native bottom BuildMyLogic panel.
+Progress percentages count this session's reported checks only. Reports remain
+client-trusted, not server-attested. A passing command is not a general
+proficiency certificate.
 
-Progress percentages count this session's reported checks only. The Mentor tab
-shows recorded session feedback and offers the existing authenticated Mentor;
-there are no example conversations or invented replies. Recovery opens the
-signed-in website for owner checking, prediction probes and supported changed
-tasks. Repeated output mismatches alone do not establish a mental cause.
+The AI Mentor, the Setup/install tab and the Recovery tab were removed in 0.4.0.
+Mentor and recovery work live on the website. Repeated output mismatches alone
+do not establish a mental cause.
 
 The independent 0.3.1 build was developed from this repository. Its local QA
 uses a clearly labelled fixture backend and real gcc stdin/output checks. Local

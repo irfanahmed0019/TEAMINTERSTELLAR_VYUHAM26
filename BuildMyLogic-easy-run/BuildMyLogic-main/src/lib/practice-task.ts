@@ -5,7 +5,7 @@ export const PRACTICE_TASKS = [
     concept: "loops",
     title: "Loop practice",
     question:
-      "In your Python file, use a loop to print the first 10 Fibonacci numbers, starting 0, 1.\nSeparate the numbers with spaces.",
+      "In your Python file, use a loop to print the first 10 Fibonacci numbers, starting 0, 1.\nSeparate the numbers with spaces. No input is needed.",
     cases: 1,
   },
   {
