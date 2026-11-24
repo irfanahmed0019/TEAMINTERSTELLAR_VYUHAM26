@@ -1073,18 +1073,22 @@ function Sessions() {
           <div className="flex flex-wrap items-center gap-2.5">
             <h2 className="text-[16px] font-extrabold">VS Code Integration</h2>
             <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${remotePending ? "bg-muted text-muted-foreground" : extensionConnected ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${remotePending || stateLoadFailed ? "bg-muted text-muted-foreground" : extensionConnected ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}
             >
               <span
-                className={`h-1.5 w-1.5 rounded-full ${remotePending ? "bg-muted-foreground" : extensionConnected ? "bg-emerald-500" : "bg-red-500"}`}
+                className={`h-1.5 w-1.5 rounded-full ${remotePending || stateLoadFailed ? "bg-muted-foreground" : extensionConnected ? "bg-emerald-500" : "bg-red-500"}`}
               />
               {remotePending
                 ? viewState === "error"
                   ? "Status unavailable"
                   : "Checking..."
-                : extensionConnected
-                  ? "Connected"
-                  : "Not connected"}
+                : stateLoadFailed
+                  ? extensionConnected
+                    ? "Connected (may be out of date)"
+                    : "Not connected (may be out of date)"
+                  : extensionConnected
+                    ? "Connected"
+                    : "Not connected"}
             </span>
           </div>
           <p className="mt-0.5 text-[13px] text-muted-foreground">
@@ -1456,16 +1460,20 @@ function Sessions() {
               Session ID
             </div>
             <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${remotePending ? "bg-muted text-muted-foreground" : extensionConnected ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}
+              className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${remotePending || stateLoadFailed ? "bg-muted text-muted-foreground" : extensionConnected ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}
             >
               <span
-                className={`h-1.5 w-1.5 rounded-full ${remotePending ? "bg-muted-foreground" : extensionConnected ? "bg-emerald-500" : "bg-red-500"}`}
+                className={`h-1.5 w-1.5 rounded-full ${remotePending || stateLoadFailed ? "bg-muted-foreground" : extensionConnected ? "bg-emerald-500" : "bg-red-500"}`}
               />
               {remotePending
-                ? "Checking..."
-                : extensionConnected
-                  ? "Connected"
-                  : "Not connected"}
+                ? viewState === "error"
+                  ? "Unavailable"
+                  : "Checking..."
+                : stateLoadFailed
+                  ? "May be out of date"
+                  : extensionConnected
+                    ? "Connected"
+                    : "Not connected"}
             </span>
           </div>
           {vscodeSession ? (
