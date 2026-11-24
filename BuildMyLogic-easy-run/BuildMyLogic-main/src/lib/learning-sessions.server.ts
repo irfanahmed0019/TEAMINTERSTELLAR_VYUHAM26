@@ -217,6 +217,25 @@ const EVIDENCE_GROUP = [
   "evidenceSeq",
 ] as const;
 
+/**
+ * Stored wins when its evidenceSeq is higher. Legacy snapshots have no
+ * evidenceSeq (treated as 0): with equal sequence and different events, the
+ * stored row still wins if it is at least as new by rev, because it is the
+ * authoritative copy. Memory only wins when it is strictly ahead.
+ */
+function storedIsFurtherAlong(
+  session: LearningSession,
+  saved: LearningSession,
+) {
+  const a = session.evidenceSeq ?? 0;
+  const b = saved.evidenceSeq ?? 0;
+  if (b !== a) return b > a;
+  if ((saved.rev ?? 0) < (session.rev ?? 0)) return false;
+  return (
+    JSON.stringify(saved.events ?? []) !== JSON.stringify(session.events ?? [])
+  );
+}
+
 function sameSessionBinding(a: LearningSession, b: LearningSession) {
   return (
     a.sessionId === b.sessionId &&
@@ -238,7 +257,7 @@ export function adoptStoredEvidence(
   if (
     !saved ||
     !sameSessionBinding(session, saved) ||
-    (saved.evidenceSeq ?? 0) <= (session.evidenceSeq ?? 0)
+    !storedIsFurtherAlong(session, saved)
   )
     return false;
   const copy = JSON.parse(JSON.stringify(saved)) as LearningSession;
@@ -938,16 +957,20 @@ export async function commitEvidenceEvent(
 ) {
   const config = supabaseAdminConfig();
   if (!config) return recordEvent(session, eventType, payload);
-  const attempt = payload["attempt"];
+  // Idempotency comes only from a client-chosen key reused on retry. Two separate
+  // submissions (even identical ones) carry different keys and both count.
+  const rawKey = payload["client_event_id"];
+  const key =
+    typeof rawKey === "string" && /^[A-Za-z0-9_-]{8,64}$/.test(rawKey)
+      ? rawKey
+      : undefined;
   const id = createHash("sha256")
     .update(
       JSON.stringify([
         session.sessionId,
         session.taskGeneration ?? 0,
         eventType,
-        attempt ?? null,
-        attempt === undefined ? Date.now() + Math.random() : null,
-        boundedPayload(payload),
+        key ?? randomBytes(16).toString("hex"),
       ]),
     )
     .digest("hex")
@@ -2270,6 +2293,10 @@ export async function refreshConquestReceipts(session: LearningSession) {
   if (!supabaseAdminConfig()) return;
   const saved = await restoreSession(session.sessionId);
   adoptAssignedPractice(session, saved);
+  // Coherent authoritative read: evidence comes whole from the stored row.
+  adoptStoredEvidence(session, saved);
+  if (saved?.status && statusRank(saved.status) > statusRank(session.status))
+    session.status = saved.status;
   if (saved?.conquestReceipts) {
     session.rev = Math.max(session.rev ?? 0, saved.rev ?? 0);
     const receipts = new Map(

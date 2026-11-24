@@ -1,3 +1,7 @@
+## 0.4.4
+
+- Run Tests results carry a one-time key. If the save fails (error, timeout, lost reply) the same result is retried under the same key and is never counted twice. Separate runs always count.
+
 ## 0.4.3
 
 - Project repair checker: when a fix uses something the checker cannot grade (local variables, replace(), slicing, loops), the message now lists what it can read instead of only naming the blocked part.

@@ -23,8 +23,9 @@ const mock = createMockSupabase();
 globalThis.fetch = (url, options) => mock.fetchImpl(url, options);
 const OWNER = "123e4567-e89b-42d3-a456-426614174000";
 const clone = (x) => JSON.parse(JSON.stringify(x));
-const result = (attempt, output = "wrong", passed = false) => ({
+const result = (attempt, output = "wrong", passed = false, key) => ({
   attempt,
+  ...(key ? { client_event_id: key } : {}),
   status: passed ? "passed" : "failed",
   passed: passed ? 1 : 0,
   total: 1,
@@ -158,20 +159,122 @@ test("write failure after retries rejects visibly and keeps the stored row intac
 test("ambiguous success (write applied, response lost) is not recorded twice on retry", async () => {
   const s = await fresh();
   mock.state.failNext.push("writeLost");
-  await server.commitEvidenceEvent(s, "test_result", result(1, "same"));
+  await server.commitEvidenceEvent(
+    s,
+    "test_result",
+    result(1, "same", false, "key-ambiguous-1"),
+  );
   const d = stored(s);
   assert.equal(tests(d).length, 1);
   assert.equal(d.attempts, 1);
   assert.equal(s.attempts, 1);
 });
 
-test("the extension retrying the same request after success adds no duplicate evidence", async () => {
+test("retry with the same client key after success adds nothing, even when the attempt number advanced", async () => {
+  const s = await fresh();
+  const K = "key-retry-0001";
+  await server.commitEvidenceEvent(
+    s,
+    "test_result",
+    result(1, "same", false, K),
+  );
+  // client refreshed its cache after a lost reply, so it now says attempt 2
+  await server.commitEvidenceEvent(
+    s,
+    "test_result",
+    result(2, "same", false, K),
+  );
+  assert.equal(tests(stored(s)).length, 1);
+  assert.equal(stored(s).attempts, 1);
+});
+
+test("two separate identical submissions with different keys both count", async () => {
+  const s = await fresh();
+  await server.commitEvidenceEvent(
+    s,
+    "test_result",
+    result(1, "same", false, "key-aaaa-0001"),
+  );
+  await server.commitEvidenceEvent(
+    s,
+    "test_result",
+    result(1, "same", false, "key-bbbb-0002"),
+  );
+  assert.equal(tests(stored(s)).length, 2);
+  assert.ok(consistent(stored(s)));
+});
+
+test("a request without a key is never deduplicated (identical sends both count)", async () => {
   const s = await fresh();
   await server.commitEvidenceEvent(s, "test_result", result(1, "same"));
   await server.commitEvidenceEvent(s, "test_result", result(1, "same"));
-  assert.equal(tests(stored(s)).length, 1);
-  await server.commitEvidenceEvent(s, "test_result", result(2, "same"));
   assert.equal(tests(stored(s)).length, 2);
+});
+
+test("read refresh: a stale instance adopts the stored evidence whole", async () => {
+  const s = await fresh();
+  const stale = clone(s);
+  await server.commitEvidenceEvent(
+    s,
+    "test_result",
+    result(1, "a", false, "key-read-0001"),
+  );
+  await server.commitEvidenceEvent(
+    s,
+    "test_result",
+    result(2, "b", true, "key-read-0002"),
+  );
+  Object.assign(stale, { events: stale.events, attempts: 0 });
+  await server.refreshConquestReceipts(stale);
+  assert.equal(stale.attempts, 2);
+  assert.equal(stale.checkpoints[0].attempts, 2);
+  assert.equal(tests(stale).length, 2);
+  assert.deepEqual(stale.testScore, stored(s).testScore);
+});
+
+test("legacy snapshots: absent evidenceSeq with differing events adopts the stored row on read", async () => {
+  const s = await fresh();
+  await server.commitEvidenceEvent(
+    s,
+    "test_result",
+    result(1, "a", false, "key-leg-00001"),
+  );
+  const row = mock.state.db.get(s.sessionId);
+  // make the stored row look legacy: no evidenceSeq, 2 attempts
+  delete row.session_data.evidenceSeq;
+  row.session_data.attempts = 2;
+  row.session_data.checkpoints[0].attempts = 2;
+  row.session_data.events.push({
+    eventType: "test_result",
+    at: new Date().toISOString(),
+    payload: { attempt: 2, status: "failed" },
+  });
+  row.session_data.rev = (row.session_data.rev ?? 0) + 1;
+  const mem = clone(s);
+  delete mem.evidenceSeq;
+  mem.rev = row.session_data.rev;
+  await server.refreshConquestReceipts(mem);
+  assert.equal(mem.attempts, 2);
+  assert.equal(tests(mem).length, 2);
+});
+
+test("legacy snapshots: equal evidenceSeq, differing events, memory strictly newer by rev keeps memory", async () => {
+  const s = await fresh();
+  await server.commitEvidenceEvent(
+    s,
+    "test_result",
+    result(1, "a", false, "key-leg-00002"),
+  );
+  const mem = clone(s);
+  mem.rev = (mem.rev ?? 0) + 5;
+  mem.events.push({
+    eventType: "heartbeat",
+    at: new Date().toISOString(),
+    payload: {},
+  });
+  await server.refreshConquestReceipts(mem);
+  assert.equal(mem.events[mem.events.length - 1].eventType, "heartbeat");
+  assert.equal(mem.attempts, 1);
 });
 
 test("task generation or owner changing during the retry window is a 409, not an overwrite", async () => {

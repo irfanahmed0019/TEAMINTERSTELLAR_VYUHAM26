@@ -1,6 +1,7 @@
 import { claimPairingCode, normalizePairingCode } from "./pairingCode";
 import * as vscode from "vscode";
 import * as path from "node:path";
+import { randomUUID } from "node:crypto";
 import { executeLocalCommand } from "./processRunner";
 import { loadAppConfig } from "./config";
 import { SessionClient, RemoteSession } from "./sessionClient";
@@ -1079,6 +1080,7 @@ class Sidebar implements vscode.WebviewViewProvider {
     await this.results.show();
     return true;
   }
+  private pendingResult?: { fingerprint: string; key: string };
   private async test() {
     if (!this.session || !this.connection) return;
     if (await this.showCompletedPractice()) return;
@@ -1137,7 +1139,7 @@ class Sidebar implements vscode.WebviewViewProvider {
     const passed = checkpointResults.filter((item) => item.passed).length;
     const total = checkpointResults.length;
     const latest = checkpointResults[checkpointResults.length - 1];
-    const r = await this.api.test(connection.sessionId, {
+    const resultBody = {
       status: latest?.passed ? "passed" : "failed",
       passed,
       total,
@@ -1145,9 +1147,28 @@ class Sidebar implements vscode.WebviewViewProvider {
       error: latest?.passed ? "" : latest?.output,
       stdout: latest?.output,
       checkpoint_results: checkpointResults,
-      attempt: this.session.attempts + 1,
       task_generation: generation,
+    };
+    // One key per submission. A failed send (error, timeout, lost reply) keeps its
+    // key, so retrying the SAME result is recognised by the server and never counts
+    // twice. A new click with different output gets a new key and always counts.
+    const fingerprint = JSON.stringify([
+      connection.sessionId,
+      generation,
+      resultBody,
+    ]);
+    const pending = this.pendingResult;
+    const clientEventId =
+      pending && pending.fingerprint === fingerprint
+        ? pending.key
+        : randomUUID();
+    this.pendingResult = { fingerprint, key: clientEventId };
+    const r = await this.api.test(connection.sessionId, {
+      ...resultBody,
+      attempt: this.session.attempts + 1,
+      client_event_id: clientEventId,
     });
+    this.pendingResult = undefined;
     if (!sameTask()) return;
     this.session = r.state || this.session;
     if (
