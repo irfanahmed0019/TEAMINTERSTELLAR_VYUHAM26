@@ -989,6 +989,19 @@ export function recordReassessmentAttempt(
  * session signature. A completed session records progress but never automatically conquers a
  * pattern: completion alone does not prove a new relevant reassessment.
  */
+/**
+ * Local Python checks report one output string. A Python syntax error or an
+ * uncaught exception is visible in that real output, so classify those
+ * honestly instead of calling every failure a wrong answer.
+ */
+export function failureStatusFromOutput(output: string): string {
+  if (/\b(SyntaxError|IndentationError|TabError)\b/.test(output))
+    return "Compilation Error";
+  if (/Traceback \(most recent call last\)|\b[A-Z][A-Za-z]*Error:/.test(output))
+    return "Runtime Error (NZEC)";
+  return "Wrong Answer";
+}
+
 export function recordBuildSessionOutcome(
   prev: StruggleState,
   input: {
@@ -1043,7 +1056,10 @@ export function recordBuildSessionOutcome(
         passed: c.status === "passed",
         expected: "",
         actual: c.lastOutput ?? "",
-        status: c.status === "passed" ? "Accepted" : "Wrong Answer",
+        status:
+          c.status === "passed"
+            ? "Accepted"
+            : failureStatusFromOutput(c.lastOutput ?? ""),
         stderr: "",
       }));
   } else if (input.total > 0) {

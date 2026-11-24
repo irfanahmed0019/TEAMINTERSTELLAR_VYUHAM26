@@ -9,6 +9,7 @@ import {
   attachReassessment,
   buildReassessmentPlan,
   classifyFailure,
+  failureStatusFromOutput,
   constructSatisfied,
   emptyStruggleState,
   failureReplay,
@@ -963,4 +964,32 @@ test("extension observed timing and hints are retained without time-only compete
   assert.equal(r.outcome.attempt.performance.activeMs, 480000);
   assert.equal(r.outcome.attempt.performance.hintsUsed, 2);
   assert.equal(r.state.misconceptions.length, 0);
+});
+
+test("local Python output separates syntax errors, exceptions and wrong answers", () => {
+  assert.equal(
+    failureStatusFromOutput(
+      '  File "main.py", line 2\n    if x = 5:\nSyntaxError: invalid syntax',
+    ),
+    "Compilation Error",
+  );
+  assert.equal(
+    failureStatusFromOutput(
+      "Traceback (most recent call last):\n  File main.py\nNameError: name 'y' is not defined",
+    ),
+    "Runtime Error (NZEC)",
+  );
+  assert.equal(failureStatusFromOutput("retry"), "Wrong Answer");
+  assert.equal(failureStatusFromOutput(""), "Wrong Answer");
+  const kind = (out) =>
+    classifyFailure({
+      name: "x",
+      expected: "",
+      actual: out,
+      status: failureStatusFromOutput(out),
+      stderr: "",
+    });
+  assert.equal(kind("SyntaxError: invalid syntax"), "syntax");
+  assert.equal(kind("ZeroDivisionError: division by zero"), "runtime");
+  assert.equal(kind("pass"), "logic");
 });
