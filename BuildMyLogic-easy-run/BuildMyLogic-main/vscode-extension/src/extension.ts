@@ -7,14 +7,6 @@ import { SessionClient, RemoteSession } from "./sessionClient";
 import { sidebarHtml } from "./webviewHtml";
 import { ResultsPanel, RESULTS_VIEW_ID } from "./resultsPanel";
 import { startBridge, consumeStagedSession, SessionConnect } from "./bridge";
-import { MentorClient } from "./mentorClient";
-import { MentorPanel, MENTOR_VIEW_ID } from "./mentorPanel";
-import {
-  detectSetup,
-  installPlanFor,
-  SetupReport,
-  ToolId,
-} from "./environmentSetup";
 
 const practiceTaskDetails: Record<
   string,
@@ -95,18 +87,10 @@ type Message = {
     | "ready"
     | "connect"
     | "pair"
-    | "hint"
-    | "mentorChat"
-    | "stuck"
     | "runTests"
     | "submit"
     | "failed"
-    | "disconnect"
-    | "reassess"
-    | "projectRecheck"
-    | "openMentor"
-    | "checkSetup"
-    | "installTool";
+    | "disconnect";
   pairingCode?: string;
   sessionId?: string;
   tool?: string;
@@ -115,7 +99,6 @@ type Message = {
 
 class Sidebar implements vscode.WebviewViewProvider {
   private running = false;
-  private mentorBusy = false;
   private evidenceConsent = false;
   private connectEpoch = 0;
   private credentialWrites: Promise<void> = Promise.resolve();
@@ -130,7 +113,6 @@ class Sidebar implements vscode.WebviewViewProvider {
   private evidenceSubscriptions: vscode.Disposable[] = [];
   private diagnosticTimer?: NodeJS.Timeout;
   private pendingUriSession?: { sessionId: string };
-  private setupReport?: SetupReport;
   constructor(
     private readonly api: SessionClient,
     private readonly results: ResultsPanel,
@@ -159,7 +141,6 @@ class Sidebar implements vscode.WebviewViewProvider {
   }
   public async focusSessionChat() {
     await vscode.commands.executeCommand("buildMyLogic.sidebar.focus");
-    this.post({ type: "focusMentor" });
   }
   private async waitForView(timeout = 2500) {
     const started = Date.now();
@@ -228,19 +209,6 @@ class Sidebar implements vscode.WebviewViewProvider {
     try {
       if (m.command === "ready") {
         if (this.session) this.post({ type: "session", session: this.session });
-        void this.checkSetup(false);
-        return;
-      }
-      if (m.command === "openMentor") {
-        await vscode.commands.executeCommand("buildmylogic.openMentor");
-        return;
-      }
-      if (m.command === "checkSetup") {
-        void this.checkSetup(false);
-        return;
-      }
-      if (m.command === "installTool") {
-        await this.installTool(String(m.tool || ""));
         return;
       }
       if (m.command === "pair") return await this.pair(m.pairingCode || "");
@@ -270,73 +238,6 @@ class Sidebar implements vscode.WebviewViewProvider {
       const unchangedTask = () =>
         this.session?.challenge_id === taskChallenge &&
         (this.session?.task_generation ?? 0) === taskGeneration;
-      if (m.command === "projectRecheck") return await this.runProjectRecheck();
-      if (m.command === "reassess") {
-        const url = new URL("/reassess", this.api.getBaseUrl());
-        url.searchParams.set("session", this.connection.sessionId);
-        await vscode.env.openExternal(vscode.Uri.parse(url.toString()));
-        return;
-      }
-      if (m.command === "mentorChat") {
-        const connection = this.connection;
-        const message = typeof m.message === "string" ? m.message.trim() : "";
-        if (!message || message.length > 1000)
-          return this.post({
-            type: "mentorError",
-            text: "Write a question using 1 to 1,000 characters.",
-          });
-        if (this.mentorBusy)
-          return this.post({
-            type: "mentorError",
-            text: "Wait for the current reply, then try again.",
-          });
-        this.mentorBusy = true;
-        try {
-          const response = await this.api.mentorChat(
-            connection.sessionId,
-            message,
-            taskGeneration,
-          );
-          if (this.connection !== connection || !unchangedTask()) return;
-          if (
-            typeof response.guidance !== "string" ||
-            !response.guidance.trim()
-          )
-            throw new Error("The mentor returned no reply. Try again.");
-          this.post({
-            type: "mentorReply",
-            text: response.guidance.slice(0, 1200),
-          });
-        } catch (error) {
-          if (this.connection !== connection || !unchangedTask()) return;
-          this.post({
-            type: "mentorError",
-            text:
-              (error instanceof Error
-                ? error.message
-                : "Mentor unavailable. Try again.") +
-              " Your code and test results are unchanged.",
-          });
-        } finally {
-          this.mentorBusy = false;
-        }
-        return;
-      }
-      if (m.command === "hint" || m.command === "stuck") {
-        const connection = this.connection;
-        const r = await this.api.hint(
-          connection.sessionId,
-          m.command === "stuck",
-          taskGeneration,
-        );
-        if (this.connection !== connection || !unchangedTask()) return;
-        this.session = r.state || this.session;
-        return this.post({
-          type: "guidance",
-          text: r.guidance,
-          session: this.session,
-        });
-      }
       if (
         ["runTests", "submit", "failed"].includes(m.command) &&
         this.session?.challenge_id === "project-context-pending"
@@ -540,7 +441,6 @@ class Sidebar implements vscode.WebviewViewProvider {
       this.startLiveSync();
       await this.consentEvidence();
       if (!current()) return;
-      void this.checkSetup(true);
     } catch (error) {
       if (!current()) return;
       this.session = undefined;
@@ -564,74 +464,6 @@ class Sidebar implements vscode.WebviewViewProvider {
     this.live = false;
     this.loopToken += 1;
     this.lastHeartbeatAt = 0;
-  }
-  /**
-   * Computer setup: probe Python, Git and a C compiler with read-only
-   * `--version` checks and show OS-matched install commands. Nothing is
-   * installed here; installs only happen through installTool after the
-   * learner confirms the exact command.
-   */
-  private async checkSetup(announce: boolean) {
-    this.post({ type: "setupChecking" });
-    try {
-      const report = await detectSetup();
-      this.setupReport = report;
-      this.post({ type: "setup", report });
-      if (!announce) return;
-      if (report.missing > 0) {
-        const names = report.tools
-          .filter((tool) => !tool.installed)
-          .map((tool) => tool.name)
-          .join(", ");
-        this.status(
-          `Setup needed on this computer: ${names}. Open the Setup tab to see the exact commands for your OS.`,
-          true,
-        );
-      } else {
-        this.status(
-          "Setup OK: Python, Git and a C compiler are installed on this computer.",
-        );
-      }
-    } catch {
-      if (announce)
-        this.status(
-          "Could not check this computer's setup. Use the Setup tab to try again.",
-          true,
-        );
-    }
-  }
-  /** Install one missing tool, only after the learner confirms the exact command. */
-  private async installTool(toolId: string) {
-    if (!["python", "git", "gcc"].includes(toolId)) return;
-    const packageManager = this.setupReport?.packageManager ?? "";
-    const plan = installPlanFor(toolId as ToolId, packageManager);
-    const name =
-      this.setupReport?.tools.find((tool) => tool.id === toolId)?.name ||
-      toolId;
-    if (!plan.commands.length) {
-      this.status(
-        plan.note ||
-          "No automatic install command is available for this OS. Follow the note in the Setup tab.",
-        true,
-      );
-      return;
-    }
-    const command = plan.commands[0];
-    const approval = await vscode.window.showWarningMessage(
-      `Install ${name} on this computer? This changes your system. The exact command runs in a visible VS Code terminal:\n${command}`,
-      { modal: true },
-      "Run install in terminal",
-    );
-    if (approval !== "Run install in terminal")
-      return this.status(
-        "Install cancelled. Nothing was changed on this computer.",
-      );
-    const terminal = vscode.window.createTerminal("BuildMyLogic Setup");
-    terminal.show(true);
-    terminal.sendText(command, true);
-    this.status(
-      `Install started in the BuildMyLogic Setup terminal. ${plan.note || "When it finishes, click Re-check in the Setup tab."}`,
-    );
   }
   /**
    * Live sync: long-poll the session state so anything the learner changes on
@@ -1787,18 +1619,10 @@ function valid(v: unknown): v is Message {
       "ready",
       "connect",
       "pair",
-      "hint",
-      "mentorChat",
-      "stuck",
       "runTests",
       "submit",
       "failed",
       "disconnect",
-      "reassess",
-      "projectRecheck",
-      "openMentor",
-      "checkSetup",
-      "installTool",
     ].includes(String((v as Message).command))
   );
 }
@@ -1814,21 +1638,10 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.window.registerWebviewViewProvider(RESULTS_VIEW_ID, results),
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand("buildmylogic.openMentor", async () => {
-      await vscode.commands.executeCommand(
-        "setContext",
-        "buildMyLogic.showAuthenticatedMentor",
-        true,
-      );
-      await vscode.commands.executeCommand("buildMyLogic.mentor.focus");
-    }),
-  );
-  context.subscriptions.push(
     vscode.commands.registerCommand("buildmylogic.sessionChat", () =>
       sidebar.focusSessionChat(),
     ),
   );
-  const mentor = new MentorPanel(context, new MentorClient(config.apiBaseUrl));
   const connectSession = (connect: SessionConnect) =>
     sidebar.connectFromUri(
       vscode.Uri.parse(
@@ -1837,9 +1650,6 @@ export function activate(context: vscode.ExtensionContext) {
     );
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(viewId, sidebar),
-  );
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(MENTOR_VIEW_ID, mentor),
   );
   context.subscriptions.push(
     vscode.window.registerUriHandler({
@@ -1854,14 +1664,6 @@ export function activate(context: vscode.ExtensionContext) {
     startBridge(context, {
       extensionVersion: String(context.extension?.packageJSON?.version || ""),
       connectSession: (connect) => connectSession(connect),
-      connectMentor: async (connect) => {
-        await vscode.commands.executeCommand(
-          "setContext",
-          "buildMyLogic.showAuthenticatedMentor",
-          true,
-        );
-        return mentor.connectFromBridge(connect);
-      },
     }),
   );
   // A folder opened from the website reloads this window; finish its pending

@@ -1,3 +1,9 @@
+## 0.4.0
+
+- Basic version. The sidebar has two tabs: Mission (task, requirements, Run Tests, Submit) and Progress (results, struggle signals, "I could not complete this", disconnect).
+- Removed the in-VS-Code AI Mentor, the Setup/install tab and the Recovery tab. Mentor and recovery live on the website.
+- Pairing, Run Tests, Submit and sync of attempts to your Struggle DNA are unchanged.
+
 ## 0.3.26
 
 - After three wrong attempts on a loop or if/else practice question, automatically assigns beginner arithmetic without asking. Keeps the old question and its failed attempts in history.

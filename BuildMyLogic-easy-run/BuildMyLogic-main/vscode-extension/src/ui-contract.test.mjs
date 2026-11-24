@@ -3,15 +3,15 @@ import assert from "node:assert/strict";
 import { sidebarHtml } from "./webviewHtml.ts";
 import { build } from "esbuild";
 import { createRequire } from "node:module";
-test("four accessible tabs and ready handshake, no fabricated scores or chat", () => {
+test("basic extension: Mission and Progress tabs, no mentor, recovery or setup tabs", () => {
   const html = sidebarHtml("vscode-resource:");
-  for (const tab of ["mission", "progress", "mentor", "recovery"])
+  for (const tab of ["mission", "progress"])
     assert.ok(html.includes('data-tab="' + tab + '"'));
+  for (const gone of ["mentor", "recovery", "setup"])
+    assert.ok(!html.includes('data-tab="' + gone + '"'));
   assert.ok(html.includes("send('ready')"));
-  assert.ok(html.includes("No mentor response recorded"));
-  assert.ok(html.includes("Cause unresolved"));
+  assert.ok(html.includes('id="run"') && html.includes('id="submit"'));
   assert.ok(!html.includes("68%"));
-  assert.ok(!html.includes("Conceptual (High)"));
   new Function(html.match(/<script>([\s\S]*)<\/script>/)[1]);
 });
 test("bottom results view escapes untrusted session data and starts honestly empty", async () => {
@@ -116,38 +116,6 @@ test("connection failure stays on configured host", async () => {
   }
 });
 
-test("all five panels are siblings and recovery actions do not hide Setup", () => {
-  const html = sidebarHtml("");
-  const stack = [],
-    panels = [];
-  let current = null;
-  for (const match of html.matchAll(/<\/?section\b[^>]*>/g)) {
-    const tag = match[0];
-    if (tag.startsWith("</")) {
-      stack.pop();
-      current = stack.at(-1) ?? null;
-      continue;
-    }
-    const panel = tag.match(/data-panel="([^"]+)"/)?.[1];
-    if (panel) {
-      assert.equal(current, null, `${panel} must not nest in ${current}`);
-      panels.push(panel);
-    }
-    stack.push(panel ?? current);
-    current = stack.at(-1);
-  }
-  assert.deepEqual(panels, [
-    "mission",
-    "progress",
-    "mentor",
-    "recovery",
-    "setup",
-  ]);
-  assert.equal(stack.length, 0);
-  for (const id of ["projectRecheck", "failed", "disconnect"])
-    assert.ok(html.indexOf(`id="${id}"`) < html.indexOf('data-panel="setup"'));
-});
-
 test("unscored prior output is labeled historical; changed task generation clears cached output", async () => {
   const result = await build({
     entryPoints: ["src/resultsPanel.ts"],
@@ -220,18 +188,3 @@ test("unscored prior output is labeled historical; changed task generation clear
   assert.match(view.webview.html, /No test results yet/);
 });
 import { mentorPreview } from "./webviewHtml.ts";
-test("mentor preview is two short sentences with optional detail kept out of default view", () => {
-  assert.equal(
-    mentorPreview(
-      "**Check zero.** Then try again.\n\nLong explanation stays optional.",
-    ),
-    "**Check zero.** Then try again.",
-  );
-  assert.equal(mentorPreview("First. Second. Third."), "First. Second.");
-  assert.ok(mentorPreview("Long useful words ".repeat(30)).length <= 180);
-  const html = sidebarHtml("");
-  new Function(html.match(/<script>([\s\S]*)<\/script>/)[1]);
-  assert.ok(html.includes("document.createElement('strong')"));
-  assert.ok(html.includes("document.createTextNode(part)"));
-  assert.ok(!html.includes("body.innerHTML=text"));
-});

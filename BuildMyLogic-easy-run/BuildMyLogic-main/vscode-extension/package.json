@@ -2,8 +2,8 @@
   "name": "buildmylogic",
   "publisher": "buildmylogic",
   "displayName": "BuildMyLogic",
-  "description": "BuildMyLogic in VS Code: learning challenges plus the AI Mentor - milestones, real graded C submissions, hints and task-aware chat on your persisted learning state.",
-  "version": "0.3.26",
+  "description": "BuildMyLogic in VS Code: get a task from the website, write code, run tests and submit. Your submissions feed your Struggle DNA.",
+  "version": "0.4.0",
   "files": [
     "dist/extension.js",
     "media/**",
@@ -23,7 +23,6 @@
     "onView:buildMyLogic.sidebar",
     "onCommand:buildmylogic.analyzeMyCode",
     "onUri",
-    "onView:buildMyLogic.mentor",
     "onView:buildMyLogic.results"
   ],
   "main": "./dist/extension.js",
@@ -66,12 +65,6 @@
           "type": "webview",
           "id": "buildMyLogic.sidebar",
           "name": "BuildMyLogic"
-        },
-        {
-          "type": "webview",
-          "id": "buildMyLogic.mentor",
-          "name": "AI Mentor",
-          "when": "buildMyLogic.showAuthenticatedMentor"
         }
       ],
       "buildMyLogicResults": [
@@ -86,10 +79,6 @@
       {
         "command": "buildmylogic.analyzeMyCode",
         "title": "BuildMyLogic: Analyze My Code"
-      },
-      {
-        "command": "buildmylogic.openMentor",
-        "title": "BuildMyLogic: Open Authenticated Mentor"
       }
     ]
   },
@@ -97,7 +86,7 @@
     "vscode:prepublish": "npm run package",
     "compile": "node esbuild.js",
     "package": "node esbuild.js --production",
-    "test": "node --experimental-strip-types --test src/ui-contract.test.mjs src/environmentSetup.test.mjs src/project-evaluator.test.mjs src/literal-repair.test.mjs src/pairing-code.test.mjs src/practice-variety.test.mjs src/no-tracking.test.mjs"
+    "test": "node --experimental-strip-types --test src/ui-contract.test.mjs src/project-evaluator.test.mjs src/literal-repair.test.mjs src/pairing-code.test.mjs src/practice-variety.test.mjs src/no-tracking.test.mjs"
   },
   "devDependencies": {
     "@types/node": "20.x",

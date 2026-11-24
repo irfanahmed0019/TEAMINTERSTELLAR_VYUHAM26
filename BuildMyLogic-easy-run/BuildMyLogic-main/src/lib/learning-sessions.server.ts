@@ -3,7 +3,6 @@ import {
   PRACTICE_TASKS,
   practiceTaskBody,
   nextPracticeTaskId,
-  beginnerPracticeOffer,
 } from "./practice-task.ts";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { ConquestReceipt } from "./shared-conquest";
@@ -2101,27 +2100,10 @@ export async function refreshConquestReceipts(session: LearningSession) {
   }
 }
 
-/** User-requested automatic scaffold, only after three real same-task failures. */
+/** Records a practice test result. No task is swapped automatically; the learner picks tasks on the website. */
 export async function recordPracticeTestResult(
   session: LearningSession,
   payload: Record<string, unknown>,
 ) {
-  if (
-    session.surpriseTest ||
-    !/^python-(loops|conditions)-/.test(session.challengeId)
-  )
-    return recordEvent(session, "test_result", payload);
-  recordEvent(session, "test_result", payload, false);
-  await persistSession(session, true, true);
-  const snapshot = stateOf(session);
-  if (
-    !session.surpriseTest &&
-    /^python-(loops|conditions)-/.test(session.challengeId) &&
-    beginnerPracticeOffer(snapshot)
-  )
-    return assignPracticeTask(session, "python-arithmetic-add-v1", {
-      challenge: session.challengeId,
-      generation: session.taskGeneration ?? 0,
-    });
-  return snapshot;
+  return recordEvent(session, "test_result", payload);
 }
