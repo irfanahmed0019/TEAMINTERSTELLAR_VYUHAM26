@@ -1237,7 +1237,7 @@ function Sessions() {
                   min
                 </span>
               </div>
-              {remotePractice ? (
+              {remotePending ? null : remotePractice ? (
                 <p className="mt-5 text-sm font-semibold">
                   Work on this question in VS Code, then click Submit to check
                   your code. The Python file that is open in the VS Code editor
@@ -1456,12 +1456,16 @@ function Sessions() {
               Session ID
             </div>
             <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${extensionConnected ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}
+              className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${remotePending ? "bg-muted text-muted-foreground" : extensionConnected ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}
             >
               <span
-                className={`h-1.5 w-1.5 rounded-full ${extensionConnected ? "bg-emerald-500" : "bg-red-500"}`}
+                className={`h-1.5 w-1.5 rounded-full ${remotePending ? "bg-muted-foreground" : extensionConnected ? "bg-emerald-500" : "bg-red-500"}`}
               />
-              {extensionConnected ? "Connected" : "Not connected"}
+              {remotePending
+                ? "Checking..."
+                : extensionConnected
+                  ? "Connected"
+                  : "Not connected"}
             </span>
           </div>
           {vscodeSession ? (
