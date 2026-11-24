@@ -3,7 +3,7 @@
   "publisher": "buildmylogic",
   "displayName": "BuildMyLogic",
   "description": "BuildMyLogic in VS Code: get a task from the website, write code, run tests and submit. Your submissions feed your Struggle DNA.",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "files": [
     "dist/extension.js",
     "media/**",
@@ -21,7 +21,6 @@
   "activationEvents": [
     "onStartupFinished",
     "onView:buildMyLogic.sidebar",
-    "onCommand:buildmylogic.analyzeMyCode",
     "onUri",
     "onView:buildMyLogic.results"
   ],
@@ -74,13 +73,7 @@
           "name": "BuildMyLogic Results"
         }
       ]
-    },
-    "commands": [
-      {
-        "command": "buildmylogic.analyzeMyCode",
-        "title": "BuildMyLogic: Analyze My Code"
-      }
-    ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",

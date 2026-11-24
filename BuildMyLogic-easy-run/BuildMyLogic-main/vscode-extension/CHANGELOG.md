@@ -1,3 +1,7 @@
+## 0.4.2
+
+- Removed the "Analyze My Code" palette command. It no longer exists in the basic version and showed a "command not found" error.
+
 ## 0.4.1
 
 - Results panel and install page no longer mention the removed Recovery, Setup and Mentor tabs.

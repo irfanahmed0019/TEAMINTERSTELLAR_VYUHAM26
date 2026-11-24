@@ -102,7 +102,7 @@ Several local Python exercises are bundled, including Build a CLI Calculator. Ne
 
 ### Local Code Analysis
 
-Select Python code, then use BuildMyLogic: Analyze My Code or the Feedback tab. Local rules identify a small cautious set of reasoning patterns. Selected code is not sent outside VS Code.
+Pair with the code from the website, run tests, and submit. Code stays on your computer; only test results are sent.
 
 ### Hints
 
@@ -128,7 +128,7 @@ From the project folder:
     npm install
     npm run compile
 
-Open this project in VS Code and press F5 to launch an Extension Development Host. Click the BuildMyLogic icon in its Activity Bar, open or create a Python file, select Python code, and choose Analyze My Code.
+Open this project in VS Code and press F5 to launch an Extension Development Host. Click the BuildMyLogic icon in its Activity Bar, open or create a Python file.
 
 After source changes, run npm run compile and use Developer: Restart Extension Host. For stale contribution metadata or an old Activity Bar view, close the Extension Development Host and relaunch it with F5.
 
@@ -148,7 +148,6 @@ Useful checks:
 - Extension does not activate: inspect Extension Host logs and ensure package.json main points to dist/extension.js.
 - Webview is blank: inspect Developer Tools, recompile, and check the in-panel fallback error. Confirm the nonce CSP was not removed.
 - Webview JavaScript fails: Developer Tools contains the error; the status/feedback area shows a fallback error.
-- Analyze My Code does not work: select non-empty Python code first.
 - Hint does not work: load a local challenge and inspect Extension Host logs for unexpected provider errors.
 - Compile warnings or TypeScript errors: run npm run check-types and npm run lint, then fix the reported location.
 
