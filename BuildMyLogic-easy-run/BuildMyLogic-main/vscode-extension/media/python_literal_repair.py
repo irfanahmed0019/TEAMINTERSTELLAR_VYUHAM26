@@ -262,4 +262,7 @@ def main():
 
 try:main()
 except (Blocked,SyntaxError,OSError,UnicodeError,IndexError,KeyError,RecursionError,TypeError) as error:
-    print('BLOCKED: '+str(error),file=sys.stderr);sys.exit(3)
+    msg=str(error)
+    if msg.startswith(('Unsupported selected function grammar','Only zero-argument','Nested functions','External names','Attribute access','Keyword calls','Only named safe')):
+        msg+=' This checker only reads a single function made of return, if, comparisons, arithmetic, abs/len/int/float/str/bool calls and zero-argument .strip()/.lower()/.upper(). It cannot grade local variables, loops, slicing, replace(), or imports, so it cannot tell if your fix is right.'
+    print('BLOCKED: '+msg,file=sys.stderr);sys.exit(3)

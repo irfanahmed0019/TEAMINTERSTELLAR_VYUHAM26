@@ -1,3 +1,7 @@
+## 0.4.3
+
+- Project repair checker: when a fix uses something the checker cannot grade (local variables, replace(), slicing, loops), the message now lists what it can read instead of only naming the blocked part.
+
 ## 0.4.2
 
 - Removed the "Analyze My Code" palette command. It no longer exists in the basic version and showed a "command not found" error.
