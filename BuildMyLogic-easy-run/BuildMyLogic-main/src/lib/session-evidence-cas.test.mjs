@@ -433,3 +433,49 @@ test("divergence past the retention cap reports overflow instead of claiming eve
   assert.equal(mem.divergedEvidenceOverflow, 5);
   assert.equal(tests(mem).length, 1);
 });
+
+test("stale heartbeat does not regress completed status, receipts, connection fields or hints (non-evidence fields)", async () => {
+  const s = await fresh();
+  const stale = clone(s);
+  const row = mock.state.db.get(s.sessionId);
+  Object.assign(row.session_data, {
+    status: "completed",
+    connectedAt: "2026-01-01T00:00:00.000Z",
+    hintsUsed: 2,
+    latestFeedback: "newer hint",
+    conquestReceipts: [{ id: "r-1", at: "x" }],
+    lastSeenAt: "2099-01-01T00:00:00.000Z",
+    rev: (row.session_data.rev ?? 0) + 3,
+  });
+  row.status = "completed";
+  const hash = row.session_data.connectionTokenHash;
+  assert.ok(hash);
+  stale.connectionTokenHash = "stale-hash";
+  server.recordEvent(stale, "heartbeat", {});
+  await new Promise((r) => setTimeout(r, 120));
+  const d = stored(s);
+  assert.equal(d.status, "completed");
+  assert.equal(d.connectedAt, "2026-01-01T00:00:00.000Z");
+  assert.equal(d.hintsUsed, 2);
+  assert.equal(d.latestFeedback, "newer hint");
+  assert.deepEqual(
+    d.conquestReceipts.map((r) => r.id),
+    ["r-1"],
+  );
+  assert.equal(d.connectionTokenHash, hash);
+  assert.ok(d.lastSeenAt >= "2099-01-01");
+  assert.equal(d.owner ?? d.userId, row.session_data.userId);
+});
+
+test("legitimate forward transitions still apply (active to connected, new receipt added)", async () => {
+  const s = await fresh();
+  s.status = "connected";
+  s.connectedAt = new Date().toISOString();
+  s.conquestReceipts = [{ id: "r-new", at: "y" }];
+  server.recordEvent(s, "heartbeat", {});
+  await new Promise((r) => setTimeout(r, 120));
+  const d = stored(s);
+  assert.equal(d.status, "connected");
+  assert.ok(d.connectedAt);
+  assert.ok(d.conquestReceipts.some((r) => r.id === "r-new"));
+});

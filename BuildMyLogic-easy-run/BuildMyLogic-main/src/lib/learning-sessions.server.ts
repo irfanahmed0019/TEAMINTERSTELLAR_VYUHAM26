@@ -288,6 +288,38 @@ export function adoptStoredEvidence(
   return true;
 }
 
+/**
+ * Non-evidence fields a stale snapshot must not regress when it is written back.
+ * Everything here only moves forward: connection time/token hash are taken from
+ * the stored row when present, hints and their feedback follow the higher
+ * hintsUsed, lastSeenAt is the later time. Status and receipts keep their
+ * existing rank / id-merge rules. Binding (owner, task, generation) and the raw
+ * token are never changed here.
+ */
+export function adoptStoredScalars(
+  session: LearningSession,
+  saved: LearningSession | undefined,
+) {
+  if (!saved || !sameSessionBinding(session, saved)) return;
+  if (saved.connectedAt && !session.connectedAt)
+    session.connectedAt = saved.connectedAt;
+  if (saved.connectionTokenHash)
+    session.connectionTokenHash = saved.connectionTokenHash;
+  if ((saved.hintsUsed ?? 0) > (session.hintsUsed ?? 0)) {
+    session.hintsUsed = saved.hintsUsed;
+    if (saved.latestFeedback !== undefined)
+      session.latestFeedback = saved.latestFeedback;
+    if (saved.recovery !== undefined) session.recovery = saved.recovery;
+  }
+  if (
+    saved.lastSeenAt &&
+    (!session.lastSeenAt || saved.lastSeenAt > session.lastSeenAt)
+  )
+    session.lastSeenAt = saved.lastSeenAt;
+  if (saved.status && statusRank(saved.status) > statusRank(session.status))
+    session.status = saved.status;
+}
+
 async function persistSession(
   session: LearningSession,
   strict = false,
@@ -342,6 +374,7 @@ async function persistOnce(
       readOk = true;
       storedRev = rows[0]?.session_data?.rev;
       if (!opts.evidence) adoptStoredEvidence(session, rows[0]?.session_data);
+      adoptStoredScalars(session, rows[0]?.session_data);
       const receipts = new Map(
         [
           ...(rows[0]?.session_data?.conquestReceipts ?? []),
@@ -2315,6 +2348,7 @@ export async function refreshConquestReceipts(session: LearningSession) {
   adoptAssignedPractice(session, saved);
   // Coherent authoritative read: evidence comes whole from the stored row.
   adoptStoredEvidence(session, saved);
+  adoptStoredScalars(session, saved);
   if (saved?.status && statusRank(saved.status) > statusRank(session.status))
     session.status = saved.status;
   if (saved?.conquestReceipts) {
