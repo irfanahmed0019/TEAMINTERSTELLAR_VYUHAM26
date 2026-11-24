@@ -39,6 +39,8 @@ export type LearningSession = {
   rev?: number;
   /** Count of committed evidence events; only commitEvidenceEvent increments it. */
   evidenceSeq?: number;
+  /** Legacy divergence: evidence events seen only by one instance, kept for review, not counted. */
+  divergedEvidence?: Array<{ eventType: string; at: string; payload: unknown }>;
   connectionTokenHash?: string;
   /** Returned once to the authenticated creator, never persisted or included in state. */
   connectionToken?: string;
@@ -218,22 +220,31 @@ const EVIDENCE_GROUP = [
 ] as const;
 
 /**
- * Stored wins when its evidenceSeq is higher. Legacy snapshots have no
- * evidenceSeq (treated as 0): with equal sequence and different events, the
- * stored row still wins if it is at least as new by rev, because it is the
- * authoritative copy. Memory only wins when it is strictly ahead.
+ * Evidence freshness never depends on rev: heartbeats bump rev without adding
+ * evidence. Only evidence events (and evidenceSeq) decide.
+ *  - stored has evidence events memory lacks: stored wins.
+ *  - memory has evidence events stored lacks and stored has nothing extra:
+ *    memory is ahead (accepted but not yet saved, e.g. legacy), keep it.
+ *  - both have events the other lacks: unrecoverable legacy divergence. Stored
+ *    wins (it is authoritative) and the dropped events are kept, labelled, in
+ *    divergedEvidence instead of being silently discarded.
  */
-function storedIsFurtherAlong(
-  session: LearningSession,
-  saved: LearningSession,
-) {
-  const a = session.evidenceSeq ?? 0;
-  const b = saved.evidenceSeq ?? 0;
-  if (b !== a) return b > a;
-  if ((saved.rev ?? 0) < (session.rev ?? 0)) return false;
-  return (
-    JSON.stringify(saved.events ?? []) !== JSON.stringify(session.events ?? [])
-  );
+const evidenceKey = (e: { eventType: string; at: string; payload: unknown }) =>
+  JSON.stringify([e.eventType, e.at, e.payload]);
+const evidenceEventsOf = (s: LearningSession) =>
+  (s.events ?? []).filter((e) => EVIDENCE_EVENT_TYPES.has(e.eventType));
+
+function compareEvidence(session: LearningSession, saved: LearningSession) {
+  const mem = evidenceEventsOf(session);
+  const sto = evidenceEventsOf(saved);
+  const memKeys = new Set(mem.map(evidenceKey));
+  const stoKeys = new Set(sto.map(evidenceKey));
+  const memOnly = mem.filter((e) => !stoKeys.has(evidenceKey(e)));
+  const storedExtra = sto.some((e) => !memKeys.has(evidenceKey(e)));
+  const seqHigher = (saved.evidenceSeq ?? 0) > (session.evidenceSeq ?? 0);
+  if (!storedExtra && memOnly.length && !seqHigher)
+    return { adopt: false, memOnly: [] as typeof memOnly };
+  return { adopt: storedExtra || seqHigher, memOnly };
 }
 
 function sameSessionBinding(a: LearningSession, b: LearningSession) {
@@ -254,12 +265,16 @@ export function adoptStoredEvidence(
   session: LearningSession,
   saved: LearningSession | undefined,
 ) {
-  if (
-    !saved ||
-    !sameSessionBinding(session, saved) ||
-    !storedIsFurtherAlong(session, saved)
-  )
-    return false;
+  if (!saved || !sameSessionBinding(session, saved) || false) return false;
+  const cmp = compareEvidence(session, saved);
+  if (!cmp.adopt) return false;
+  const storedKeys = new Set(evidenceEventsOf(saved).map(evidenceKey));
+  const dropped = cmp.memOnly.filter((e) => !storedKeys.has(evidenceKey(e)));
+  if (dropped.length)
+    session.divergedEvidence = [
+      ...(session.divergedEvidence ?? []),
+      ...dropped,
+    ].slice(-20);
   const copy = JSON.parse(JSON.stringify(saved)) as LearningSession;
   for (const key of EVIDENCE_GROUP) {
     if (copy[key] === undefined) delete session[key];

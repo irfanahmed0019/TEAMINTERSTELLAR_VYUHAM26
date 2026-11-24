@@ -341,3 +341,74 @@ test("heartbeat-only writes do not change evidence or derived state", async () =
   assert.deepEqual(d.checkpoints, before.checkpoints);
   assert.equal(tests(d).length, 1);
 });
+
+test("REGRESSION: memory ahead only by heartbeat rev, equal or legacy evidenceSeq, does not keep stale evidence over a newer stored result", async () => {
+  const s = await fresh();
+  await server.commitEvidenceEvent(
+    s,
+    "test_result",
+    result(1, "a", false, "key-hb-000001"),
+  );
+  const stale = clone(s);
+  await server.commitEvidenceEvent(
+    s,
+    "test_result",
+    result(2, "b", true, "key-hb-000002"),
+  );
+  // memory only has heartbeats since: higher rev, same evidence
+  for (const legacy of [false, true]) {
+    const mem = clone(stale);
+    for (let i = 0; i < 5; i++)
+      mem.events.push({
+        eventType: "heartbeat",
+        at: new Date().toISOString(),
+        payload: {},
+      });
+    mem.rev = (stored(s).rev ?? 0) + 50;
+    if (legacy) {
+      delete mem.evidenceSeq;
+      const row = mock.state.db.get(s.sessionId);
+      delete row.session_data.evidenceSeq;
+    }
+    await server.refreshConquestReceipts(mem);
+    assert.equal(mem.attempts, 2, legacy ? "legacy" : "seq");
+    assert.equal(tests(mem).length, 2);
+    assert.equal(mem.checkpoints[0].attempts, 2);
+  }
+});
+
+test("unsaved accepted legacy evidence in memory is kept, not dropped, when stored has nothing extra", async () => {
+  const s = await fresh();
+  const mem = clone(s);
+  mem.events.push({
+    eventType: "test_result",
+    at: new Date().toISOString(),
+    payload: { attempt: 1, status: "failed" },
+  });
+  mem.attempts = 1;
+  await server.refreshConquestReceipts(mem);
+  assert.equal(mem.attempts, 1);
+  assert.equal(tests(mem).length, 1);
+});
+
+test("unrecoverable legacy divergence: stored wins and the other side's event is kept, labelled, not counted", async () => {
+  const s = await fresh();
+  await server.commitEvidenceEvent(
+    s,
+    "test_result",
+    result(1, "a", false, "key-div-000001"),
+  );
+  const mem = clone(s);
+  mem.events = mem.events.filter((e) => e.eventType !== "test_result");
+  mem.attempts = 1;
+  mem.events.push({
+    eventType: "test_result",
+    at: "2026-01-01T00:00:00.000Z",
+    payload: { attempt: 1, status: "failed", stdout: "only-in-memory" },
+  });
+  await server.refreshConquestReceipts(mem);
+  assert.equal(tests(mem).length, 1);
+  assert.notEqual(tests(mem)[0].payload.stdout, "only-in-memory");
+  assert.equal(mem.divergedEvidence.length, 1);
+  assert.equal(mem.divergedEvidence[0].payload.stdout, "only-in-memory");
+});
