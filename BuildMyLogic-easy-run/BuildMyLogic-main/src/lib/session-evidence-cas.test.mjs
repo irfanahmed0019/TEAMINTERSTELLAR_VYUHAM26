@@ -412,3 +412,24 @@ test("unrecoverable legacy divergence: stored wins and the other side's event is
   assert.equal(mem.divergedEvidence.length, 1);
   assert.equal(mem.divergedEvidence[0].payload.stdout, "only-in-memory");
 });
+
+test("divergence past the retention cap reports overflow instead of claiming everything was kept", async () => {
+  const s = await fresh();
+  await server.commitEvidenceEvent(
+    s,
+    "test_result",
+    result(1, "a", false, "key-cap-000001"),
+  );
+  const mem = clone(s);
+  mem.events = mem.events.filter((e) => e.eventType !== "test_result");
+  for (let i = 0; i < 25; i++)
+    mem.events.push({
+      eventType: "test_result",
+      at: "2026-01-01T00:00:" + String(i).padStart(2, "0") + ".000Z",
+      payload: { attempt: i, status: "failed", stdout: "m" + i },
+    });
+  await server.refreshConquestReceipts(mem);
+  assert.equal(mem.divergedEvidence.length, 20);
+  assert.equal(mem.divergedEvidenceOverflow, 5);
+  assert.equal(tests(mem).length, 1);
+});

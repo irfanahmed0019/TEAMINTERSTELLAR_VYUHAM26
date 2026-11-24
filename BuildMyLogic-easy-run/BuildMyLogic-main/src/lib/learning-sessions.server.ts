@@ -40,6 +40,8 @@ export type LearningSession = {
   /** Count of committed evidence events; only commitEvidenceEvent increments it. */
   evidenceSeq?: number;
   /** Legacy divergence: evidence events seen only by one instance, kept for review, not counted. */
+  /** Count of diverged events past the retention cap that were not kept. */
+  divergedEvidenceOverflow?: number;
   divergedEvidence?: Array<{ eventType: string; at: string; payload: unknown }>;
   connectionTokenHash?: string;
   /** Returned once to the authenticated creator, never persisted or included in state. */
@@ -270,11 +272,14 @@ export function adoptStoredEvidence(
   if (!cmp.adopt) return false;
   const storedKeys = new Set(evidenceEventsOf(saved).map(evidenceKey));
   const dropped = cmp.memOnly.filter((e) => !storedKeys.has(evidenceKey(e)));
-  if (dropped.length)
-    session.divergedEvidence = [
-      ...(session.divergedEvidence ?? []),
-      ...dropped,
-    ].slice(-20);
+  if (dropped.length) {
+    const all = [...(session.divergedEvidence ?? []), ...dropped];
+    session.divergedEvidence = all.slice(-20);
+    // Past the cap, say so: the events beyond it are NOT retained.
+    if (all.length > 20)
+      session.divergedEvidenceOverflow =
+        (session.divergedEvidenceOverflow ?? 0) + (all.length - 20);
+  }
   const copy = JSON.parse(JSON.stringify(saved)) as LearningSession;
   for (const key of EVIDENCE_GROUP) {
     if (copy[key] === undefined) delete session[key];
