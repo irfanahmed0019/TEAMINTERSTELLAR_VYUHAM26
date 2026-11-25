@@ -644,6 +644,12 @@ export function TopicPractice({
             {mode === "reassess" ? "Submit reassessment" : "Submit Task"}
           </button>
         </div>
+        {patternId && mode !== "reassess" && (
+          <p className="mt-3 text-[12px] font-semibold text-muted-foreground">
+            Submit is paused while this pattern is locked. Use Run to try code,
+            then start the targeted reassessment to clear the pattern.
+          </p>
+        )}
         {error && (
           <p
             role="alert"
