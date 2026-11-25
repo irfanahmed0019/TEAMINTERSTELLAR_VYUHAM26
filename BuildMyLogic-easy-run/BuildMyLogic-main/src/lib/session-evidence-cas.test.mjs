@@ -479,3 +479,62 @@ test("legitimate forward transitions still apply (active to connected, new recei
   assert.ok(d.connectedAt);
   assert.ok(d.conquestReceipts.some((r) => r.id === "r-new"));
 });
+
+async function pendingProject() {
+  mock.state.failNext.length = 0;
+  mock.state.beforeWrite = undefined;
+  const s = await server.startLearningSession({
+    challenge_id: "project-context-pending",
+    user_id: OWNER,
+    concept: "debugging",
+    language: "python",
+    checkpoints: [{ title: "Inspect", detail: "Inspect" }],
+  });
+  return s;
+}
+// Another instance assigned the repair and saved it. Only the stored row is changed here.
+function storeAssignedRepair(
+  s,
+  challengeId = "python-literal-repair:" + "a".repeat(24),
+) {
+  const row = mock.state.db.get(s.sessionId);
+  const d = row.session_data;
+  d.challengeId = challengeId;
+  d.title = "Repair tracker.py:is_yes against its approved project tests";
+  d.rev = (d.rev ?? 0) + 1;
+  d.testCommand = "buildmylogic:python-literal-repair-v1";
+  d.checkpoints = [{ title: "Pass approved project cases", detail: "6 cases" }];
+  row.challenge_id = challengeId;
+  return d;
+}
+
+test("a stale pending project instance reads the stored project assignment instead of serving 'pending'", async () => {
+  const s = await pendingProject();
+  assert.equal(s.challengeId, "project-context-pending");
+  const saved = storeAssignedRepair(s);
+  const seen = await server.verifySession(s.sessionId, true);
+  assert.equal(seen.challengeId, saved.challengeId);
+  assert.equal(seen.testCommand, saved.testCommand);
+});
+
+test("an assigned project session in memory keeps its stored attempts when read", async () => {
+  const s = await pendingProject();
+  storeAssignedRepair(s);
+  const seen = await server.verifySession(s.sessionId, true);
+  await server.commitEvidenceEvent(
+    seen,
+    "test_result",
+    result(1, "Approved finite project cases failed: 3"),
+  );
+  const again = await server.verifySession(s.sessionId, true);
+  assert.equal(again.attempts, 1);
+  assert.equal(stored(s).attempts, 1);
+});
+
+test("a pending session that already has attempts is not replaced by a stored assignment", async () => {
+  const s = await pendingProject();
+  s.attempts = 2;
+  storeAssignedRepair(s);
+  const seen = await server.verifySession(s.sessionId, true);
+  assert.equal(seen.challengeId, "project-context-pending");
+});

@@ -680,7 +680,7 @@ export async function verifySession(
     if (session) session.status = "expired";
     return undefined;
   }
-  if (practiceTaskBody(session.challengeId))
+  if (practiceTaskBody(session.challengeId) || isProjectSession(session))
     await refreshConquestReceipts(session);
   if (!allowFinished && !["active", "connected"].includes(session.status))
     return undefined;
@@ -2320,6 +2320,14 @@ export async function publishConquestReceipt(
   return stateOf(session);
 }
 
+/** Project sessions: pending inspection, or an assigned authored repair. These also read their stored row. */
+function isProjectSession(session: LearningSession): boolean {
+  return (
+    session.challengeId === "project-context-pending" ||
+    /^python-(literal-repair|decimal-contract):/.test(session.challengeId)
+  );
+}
+
 function adoptAssignedPractice(
   session: LearningSession,
   saved: LearningSession | undefined,
@@ -2332,6 +2340,11 @@ function adoptAssignedPractice(
     (practiceTaskBody(saved.challengeId) ||
       (saved.challengeId === "project-context-pending" &&
         !saved.attempts &&
+        (saved.rev ?? 0) > (session.rev ?? 0)) ||
+      // A pending instance that has no attempts adopts a newer stored project assignment.
+      (session.challengeId === "project-context-pending" &&
+        !session.attempts &&
+        /^python-(literal-repair|decimal-contract):/.test(saved.challengeId) &&
         (saved.rev ?? 0) > (session.rev ?? 0)))
   ) {
     const localToken = session.connectionToken;
