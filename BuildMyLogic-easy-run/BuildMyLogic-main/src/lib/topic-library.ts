@@ -367,7 +367,7 @@ export const STUDY_TOPICS: StudyTopic[] = [
         solution: `#include <stdio.h>\n\nint main(void) {\n    int n;\n    scanf("%d", &n);\n    printf("%d\\n", n * 2);\n    return 0;\n}`,
         hint: 'You can multiply right inside printf: `printf("%d\\n", n * 2);`.',
         explain:
-          "scanf saved the typed number into n, and you printed n times 2. The program works for any number the user types.",
+          "scanf saved the typed number into n, and you printed n times 2. It passed this task's checks, which is evidence for those tested inputs, not proof for every input.",
       },
       python: {
         title: "Double the number",
@@ -391,7 +391,7 @@ export const STUDY_TOPICS: StudyTopic[] = [
         solution: `n = int(input())\nprint(n * 2)`,
         hint: "Write `print(n * 2)` below the input line.",
         explain:
-          "input() saved the typed number into n, and you printed n times 2. The program works for any number the user types.",
+          "input() saved the typed number into n, and you printed n times 2. It passed this task's checks, which is evidence for those tested inputs, not proof for every input.",
       },
     },
   },
