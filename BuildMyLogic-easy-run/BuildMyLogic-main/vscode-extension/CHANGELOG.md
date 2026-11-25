@@ -1,3 +1,8 @@
+## 0.4.5
+
+- A failure while starting evidence sharing (for example on an already finished task) no longer drops the saved session or tells you to pair again; it shows "Connected. Evidence sharing did not start".
+- After a VS Code window reload the saved session restores in the background. The pairing box is now disabled and says "Restoring your saved session" until that finishes, so a pairing code typed in that moment is no longer lost or typed into the editor.
+
 ## 0.4.4
 
 - Run Tests results carry a one-time key. If the save fails (error, timeout, lost reply) the same result is retried under the same key and is never counted twice. Separate runs always count.

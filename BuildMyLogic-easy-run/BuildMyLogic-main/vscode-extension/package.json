@@ -3,7 +3,7 @@
   "publisher": "buildmylogic",
   "displayName": "BuildMyLogic",
   "description": "BuildMyLogic in VS Code: get a task from the website, write code, run tests and submit. Your submissions feed your Struggle DNA.",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "files": [
     "dist/extension.js",
     "media/**",

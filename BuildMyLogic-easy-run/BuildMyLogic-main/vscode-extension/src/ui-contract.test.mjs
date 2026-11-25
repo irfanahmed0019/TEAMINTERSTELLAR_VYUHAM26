@@ -188,3 +188,31 @@ test("unscored prior output is labeled historical; changed task generation clear
   assert.match(view.webview.html, /No test results yet/);
 });
 import { mentorPreview } from "./webviewHtml.ts";
+test("pairing form is disabled while a saved session restores", () => {
+  const html = sidebarHtml("vscode-resource:");
+  assert.ok(html.includes("m.type==='restoring'"));
+  assert.ok(
+    html.includes("$('pairCode').disabled=$('pairButton').disabled=!!m.on"),
+  );
+  new Function(html.match(/<script>([\s\S]*)<\/script>/)[1]);
+});
+test("pairing form is re-enabled when a session renders or on disconnect", () => {
+  const html = sidebarHtml("vscode-resource:");
+  const on = "$('pairCode').disabled=$('pairButton').disabled=false;";
+  assert.ok(html.includes("lastSync=Date.now();" + on));
+  assert.ok(html.includes("if(m.type==='disconnected'){current=null;" + on));
+});
+test("a failed evidence share after connect does not drop the saved session", async () => {
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync(new URL("./extension.ts", import.meta.url), "utf8");
+  const i = src.indexOf(
+    "this.startLiveSync();\n      // The session is already connected",
+  );
+  assert.ok(i > 0);
+  const block = src.slice(i, i + 700);
+  assert.ok(
+    /try \{\s*await this\.consentEvidence\(\);\s*\} catch \(evidenceError\)/.test(
+      block,
+    ),
+  );
+});

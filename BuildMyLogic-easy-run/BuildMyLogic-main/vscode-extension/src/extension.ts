@@ -210,6 +210,7 @@ class Sidebar implements vscode.WebviewViewProvider {
     try {
       if (m.command === "ready") {
         if (this.session) this.post({ type: "session", session: this.session });
+        else if (this.restoring) this.post({ type: "restoring", on: true });
         return;
       }
       if (m.command === "pair") return await this.pair(m.pairingCode || "");
@@ -414,6 +415,7 @@ class Sidebar implements vscode.WebviewViewProvider {
     this.connection = undefined;
     this.results.update(undefined, "");
     this.post({ type: "disconnected" });
+    if (silent) this.setRestoring(true);
     try {
       if (!silent) this.status("Connecting to your BuildMyLogic session…");
       const savedToken = await this.context.secrets.get(
@@ -432,6 +434,7 @@ class Sidebar implements vscode.WebviewViewProvider {
       await this.saveConnectionSettings(epoch, base);
       if (!current()) return;
       this.post({ type: "session", session: this.session });
+      if (silent) this.setRestoring(false);
       void this.notifyConquests(this.session);
       this.status(
         this.session?.challenge_id === "project-context-pending"
@@ -440,7 +443,22 @@ class Sidebar implements vscode.WebviewViewProvider {
         false,
       );
       this.startLiveSync();
-      await this.consentEvidence();
+      // The session is already connected here. A failure while sharing evidence
+      // (for example a finished task refusing new events) must not drop the saved
+      // connection or tell the learner to pair again.
+      try {
+        await this.consentEvidence();
+      } catch (evidenceError) {
+        if (!current()) return;
+        this.status(
+          `Connected. Evidence sharing did not start: ${
+            evidenceError instanceof Error
+              ? evidenceError.message
+              : "the website refused it."
+          }`,
+          false,
+        );
+      }
       if (!current()) return;
     } catch (error) {
       if (!current()) return;
@@ -458,7 +476,15 @@ class Sidebar implements vscode.WebviewViewProvider {
         `${message} Generate a new pairing code on the signed-in Sessions page and enter it here.`,
         true,
       );
+    } finally {
+      if (silent && epoch === this.connectEpoch) this.setRestoring(false);
     }
+  }
+  /** While a saved session is restoring, the pairing form is disabled so a typed code is not lost. */
+  private restoring = false;
+  private setRestoring(on: boolean) {
+    this.restoring = on;
+    this.post({ type: "restoring", on });
   }
   /** Stop the live sync loop (used on disconnect and when the view closes). */
   private stop() {
