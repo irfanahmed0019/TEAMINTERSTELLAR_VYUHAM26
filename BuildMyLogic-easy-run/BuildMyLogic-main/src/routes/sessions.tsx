@@ -1838,7 +1838,7 @@ function Sessions() {
                 {todayMinutes} min
               </p>
               <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">
-                Coding Time
+                Timer minutes (not measured coding)
               </p>
             </div>
             <div className="rounded-2xl bg-muted/70 p-4 text-center">
