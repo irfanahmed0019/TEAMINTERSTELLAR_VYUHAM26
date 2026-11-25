@@ -127,7 +127,7 @@ function CelebrationModal({ misconception }: { misconception: Misconception }) {
               submissions. You then passed{" "}
               {misconception.practiceCheckpoint?.masteredAt
                 ? "two distinct changed-task contracts (2/2). These"
-                : "a changed-task reassessment. Those"}
+                : "a changed-task reassessment. Those"}{" "}
               output checks are the evidence, not a claim of general mastery.
             </p>
             <button
