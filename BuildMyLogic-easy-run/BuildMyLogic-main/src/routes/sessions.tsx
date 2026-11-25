@@ -450,6 +450,14 @@ function Sessions() {
         )
       : 0
     : undefined;
+  const checkpointOnly =
+    !!remoteState && !remotePractice && remoteCheckpoints.length > 0;
+  const checkpointPassed = remoteCheckpoints.filter(
+    (c) => c.status === "passed",
+  ).length;
+  const checkpointPct = checkpointOnly
+    ? Math.round((100 * checkpointPassed) / remoteCheckpoints.length)
+    : undefined;
   const activeStepsDone = activeMission
     ? (state.missionProgress[activeMission.id]?.completedSteps?.length ?? 0)
     : 0;
@@ -1306,14 +1314,18 @@ function Sessions() {
           <div className="flex items-center justify-between">
             <h3 className="text-[16px] font-extrabold">Your Progress</h3>
             <span className="text-[13px] font-bold">
-              {remotePending ? "..." : `${displayPct ?? missionPct}% Complete`}
+              {remotePending
+                ? "..."
+                : checkpointOnly
+                  ? `Checkpoint ${checkpointPassed}/${remoteCheckpoints.length} verified`
+                  : `${displayPct ?? missionPct}% Complete`}
             </span>
           </div>
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
             <div
               className="h-full rounded-full bg-primary transition-all"
               style={{
-                width: `${remotePending ? 0 : (displayPct ?? missionPct)}%`,
+                width: `${remotePending ? 0 : (checkpointPct ?? displayPct ?? missionPct)}%`,
               }}
             />
           </div>
